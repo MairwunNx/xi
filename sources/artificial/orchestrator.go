@@ -37,8 +37,18 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 		return "", errors.New("no available modes")
 	}
 
-	user := x.users.MustGetUserByEid(logger, msg.From.ID)
-	history := x.messages.MustGetMessagePairs(logger, user, msg.Chat.ID)
+	user, err := x.users.GetUserByEid(logger, msg.From.ID)
+	if err != nil {
+		logger.E("Failed to get user", tracing.InnerError, err)
+		return "", err
+	}
+
+	history, err := x.messages.GetMessagePairs(logger, user, msg.Chat.ID)
+	if err != nil {
+		logger.E("Failed to get message pairs", tracing.InnerError, err)
+		history = []repository.MessagePair{}
+	}
+
 	persona := msg.From.FirstName + " " + msg.From.LastName
 	prompt := mode.Prompt
 
