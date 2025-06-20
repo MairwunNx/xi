@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     -o /app/ximanager \
     -installsuffix cgo \
     -gcflags="all=-B -C" \
-    -ldflags="-s -w -X main.version=1.0.0 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
+    -ldflags="-s -w -X main.version=2.0.0 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
     ./program.go
 
 FROM alpine:3.20
