@@ -15,8 +15,8 @@ type Poller struct {
 	handler  *TelegramHandler
 }
 
-func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *PollerConfig) *Poller {
-	return &Poller{bot: bot, log: log, diplomat: diplomat, config: config}
+func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *PollerConfig, handler *TelegramHandler) *Poller {
+	return &Poller{bot: bot, log: log, diplomat: diplomat, config: config, handler: handler}
 }
 
 func (x *Poller) Start() {
