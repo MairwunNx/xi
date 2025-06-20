@@ -33,8 +33,10 @@ schema_config:
 storage_config:
   tsdb_shipper:
     active_index_directory: /loki/tsdb-index
-    cache_location: /loki/cache
+    cache_location: /loki/tsdb-cache
     cache_ttl: 24h
+    index_gateway_client:
+      server_address: ""
   filesystem:
     directory: /loki/chunks
 
@@ -44,6 +46,7 @@ common:
     filesystem:
       chunks_directory: /loki/chunks
       rules_directory: /loki/rules
+  replication_factor: 1
 
 limits_config:
   retention_period: 168h  # 7 дней
@@ -62,9 +65,13 @@ compactor:
   retention_delete_delay: 2h
   retention_delete_worker_count: 150
   delete_request_store: filesystem
+  apply_retention_interval: 5m
 
 index_gateway:
   mode: simple
 
 analytics:
-  reporting_enabled: false 
+  reporting_enabled: false
+
+chunk_store_config:
+  max_look_back_period: 0s 
