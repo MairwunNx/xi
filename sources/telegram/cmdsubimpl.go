@@ -61,7 +61,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 	}
 
 	oai := x.balancer.GetNeuroProviderByName("openai").(*artificial.OpenAIClient)
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Minute)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	response, err := oai.ResponseImage(ctx, log, iurl, req, msg.From.FirstName+" "+msg.From.LastName)
