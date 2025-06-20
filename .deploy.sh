@@ -55,9 +55,27 @@ if git pull origin "$BRANCH"; then
             
             python3 -c "
 import os
+import base64
+
+# Получаем закодированный в base64 MAGIC_PROMPT
+encoded_prompt = os.environ.get('MAGIC_PROMPT', '')
+
+if encoded_prompt:
+    try:
+        # Декодируем из base64
+        decoded_prompt = base64.b64decode(encoded_prompt).decode('utf-8')
+        print(f'🔓 MAGIC_PROMPT успешно декодирован из base64 (длина: {len(decoded_prompt)} символов)')
+    except Exception as e:
+        print(f'❌ Ошибка декодирования MAGIC_PROMPT из base64: {e}')
+        decoded_prompt = '{{magic_prompt}}'
+else:
+    decoded_prompt = '{{magic_prompt}}'
+
 with open('migrations/V4__create_modes_tables.sql', 'r') as f:
     content = f.read()
-content = content.replace('{{magic_prompt}}', os.environ.get('MAGIC_PROMPT', '{{magic_prompt}}'))
+
+content = content.replace('{{magic_prompt}}', decoded_prompt)
+
 with open('migrations/V4__create_modes_tables.sql', 'w') as f:
     f.write(content)
 "
