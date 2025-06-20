@@ -7,6 +7,7 @@ import (
 	"ximanager/sources/external"
 	"ximanager/sources/persistence"
 	"ximanager/sources/repository"
+	"ximanager/sources/telegram"
 	"ximanager/sources/throttler"
 	"ximanager/sources/tracing"
 
@@ -27,6 +28,7 @@ func main() {
 		throttler.Module,
 		artificial.Module,
 		balancer.Module,
+		telegram.Module,
 	
 		fx.Invoke(func(lc fx.Lifecycle, log *tracing.Logger) {
 			lc.Append(fx.Hook{
