@@ -77,7 +77,7 @@ with open('migrations/V4__create_modes_tables.sql', 'w') as f:
             fi
         }
         
-        if sudo ./.envup.sh; then
+        if ./.envup.sh; then
             log "✅ Деплой успешно завершен!"
             
             restore_backup

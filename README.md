@@ -72,15 +72,15 @@ Xi Manager предназначен для:
 
 ```bash
 chmod +x .deploy.sh
-sudo ./.deploy.sh
+./.deploy.sh
 ```
 
 ### Мониторинг
 
 После запуска доступны:
 - **Grafana**: http://externalip:3000
-- **Logs**: `sudo docker compose logs -f ximanager`
-- **Stats**: `sudo docker stats ximanager`
+- **Logs**: `docker compose logs -f ximanager`
+- **Stats**: `docker stats ximanager`
 
 ## Особенности архитектуры
 

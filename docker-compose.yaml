@@ -9,7 +9,7 @@ services:
     environment:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ./data/bots/ximanager/postgres:/var/lib/postgresql/data
+      - ${HOME}/data/bots/ximanager/postgres:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
       interval: 10s
@@ -37,7 +37,7 @@ services:
       - "${OUTSIDERS_PORT}:10000"
       - "${OUTSIDERS_METRICS_PORT}:10001"
     volumes:
-      - ./data/bots/ximanager:/data
+      - ${HOME}/data/bots/ximanager:/data
     env_file: .env
     depends_on:
       postgres:
@@ -62,7 +62,7 @@ services:
       - "${PROMETHEUS_PORT}:9090"
     volumes:
       - ./configurations/prometheus:/etc/prometheus
-      - ./data/bots/ximanager/prometheus:/prometheus
+      - ${HOME}/data/bots/ximanager/prometheus:/prometheus
     user: "0"
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -80,7 +80,7 @@ services:
       - "${GRAFANA_PORT}:3000"
     volumes:
       - ./configurations/grafana:/etc/grafana/provisioning/datasources
-      - ./data/bots/ximanager/grafana:/var/lib/grafana
+      - ${HOME}/data/bots/ximanager/grafana:/var/lib/grafana
     env_file: .env
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
@@ -106,7 +106,7 @@ services:
       - "${LOKI_PORT}:3100"
     volumes:
       - ./configurations/loki:/etc/loki
-      - ./data/bots/ximanager/loki:/loki
+      - ${HOME}/data/bots/ximanager/loki:/loki
     user: "0"
     command: -config.file=/etc/loki/loki-config.yml
     healthcheck:
@@ -168,7 +168,7 @@ services:
     container_name: ximanager_redis
     networks: [ default ]
     volumes:
-      - ./data/bots/ximanager/redis:/data
+      - ${HOME}/data/bots/ximanager/redis:/data
     user: "0"
     command: redis-server --appendonly yes
     healthcheck:
