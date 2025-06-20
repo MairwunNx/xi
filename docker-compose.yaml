@@ -17,18 +17,6 @@ services:
       retries: 5
     restart: unless-stopped
 
-  flyway-repair:
-    image: flyway/flyway:10-alpine
-    container_name: ximanager_flyway_repair
-    networks: [ default ]
-    env_file: .env
-    command: -url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 repair
-    volumes:
-      - ./migrations:/flyway/sql
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   flyway:
     image: flyway/flyway:10-alpine
     container_name: ximanager_flyway
@@ -40,8 +28,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      flyway-repair:
-        condition: service_completed_successfully
 
   ximanager:
     container_name: ximanager
