@@ -5,6 +5,7 @@ import (
 	"ximanager/sources/artificial"
 	"ximanager/sources/balancer"
 	"ximanager/sources/external"
+	"ximanager/sources/network"
 	"ximanager/sources/persistence"
 	"ximanager/sources/repository"
 	"ximanager/sources/telegram"
@@ -23,6 +24,7 @@ func main() {
 	fx.New(
 		tracing.Module,
 		external.Module,
+		network.Module,
 		persistence.Module,
 		repository.Module,
 		throttler.Module,
