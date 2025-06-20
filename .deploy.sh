@@ -2,9 +2,7 @@
 
 set -e
 
-CURRENT_USER=$(whoami)
-USER_HOME=$(eval echo ~$CURRENT_USER)
-REPO_DIR=$(find "$USER_HOME" -maxdepth 2 -type d -name "xi*" | head -1)
+REPO_DIR=$(find . -maxdepth 2 -type d -name "xi" | head -1)
 
 if [ -z "$REPO_DIR" ]; then
     REPO_DIR="${1:-$(pwd)}"
