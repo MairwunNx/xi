@@ -68,7 +68,7 @@ func (x *MessagesRepository) MustSaveMessage(logger *tracing.Logger, msg *tgbota
 }
 
 func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entities.User, chatID int64) ([]MessagePair, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	if !user.IsStackAllowed {

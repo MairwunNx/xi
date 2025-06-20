@@ -30,7 +30,7 @@ func NewAIBalancer(config *AIBalancerConfig, providers map[string]NeuroProvider)
 }
 
 func (x *AIBalancer) BalancedResponse(log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 60*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	provider := x.GetNeuroProvider()
