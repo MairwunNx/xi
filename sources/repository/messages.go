@@ -91,14 +91,18 @@ func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entit
 	q := query.Message.WithContext(ctx)
 
 	for {
-		batch, err := q.
-			Where(query.Message.IsRemoved.Is(false)).
-			Where(query.Message.ChatID.Eq(chatID)).
-			Where(query.Message.MessageTime.Gte(contextStartTime)).
-			Order(query.Message.MessageTime.Desc()).
-			Limit(batchSize).
-			Offset(offset).
-			Find()
+		batch, err := tracing.ReportExecutionForRE(logger, func() ([]*entities.Message, error) {
+			return q.
+				Where(query.Message.IsRemoved.Is(false)).
+				Where(query.Message.ChatID.Eq(chatID)).
+				Where(query.Message.MessageTime.Gte(contextStartTime)).
+				Order(query.Message.MessageTime.Desc()).
+				Limit(batchSize).
+				Offset(offset).
+				Find()
+		}, func(l *tracing.Logger) {
+			l.I("Messages batch retrieved", "offset", offset, "batch_size", batchSize)
+		})
 
 		if err != nil {
 			logger.E("Failed to query messages batch", tracing.InnerError, err, "offset", offset, "batch_size", batchSize)
