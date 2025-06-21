@@ -6,15 +6,3 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
-
-  - name: Loki
-    type: loki
-    access: proxy
-    url: http://loki:3100
-    jsonData:
-      maxLines: 5000
-      timeout: 60s
-      httpHeaderName1: 'X-Scope-OrgID'
-    secureJsonData:
-      httpHeaderValue1: 'ximanager'
-    editable: true 
