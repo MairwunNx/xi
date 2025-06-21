@@ -1,7 +1,18 @@
 package texting
 
-import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+import (
+	"strings"
+)
 
-func EscapeMarkdown(input string) string {
-	return tgbotapi.EscapeText(tgbotapi.ModeMarkdownV2, input)
+const escapable = "*_[]()~`>#+-=|{}.!\\"
+
+func EscapeMarkdown(input string) string {	
+	var str strings.Builder
+	for _, char := range input {
+		if strings.ContainsRune(escapable, char) {
+			str.WriteRune('\\')
+		}
+		str.WriteRune(char)
+	}
+	return str.String()
 }
