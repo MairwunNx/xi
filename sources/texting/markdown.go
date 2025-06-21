@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-const escapable = ">#+-=|{}.!"
+const escapable = "[]()~>#+-=|{}.!"
 func EscapeMarkdown(input string) string {
 	var str strings.Builder
 	for _, char := range input {
