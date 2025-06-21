@@ -22,7 +22,7 @@ func NewPostgresDatabase(lc fx.Lifecycle, config *DatabaseConfig, log *tracing.L
 		&gormtracer{logger: log},
 		logger.Config{
 			SlowThreshold:             time.Second,
-			LogLevel:                  logger.Info,
+			LogLevel:                  logger.Warn,
 			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
 		},
