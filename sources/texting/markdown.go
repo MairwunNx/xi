@@ -4,15 +4,22 @@ import (
 	"strings"
 )
 
-const escapable = "*_[]()~`>#+-=|{}.!\\"
+var shouldBeEscaped = "_*[]()~`>#+-=|{}.!"
 
 func EscapeMarkdown(input string) string {	
-	var str strings.Builder
-	for _, char := range input {
-		if strings.ContainsRune(escapable, char) {
-			str.WriteRune('\\')
+	var result []rune
+	var escaped bool
+	for _, r := range input {
+		if r == '\\' {
+			escaped = !escaped
+			result = append(result, r)
+			continue
 		}
-		str.WriteRune(char)
+		if strings.ContainsRune(shouldBeEscaped, r) && !escaped {
+			result = append(result, '\\')
+		}
+		escaped = false
+		result = append(result, r)
 	}
-	return str.String()
+	return string(result)
 }
