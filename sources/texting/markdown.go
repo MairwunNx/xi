@@ -4,9 +4,9 @@ import (
 	"strings"
 )
 
+const escapable = "_[]()~>#+-=|{}.!"
 func EscapeMarkdown(input string) string {
 	var str strings.Builder
-	escapable := "_*[]()~`>#+-=|{}.!\\"
 	for _, char := range input {
 		if strings.ContainsRune(escapable, char) {
 			str.WriteRune('\\')
