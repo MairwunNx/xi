@@ -191,6 +191,28 @@ func (x *OpenAIClient) ResponseLightweight(ctx context.Context, log *tracing.Log
 	return response.Choices[0].Message.Content, nil
 }
 
+func (x *OpenAIClient) ResponseMediumWeight(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string) (string, error) {
+	model := x.config.OpenAIMediumWeightModel
+	mt := texting.TokensInfer(log, prompt, req, "", x.config.OpenAIMediumWeightMaxTokens)
+	request := openai.ChatCompletionRequest{
+		Model:    model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: prompt},
+			{Role: openai.ChatMessageRoleUser, Content: req},
+		},
+		MaxTokens: mt,
+	}
+
+	log.I("ai action requested", tracing.AiKind, "openai/gpt4o-mini", tracing.AiModel, model, tracing.AiTokens, mt)
+
+	response, err := x.client.CreateChatCompletion(ctx, request)
+	if err != nil {
+		return "", err
+	}
+
+	return response.Choices[0].Message.Content, nil
+}
+
 func (x *DeepseekClient) Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
 	req = UserReq(persona, req)
 

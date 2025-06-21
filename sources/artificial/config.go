@@ -19,6 +19,7 @@ type AIConfig struct {
 	OpenAIImageModel string
 	OpenAIAudioModel string
 	OpenAILightweightModel string
+	OpenAIMediumWeightModel string
 	DeepseekModel string
 	GrokModel string
 	AnthropicModel string
@@ -26,6 +27,7 @@ type AIConfig struct {
 	OpenAIMaxTokens int
 	OpenAIImageMaxTokens int
 	OpenAILightweightMaxTokens int
+	OpenAIMediumWeightMaxTokens int
 	DeepseekMaxTokens int
 	GrokMaxTokens int
 	AnthropicMaxTokens int
@@ -47,6 +49,7 @@ func NewAIConfig() *AIConfig {
 		OpenAIImageModel: platform.Get("OPENAI_IMAGE_MODEL", openai.GPT4Dot1),
 		OpenAIAudioModel: platform.Get("OPENAI_AUDIO_MODEL", openai.Whisper1),
 		OpenAILightweightModel: platform.Get("OPENAI_LIGHTWEIGHT_MODEL", openai.GPT3Dot5Turbo),
+		OpenAIMediumWeightModel: platform.Get("OPENAI_MEDIUMWEIGHT_MODEL", openai.GPT4oMini),
 		DeepseekModel: platform.Get("DEEPSEEK_MODEL", deepseek.DeepSeekReasoner),
 		GrokModel: platform.Get("GROK_MODEL", "grok-2-latest"),
 		AnthropicModel: platform.Get("ANTHROPIC_MODEL", "claude-3-7-sonnet-latest"),
@@ -54,6 +57,7 @@ func NewAIConfig() *AIConfig {
 		OpenAIMaxTokens: platform.GetAsInt("OPENAI_MAX_TOKENS", 32768),
 		OpenAIImageMaxTokens: platform.GetAsInt("OPENAI_IMAGE_MAX_TOKENS", 32768),
 		OpenAILightweightMaxTokens: platform.GetAsInt("OPENAI_LIGHTWEIGHT_MAX_TOKENS", 4096),
+		OpenAIMediumWeightMaxTokens: platform.GetAsInt("OPENAI_MEDIUMWEIGHT_MAX_TOKENS", 16384),
 		DeepseekMaxTokens: platform.GetAsInt("DEEPSEEK_MAX_TOKENS", 12000),
 		GrokMaxTokens: platform.GetAsInt("GROK_MAX_TOKENS", 12000),
 		AnthropicMaxTokens: platform.GetAsInt("ANTHROPIC_MAX_TOKENS", 8000),

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 	"ximanager/sources/balancer"
+	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
@@ -19,10 +20,11 @@ type Orchestrator struct {
 	messages *repository.MessagesRepository
 	users    *repository.UsersRepository
 	donations *repository.DonationsRepository
+	openaiClient *OpenAIClient
 }
 
-func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository) *Orchestrator {
-	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations}
+func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository, openaiClient *OpenAIClient) *Orchestrator {
+	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations, openaiClient: openaiClient}
 }
 
 func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message, req string) (string, error) {
@@ -49,19 +51,19 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 		history = []repository.MessagePair{}
 	}
 
-	persona := msg.From.FirstName + " " + msg.From.LastName
-	prompt := mode.Prompt
+	persona := msg.From.FirstName + " " + msg.From.LastName + " (" + *user.Username + ")"
+	prompt := mode.Prompt + texting.InternalQualifierPromptAddition
 
+	needsDonationReminder := false
 	donation, err := x.donations.GetDonationsByUser(logger, user)
 	if err != nil {
 		logger.E("Failed to get donation", tracing.InnerError, err)
-
 		if strings.ToLower(*user.Username) != "mairwunnx" {
-			prompt = strings.TrimSpace(prompt) + strings.TrimSpace(texting.InternalDonationPromptAddition)
+			needsDonationReminder = true
 		}
 	} else {
 		if len(donation) == 0 && strings.ToLower(*user.Username) != "mairwunnx" {
-			prompt = strings.TrimSpace(prompt) + strings.TrimSpace(texting.InternalDonationPromptAddition)
+			needsDonationReminder = true
 		}
 	}
 
@@ -88,6 +90,18 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 	if err := x.messages.SaveMessage(logger, msg, response, true); err != nil {
 		logger.E("Error saving Xi response", tracing.InnerError, err)
+	}
+
+	if needsDonationReminder && response != "" {
+		ctx, cancel := platform.ContextTimeoutVal(30*time.Second)
+		defer cancel()
+		
+		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, response, persona)
+		if donationErr != nil {
+			logger.E("Failed to get donation reminder response", tracing.InnerError, donationErr)
+		} else {
+			response = donationResponse
+		}
 	}
 
 	return response, nil
