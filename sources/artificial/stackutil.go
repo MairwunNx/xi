@@ -15,16 +15,22 @@ func MessagePairsToOpenAI(pairs []repository.MessagePair) []openai.ChatCompletio
 	for i := len(pairs) - 1; i >= 0; i-- {
 		pair := pairs[i]
 		
-		messages = append(messages, openai.ChatCompletionMessage{
-			Role:    openai.ChatMessageRoleUser,
-			Content: string(pair.UserMessage.MessageText),
-		})
+		userContent := string(pair.UserMessage.MessageText)
+		if userContent != "" {
+			messages = append(messages, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: userContent,
+			})
+		}
 		
 		if pair.XiResponse != nil {
-			messages = append(messages, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleAssistant,
-				Content: string(pair.XiResponse.MessageText),
-			})
+			xiContent := string(pair.XiResponse.MessageText)
+			if xiContent != "" {
+				messages = append(messages, openai.ChatCompletionMessage{
+					Role:    openai.ChatMessageRoleAssistant,
+					Content: xiContent,
+				})
+			}
 		}
 	}
 	
@@ -37,16 +43,22 @@ func MessagePairsToDeepseek(pairs []repository.MessagePair) []deepseek.ChatCompl
 	for i := len(pairs) - 1; i >= 0; i-- {
 		pair := pairs[i]
 		
-		messages = append(messages, deepseek.ChatCompletionMessage{
-			Role:    constants.ChatMessageRoleUser,
-			Content: string(pair.UserMessage.MessageText),
-		})
+		userContent := string(pair.UserMessage.MessageText)
+		if userContent != "" {
+			messages = append(messages, deepseek.ChatCompletionMessage{
+				Role:    constants.ChatMessageRoleUser,
+				Content: userContent,
+			})
+		}
 		
 		if pair.XiResponse != nil {
-			messages = append(messages, deepseek.ChatCompletionMessage{
-				Role:    constants.ChatMessageRoleAssistant,
-				Content: string(pair.XiResponse.MessageText),
-			})
+			xiContent := string(pair.XiResponse.MessageText)
+			if xiContent != "" {
+				messages = append(messages, deepseek.ChatCompletionMessage{
+					Role:    constants.ChatMessageRoleAssistant,
+					Content: xiContent,
+				})
+			}
 		}
 	}
 	
@@ -59,10 +71,16 @@ func MessagePairsToAnthropic(pairs []repository.MessagePair) []anthropic.Message
 	for i := len(pairs) - 1; i >= 0; i-- {
 		pair := pairs[i]
 		
-		messages = append(messages, anthropic.NewUserTextMessage(string(pair.UserMessage.MessageText)))
+		userContent := string(pair.UserMessage.MessageText)
+		if userContent != "" {
+			messages = append(messages, anthropic.NewUserTextMessage(userContent))
+		}
 		
 		if pair.XiResponse != nil {
-			messages = append(messages, anthropic.NewAssistantTextMessage(string(pair.XiResponse.MessageText)))
+			xiContent := string(pair.XiResponse.MessageText)
+			if xiContent != "" {
+				messages = append(messages, anthropic.NewAssistantTextMessage(xiContent))
+			}
 		}
 	}
 	
