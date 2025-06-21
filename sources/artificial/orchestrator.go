@@ -55,6 +55,10 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	donation, err := x.donations.GetDonationsByUser(logger, user)
 	if err != nil {
 		logger.E("Failed to get donation", tracing.InnerError, err)
+
+		if strings.ToLower(*user.Username) != "mairwunnx" {
+			prompt = strings.TrimSpace(prompt) + strings.TrimSpace(texting.InternalDonationPromptAddition)
+		}
 	} else {
 		if len(donation) == 0 && strings.ToLower(*user.Username) != "mairwunnx" {
 			prompt = strings.TrimSpace(prompt) + strings.TrimSpace(texting.InternalDonationPromptAddition)
@@ -64,7 +68,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	var response string
 
 	for attempt := 0; attempt < x.config.MaxRetries; attempt++ {
-		response, err = x.balancer.BalancedResponse(logger, mode.Prompt, req, persona, history)
+		response, err = x.balancer.BalancedResponse(logger, prompt, req, persona, history)
 		if err == nil {
 			break
 		}
