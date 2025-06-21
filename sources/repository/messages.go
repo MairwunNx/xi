@@ -81,6 +81,8 @@ func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entit
 		return []MessagePair{}, nil
 	}
 
+	contextStartTime := time.Now().Add(-x.getContextTimeLimit(chatID))
+
 	batchSize := x.batchSize
 	var messagePairs []MessagePair
 	var tt int64 = 0
@@ -92,6 +94,7 @@ func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entit
 		batch, err := q.
 			Where(query.Message.IsRemoved.Is(false)).
 			Where(query.Message.ChatID.Eq(chatID)).
+			Where(query.Message.MessageTime.Gte(contextStartTime)).
 			Order(query.Message.MessageTime.Desc()).
 			Limit(batchSize).
 			Offset(offset).
@@ -339,4 +342,15 @@ func (x *MessagesRepository) GetRecentUserQuestions(logger *tracing.Logger, chat
 
 	logger.I("Retrieved recent user questions", "count", len(messages), "from_time", fromTime)
 	return messages, nil
+}
+
+func (x *MessagesRepository) isPrivateChat(chatID int64) bool {
+	return chatID > 0
+}
+
+func (x *MessagesRepository) getContextTimeLimit(chatID int64) time.Duration {
+	if x.isPrivateChat(chatID) {
+		return 7 * 24 * time.Hour
+	}
+	return 2 * 24 * time.Hour
 }
