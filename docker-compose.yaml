@@ -95,19 +95,6 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: ximanager_dozzle
-    networks: [ default ]
-    env_file: .env
-    ports:
-      - "${DOZZLE_PORT:-8888}:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    environment:
-      - DOZZLE_NO_ANALYTICS=true
-    restart: unless-stopped
-
   node-exporter:
     image: prom/node-exporter:latest
     container_name: ximanager_node_exporter
