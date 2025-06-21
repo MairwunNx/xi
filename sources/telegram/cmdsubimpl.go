@@ -34,7 +34,7 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.Xiify(response))
+	x.diplomat.Reply0(log, msg, texting.Xiify(response))
 }
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Message) {
@@ -70,7 +70,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.Xiify(response))
+	x.diplomat.Reply0(log, msg, texting.Xiify(response))
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
@@ -134,9 +134,9 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Mess
 			x.diplomat.Reply(log, msg, texting.MsgAudioError)
 			return
 		}
-		x.diplomat.Reply(log, msg, texting.XiifyAudio(response))
+		x.diplomat.Reply0(log, msg, texting.XiifyAudio(response))
 	} else {
-		x.diplomat.Reply(log, msg, texting.XiifyAudio(transcriptedText))
+		x.diplomat.Reply0(log, msg, texting.XiifyAudio(transcriptedText))
 	}
 }
 

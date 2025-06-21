@@ -6,7 +6,7 @@ import (
 
 var shouldBeEscaped = "_*[]()~`>#+-=|{}.!"
 
-func EscapeMarkdown(input string) string {	
+func EscapeMarkdown(input string) string {
 	var result []rune
 	var escaped bool
 	for _, r := range input {

@@ -24,7 +24,30 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 				chattable.ReplyToMessageID = msg.MessageID
 				chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
-				logger.D("DEBUG", "sending chattable", chattable)
+				if _, err := x.bot.Send(chattable); err != nil {
+					logger.E("Message chunk sending error", tracing.InnerError, err)
+					emsg := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(texting.MsgXiError))
+					emsg.ReplyToMessageID = msg.MessageID
+					emsg.ParseMode = tgbotapi.ModeMarkdownV2
+
+					if _, err := x.bot.Send(emsg); err != nil {
+						logger.E("Failed to send fallback message", tracing.InnerError, err)
+					}
+					break
+				}
+			}
+		}, func(l *tracing.Logger) { l.I("Message sent") },
+	)
+}
+
+func (x *Diplomat) Reply0(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
+	tracing.ReportExecution(logger,
+		func() {
+			for _, chunk := range texting.Chunks(text, x.config.ChunkSize) {
+				chattable := tgbotapi.NewMessage(msg.Chat.ID, chunk)
+				chattable.ReplyToMessageID = msg.MessageID
+				chattable.ParseMode = tgbotapi.ModeMarkdownV2
+
 				if _, err := x.bot.Send(chattable); err != nil {
 					logger.E("Message chunk sending error", tracing.InnerError, err)
 					emsg := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(texting.MsgXiError))
