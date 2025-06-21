@@ -1,6 +1,7 @@
 package artificial
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -93,7 +94,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 
 	if needsDonationReminder && response != "" {
-		ctx, cancel := platform.ContextTimeoutVal(30*time.Second)
+		ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 		defer cancel()
 		
 		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, response, persona)
