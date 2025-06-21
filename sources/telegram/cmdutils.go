@@ -43,3 +43,14 @@ func (x *TelegramHandler) ParseKongCommand(log *tracing.Logger, msg *tgbotapi.Me
 	}
 	return ctx, nil
 }
+
+func (x *TelegramHandler) ParseBooleanArgument(action string) bool {
+	switch strings.ToLower(action) {
+	case "enable", "true", "1":
+		return true
+	case "disable", "false", "0":
+		return false
+	default:
+		return false
+	}
+}

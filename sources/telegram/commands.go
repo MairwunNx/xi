@@ -109,8 +109,9 @@ func (x *TelegramHandler) HandleUsersCommand(log *tracing.Logger, user *entities
 		x.UsersCommandEnable(log, msg, cmd.Enable.Username)
 	case "window <username> <limit>":
 		x.UsersCommandWindow(log, msg, cmd.Window.Username, cmd.Window.Limit)
-	case "stack <username> <enabled>":
-		x.UsersCommandStack(log, msg, cmd.Stack.Username, cmd.Stack.Enabled)
+	case "stack <username> <action>":
+		enabled := x.ParseBooleanArgument(cmd.Stack.Action)
+		x.UsersCommandStack(log, msg, cmd.Stack.Username, enabled)
 	default:
 		log.W("Unknown users subcommand", tracing.InternalCommand, ctx.Command())
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgUsersUnknownCommand))

@@ -61,7 +61,7 @@ type UsersCmd struct {
 
 	Stack struct {
 		Username string `arg:"" help:"Username (with @ prefix)"`
-		Enabled  bool   `arg:"" help:"Enable/disable stack"`
+		Action   string `arg:"" enum:"enable,disable,true,false,1,0" help:"Enable or disable stack access (enable/disable/true/false/1/0)"`
 	} `cmd:"" help:"Set user stack allowance"`
 }
 
