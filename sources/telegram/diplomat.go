@@ -24,6 +24,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 				chattable.ReplyToMessageID = msg.MessageID
 				chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
+				logger.D("DEBUG", "sending chattable", chattable)
 				if _, err := x.bot.Send(chattable); err != nil {
 					logger.E("Message chunk sending error", tracing.InnerError, err)
 					emsg := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(texting.MsgXiError))
