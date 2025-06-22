@@ -1,27 +1,41 @@
-FROM golang:1.24.3-alpine AS builder
+FROM python:3.11-bookworm AS python-deps
+
+RUN pip install --no-cache-dir telegramify-markdown
+
+FROM golang:1.24-bookworm AS builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download && go mod verify
+COPY --from=python-deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
 
 COPY . .
 
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+RUN CGO_ENABLED=1 go build \
     -trimpath \
-    -o /app/ximanager \
-    -installsuffix cgo \
-    -gcflags="all=-B -C" \
-    -ldflags="-s -w -X main.version=2.0.3 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
+    -o ximanager \
+    -ldflags="-s -w -X main.version=2.0.4 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
     ./program.go
 
-FROM alpine:3.20
-RUN apk --no-cache add ca-certificates
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir telegramify-markdown
+
 COPY --from=builder /app/ximanager /ximanager
+
 EXPOSE 10000 10001
 CMD ["/ximanager"]
