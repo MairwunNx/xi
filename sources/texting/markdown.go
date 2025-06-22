@@ -1,24 +1,45 @@
 package texting
 
 import (
+	"bytes"
+	"log/slog"
 	"strings"
+
+	tgmd "github.com/Mad-Pixels/goldmark-tgmd"
 )
 
-const escapable = "[]()>#+-={}.!"
-
+// EscapeMarkdown преобразует обычный markdown в Telegram MarkdownV2 формат
 func EscapeMarkdown(input string) string {
-	var str strings.Builder
+	// Используем профессиональную библиотеку для конвертации в Telegram MarkdownV2
+	md := tgmd.TGMD()
+	var buf bytes.Buffer
+	
+	if err := md.Convert([]byte(input), &buf); err != nil {
+		slog.Error("Error converting markdown to Telegram MarkdownV2", "inner_error", err)
+		return escapeBasic(input)
+	}
+
+	processed := buf.String()
+	
+	processed = RemoveRestrictedMarkdown(processed)
+	processed = sanitizeAlerts(processed)
+
+	return processed
+}
+
+// escapeBasic - запасной вариант экранирования если goldmark-tgmd не сработал
+func escapeBasic(input string) string {
+	const escapable = "_*[]()~`>#+-=|{}.!"
+	
+	var result strings.Builder
 	for _, char := range input {
 		if strings.ContainsRune(escapable, char) {
-			str.WriteRune('\\')
+			result.WriteRune('\\')
 		}
-		str.WriteRune(char)
+		result.WriteRune(char)
 	}
 	
-	result := str.String()
-	result = RemoveRestrictedMarkdown(result)
-	result = RemoveEscapedMarkdown(result)
-	return result
+	return result.String()
 }
 
 func RemoveRestrictedMarkdown(input string) string {
@@ -30,15 +51,15 @@ func RemoveRestrictedMarkdown(input string) string {
 			continue
 		}
 		
-		// Проверяем начинается ли строка с экранированными решетками \\#
+		// Проверяем начинается ли строка с экранированными решетками \#
 		j := 0
-		for j < len(line)-2 && line[j] == '\\' && line[j+1] == '\\' && line[j+2] == '#' {
-			j += 3 // пропускаем \\#
+		for j < len(line)-1 && line[j] == '\\' {
+			j += 2 // пропускаем \#
 		}
 		
 		// Если найдены экранированные #, удаляем их и следующий пробел
 		if j > 0 {
-			// Пропускаем пробел после последней \\#
+			// Пропускаем пробел после последней \#
 			if j < len(line) && line[j] == ' ' {
 				j++
 			}
@@ -49,15 +70,16 @@ func RemoveRestrictedMarkdown(input string) string {
 	// Убираем лишние ньюлайны после кодовых блоков
 	for i := 0; i < len(lines); i++ {
 		trimmedLine := strings.TrimSpace(lines[i])
-		if trimmedLine == "```" {
+		// Проверяем что строка заканчивается на ``` (может быть с языком в начале)
+		if strings.HasSuffix(trimmedLine, "```") || trimmedLine == "```" {
 			// Убираем все пустые строки после кодового блока
 			j := i + 1
 			for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
 				j++
 			}
 			if j > i + 1 {
-				// Удаляем пустые строки, оставляем только одну
-				lines = append(lines[:i+1], append([]string{""}, lines[j:]...)...)
+				// Удаляем лишние пустые строки
+				lines = append(lines[:i+1], lines[j:]...)
 			}
 		}
 	}
@@ -87,85 +109,6 @@ func RemoveRestrictedMarkdown(input string) string {
 	
 	return strings.Join(filteredLines, "\n")
 }
-
-func RemoveEscapedMarkdown(input string) string {
-	lines := strings.Split(input, "\n")
-	
-	for i, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-		
-		// Проверяем коллапсируемые цитаты: **\\> -> **>
-		if strings.HasPrefix(line, `**\>`) {
-			lines[i] = strings.Replace(line, `**\>`, "**>", 1)
-			continue
-		}
-		
-		// Проверяем обычные цитаты: \\> -> >
-		if strings.HasPrefix(line, `\>`) {
-			lines[i] = strings.Replace(line, `\>`, ">", 1)
-			continue
-		}
-	}
-	
-	// Убираем экраны со ссылок
-	result := strings.Join(lines, "\n")
-	result = unescapeLinks(result)
-	result = sanitizeAlerts(result)
-	
-	return result
-}
-
-func unescapeLinks(input string) string {
-	result := input
-	
-	// Ищем полные ссылки в формате \[text\]\(url\) и заменяем их на [text](url)
-	for {
-		// Ищем начало ссылки \[
-		startBracket := strings.Index(result, `\[`)
-		if startBracket == -1 {
-			break
-		}
-		
-		// Ищем конец текста ссылки \]
-		endBracket := strings.Index(result[startBracket:], `\]`)
-		if endBracket == -1 {
-			break
-		}
-		endBracket += startBracket
-		
-		// Проверяем что сразу после \] идет \(
-		if endBracket+2 >= len(result) || !strings.HasPrefix(result[endBracket+2:], `\(`) {
-			// Это не ссылка, пропускаем
-			result = result[:startBracket] + result[startBracket+1:] // убираем \ но оставляем [
-			continue
-		}
-		
-		startParen := endBracket + 2
-		
-		// Ищем конец URL \)
-		endParen := strings.Index(result[startParen:], `\)`)
-		if endParen == -1 {
-			break
-		}
-		endParen += startParen
-		
-		// Извлекаем части ссылки
-		linkText := result[startBracket+2:endBracket] // текст между \[ и \]
-		linkUrl := result[startParen+2:endParen]     // URL между \( и \)
-		
-		// Заменяем экранированную ссылку на нормальную
-		oldLink := result[startBracket:endParen+2]
-		newLink := "[" + linkText + "](" + linkUrl + ")"
-		
-		result = strings.Replace(result, oldLink, newLink, 1)
-	}
-	
-	return result
-}
-
-
 
 func sanitizeAlerts(input string) string {
 	if strings.HasSuffix(input, "||**") {
