@@ -114,6 +114,19 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 		}{
 			RelationField: field.NewRelation("User.SelectedModes", "entities.SelectedMode"),
 		},
+		Pins: struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
+		}{
+			RelationField: field.NewRelation("User.Pins", "entities.Pin"),
+			User: struct {
+				field.RelationField
+			}{
+				RelationField: field.NewRelation("User.Pins.User", "entities.User"),
+			},
+		},
 	}
 
 	_message.fillFieldMap()
@@ -241,6 +254,12 @@ type messageHasOneUser struct {
 	}
 	SelectedModes struct {
 		field.RelationField
+	}
+	Pins struct {
+		field.RelationField
+		User struct {
+			field.RelationField
+		}
 	}
 }
 

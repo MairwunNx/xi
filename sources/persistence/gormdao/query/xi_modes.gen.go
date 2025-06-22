@@ -62,6 +62,12 @@ func newMode(db *gorm.DB, opts ...gen.DOOption) mode {
 				SelectedModes struct {
 					field.RelationField
 				}
+				Pins struct {
+					field.RelationField
+					User struct {
+						field.RelationField
+					}
+				}
 			}
 			SelectedModes struct {
 				field.RelationField
@@ -87,6 +93,12 @@ func newMode(db *gorm.DB, opts ...gen.DOOption) mode {
 				}
 				SelectedModes struct {
 					field.RelationField
+				}
+				Pins struct {
+					field.RelationField
+					User struct {
+						field.RelationField
+					}
 				}
 			}{
 				RelationField: field.NewRelation("SelectedModes.Mode.Creator", "entities.User"),
@@ -125,6 +137,19 @@ func newMode(db *gorm.DB, opts ...gen.DOOption) mode {
 					field.RelationField
 				}{
 					RelationField: field.NewRelation("SelectedModes.Mode.Creator.SelectedModes", "entities.SelectedMode"),
+				},
+				Pins: struct {
+					field.RelationField
+					User struct {
+						field.RelationField
+					}
+				}{
+					RelationField: field.NewRelation("SelectedModes.Mode.Creator.Pins", "entities.Pin"),
+					User: struct {
+						field.RelationField
+					}{
+						RelationField: field.NewRelation("SelectedModes.Mode.Creator.Pins.User", "entities.User"),
+					},
 				},
 			},
 			SelectedModes: struct {
@@ -268,6 +293,12 @@ type modeHasManySelectedModes struct {
 			}
 			SelectedModes struct {
 				field.RelationField
+			}
+			Pins struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
 			}
 		}
 		SelectedModes struct {

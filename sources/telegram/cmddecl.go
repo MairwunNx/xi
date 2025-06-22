@@ -77,3 +77,16 @@ type ContextCmd struct {
 		ChatID *ChatID `arg:"" name:"chat_id" help:"Chat ID to refresh context (use ~ for negative IDs). Optional - defaults to current chat" optional:""`
 	} `cmd:"" help:"Refresh chat context by marking all messages as removed"`
 }
+
+type PinnedCmd struct {
+	Add struct {
+		Message string `arg:"" help:"Message to pin (max 1024 characters)"`
+	} `cmd:"" help:"Add a new pinned message"`
+
+	Remove struct {
+		Message string `arg:"" help:"Message to remove from pins"`
+	} `cmd:"" help:"Remove a pinned message"`
+
+	List struct {
+	} `cmd:"" help:"List all pinned messages"`
+}

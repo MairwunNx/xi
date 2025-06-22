@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -503,6 +504,111 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, msg *tgbota
 	}
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
+}
+
+// =========================  /wtf command handlers  =========================
+
+// =========================  /pinned command handlers  =========================
+
+func (x *TelegramHandler) PinnedCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, message string) {
+	if len(message) > 1024 {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedTooLong))
+		return
+	}
+
+	donations, err := x.donations.GetDonationsByUser(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
+		return
+	}
+
+	err = x.pins.CheckPinLimit(log, user, msg.Chat.ID, donations)
+	if err != nil {
+		if errors.Is(err, repository.ErrPinLimitExceeded) {
+			if len(donations) > 0 {
+				x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedFinalLimitReached))
+			} else {
+				x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedLimitReached))
+			}
+			return
+		}
+
+		if errors.Is(err, repository.ErrPinLimitExceededChat) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedChatLimitReached))
+			return
+		}
+
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
+		return
+	}
+
+	_, err = x.pins.CreatePin(log, user, msg.Chat.ID, message)
+	if err != nil {
+		if errors.Is(err, repository.ErrPinTooLong) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedTooLong))
+			return
+		}
+
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
+		return
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedAdded))
+}
+
+func (x *TelegramHandler) PinnedCommandRemove(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, message string) {
+	_, err := x.pins.GetPinByUserChatAndMessage(log, user, msg.Chat.ID, message)
+	if err != nil {
+		if errors.Is(err, repository.ErrPinNotFound) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedNotFound))
+			return
+		}
+
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorRemove))
+		return
+	}
+
+	err = x.pins.DeletePin(log, user, msg.Chat.ID, message)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorRemove))
+		return
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedRemoved))
+}
+
+func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	pins, err := x.pins.GetPinsByChat(log, msg.Chat.ID)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorList))
+		return
+	}
+
+	if len(pins) == 0 {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedListEmpty))
+		return
+	}
+
+	response := texting.MsgPinnedListHeader
+	for i, pin := range pins {
+		authorName := "Мертвая душа"
+		if pin.User.Fullname != nil && *pin.User.Fullname != "" {
+			authorName = *pin.User.Fullname
+		}
+		username := ""
+		if pin.User.Username != nil && *pin.User.Username != "" {
+			username = " (@" + *pin.User.Username + ")"
+		}
+		response += fmt.Sprintf("%d. %s%s: %s\n", i+1, authorName, username, pin.Message)
+	}
+
+	donations, _ := x.donations.GetDonationsByUser(log, user)
+	userPinsCount, _ := x.pins.CountPinsByUserInChat(log, user, msg.Chat.ID)
+
+	limit := x.pins.GetPinLimit(log, user, donations)
+	response += fmt.Sprintf("\n" + texting.MsgPinnedListFooter, userPinsCount, limit)
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
 
 // =========================  /wtf command handlers  =========================

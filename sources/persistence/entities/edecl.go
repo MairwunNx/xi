@@ -56,6 +56,16 @@ type (
 		User User `gorm:"foreignKey:SwitchedBy;references:ID" json:"user"`
 	}
 
+	Pin struct {
+		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		ChatID    int64     `gorm:"not null" json:"chat_id"`
+		UserID    uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+		Message   string    `gorm:"type:text;not null" json:"message"`
+		CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+
+		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+	}
+
 	User struct {
 		ID             uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID         int64          `gorm:"uniqueIndex;not null" json:"user_id"`
@@ -71,11 +81,13 @@ type (
 		Donations     []Donation     `gorm:"foreignKey:UserID;references:ID" json:"donations"`
 		CreatedModes  []Mode         `gorm:"foreignKey:CreatedBy;references:ID" json:"created_modes"`
 		SelectedModes []SelectedMode `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
+		Pins          []Pin          `gorm:"foreignKey:UserID;references:ID" json:"pins"`
 	}
 )
 
 func (Donation) TableName() string     { return "xi_donations" }
 func (Message) TableName() string      { return "xi_messages" }
 func (Mode) TableName() string         { return "xi_modes" }
+func (Pin) TableName() string          { return "xi_pins" }
 func (SelectedMode) TableName() string { return "xi_selected_modes" }
 func (User) TableName() string         { return "xi_users" }

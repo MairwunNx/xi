@@ -2,10 +2,13 @@ package artificial
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 	"ximanager/sources/balancer"
+	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
@@ -21,11 +24,12 @@ type Orchestrator struct {
 	messages *repository.MessagesRepository
 	users    *repository.UsersRepository
 	donations *repository.DonationsRepository
+	pins     *repository.PinsRepository
 	openaiClient *OpenAIClient
 }
 
-func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository, openaiClient *OpenAIClient) *Orchestrator {
-	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations, openaiClient: openaiClient}
+func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository, pins *repository.PinsRepository, openaiClient *OpenAIClient) *Orchestrator {
+	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations, pins: pins, openaiClient: openaiClient}
 }
 
 func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message, req string) (string, error) {
@@ -54,6 +58,15 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (" + *user.Username + ")"
 	prompt := mode.Prompt + texting.InternalQualifierPromptAddition
+
+	pins, err := x.pins.GetPinsByChat(logger, msg.Chat.ID)
+	if err != nil {
+		pins = []*entities.Pin{}
+	}
+	
+	if len(pins) > 0 {
+		prompt += "," + x.formatPinsForPrompt(pins, persona)
+	}
 
 	needsDonationReminder := false
 	donation, err := x.donations.GetDonationsByUser(logger, user)
@@ -106,4 +119,44 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 
 	return response, nil
+}
+
+func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string) string {
+	userPins := make(map[string][]string)
+	userNames := make(map[string]string)
+	
+	for _, pin := range pins {
+		userKey := pin.UserID.String()
+		
+		userName := "Мертвая душа"
+		if pin.User.Fullname != nil && *pin.User.Fullname != "" {
+			userName = *pin.User.Fullname
+		}
+		if pin.User.Username != nil && *pin.User.Username != "" {
+			userName += " (@" + *pin.User.Username + ")"
+		}
+		
+		userNames[userKey] = userName
+		userPins[userKey] = append(userPins[userKey], pin.Message)
+	}
+
+	importantNotes := ""
+	for userKey, pinsList := range userPins {
+		userName := userNames[userKey]
+		importantNotes += fmt.Sprintf("Пользователь %s:\n", userName)
+		for _, pinMessage := range pinsList {
+			importantNotes += fmt.Sprintf("  - Закрепил следующее: \"%s\"\n", pinMessage)
+		}
+	}
+
+	jsonData := map[string]string{
+		"important_notes": importantNotes,
+	}
+
+	jsonBytes, err := json.Marshal(jsonData)
+	if err != nil {
+		return ""
+	}
+
+	return string(jsonBytes)
 }

@@ -184,6 +184,27 @@ func (x *TelegramHandler) HandleStartCommand(log *tracing.Logger, user *entities
 	x.diplomat.Reply(log, msg, texting.MsgStartText)
 }
 
+func (x *TelegramHandler) HandlePinnedCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	var cmd PinnedCmd
+	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedHelpText))
+		return
+	}
+
+	switch ctx.Command() {
+	case "add <message>":
+		x.PinnedCommandAdd(log, user, msg, cmd.Add.Message)
+	case "remove <message>":
+		x.PinnedCommandRemove(log, user, msg, cmd.Remove.Message)
+	case "list":
+		x.PinnedCommandList(log, user, msg)
+	default:
+		log.W("Unknown pinned subcommand", tracing.InternalCommand, ctx.Command())
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedHelpText))
+	}
+}
+
 func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.diplomat.Reply(log, msg, texting.MsgHelpText)
 }

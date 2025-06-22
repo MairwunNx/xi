@@ -20,6 +20,7 @@ var (
 	Donation     *donation
 	Message      *message
 	Mode         *mode
+	Pin          *pin
 	SelectedMode *selectedMode
 	User         *user
 )
@@ -29,6 +30,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Donation = &Q.Donation
 	Message = &Q.Message
 	Mode = &Q.Mode
+	Pin = &Q.Pin
 	SelectedMode = &Q.SelectedMode
 	User = &Q.User
 }
@@ -39,6 +41,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Donation:     newDonation(db, opts...),
 		Message:      newMessage(db, opts...),
 		Mode:         newMode(db, opts...),
+		Pin:          newPin(db, opts...),
 		SelectedMode: newSelectedMode(db, opts...),
 		User:         newUser(db, opts...),
 	}
@@ -50,6 +53,7 @@ type Query struct {
 	Donation     donation
 	Message      message
 	Mode         mode
+	Pin          pin
 	SelectedMode selectedMode
 	User         user
 }
@@ -62,6 +66,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Donation:     q.Donation.clone(db),
 		Message:      q.Message.clone(db),
 		Mode:         q.Mode.clone(db),
+		Pin:          q.Pin.clone(db),
 		SelectedMode: q.SelectedMode.clone(db),
 		User:         q.User.clone(db),
 	}
@@ -81,6 +86,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Donation:     q.Donation.replaceDB(db),
 		Message:      q.Message.replaceDB(db),
 		Mode:         q.Mode.replaceDB(db),
+		Pin:          q.Pin.replaceDB(db),
 		SelectedMode: q.SelectedMode.replaceDB(db),
 		User:         q.User.replaceDB(db),
 	}
@@ -90,6 +96,7 @@ type queryCtx struct {
 	Donation     IDonationDo
 	Message      IMessageDo
 	Mode         IModeDo
+	Pin          IPinDo
 	SelectedMode ISelectedModeDo
 	User         IUserDo
 }
@@ -99,6 +106,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Donation:     q.Donation.WithContext(ctx),
 		Message:      q.Message.WithContext(ctx),
 		Mode:         q.Mode.WithContext(ctx),
+		Pin:          q.Pin.WithContext(ctx),
 		SelectedMode: q.SelectedMode.WithContext(ctx),
 		User:         q.User.WithContext(ctx),
 	}

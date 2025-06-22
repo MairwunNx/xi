@@ -70,6 +70,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			SelectedModes struct {
 				field.RelationField
 			}
+			Pins struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}
 		}{
 			RelationField: field.NewRelation("Messages.User", "entities.User"),
 			Messages: struct {
@@ -138,6 +144,19 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			}{
 				RelationField: field.NewRelation("Messages.User.SelectedModes", "entities.SelectedMode"),
 			},
+			Pins: struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}{
+				RelationField: field.NewRelation("Messages.User.Pins", "entities.Pin"),
+				User: struct {
+					field.RelationField
+				}{
+					RelationField: field.NewRelation("Messages.User.Pins.User", "entities.User"),
+				},
+			},
 		},
 	}
 
@@ -157,6 +176,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 		db: db.Session(&gorm.Session{}),
 
 		RelationField: field.NewRelation("SelectedModes", "entities.SelectedMode"),
+	}
+
+	_user.Pins = userHasManyPins{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Pins", "entities.Pin"),
 	}
 
 	_user.fillFieldMap()
@@ -184,6 +209,8 @@ type user struct {
 	CreatedModes userHasManyCreatedModes
 
 	SelectedModes userHasManySelectedModes
+
+	Pins userHasManyPins
 
 	fieldMap map[string]field.Expr
 }
@@ -233,7 +260,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 13)
+	u.fieldMap = make(map[string]field.Expr, 14)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["username"] = u.Username
@@ -256,6 +283,8 @@ func (u user) clone(db *gorm.DB) user {
 	u.CreatedModes.db.Statement.ConnPool = db.Statement.ConnPool
 	u.SelectedModes.db = db.Session(&gorm.Session{Initialized: true})
 	u.SelectedModes.db.Statement.ConnPool = db.Statement.ConnPool
+	u.Pins.db = db.Session(&gorm.Session{Initialized: true})
+	u.Pins.db.Statement.ConnPool = db.Statement.ConnPool
 	return u
 }
 
@@ -265,6 +294,7 @@ func (u user) replaceDB(db *gorm.DB) user {
 	u.Donations.db = db.Session(&gorm.Session{})
 	u.CreatedModes.db = db.Session(&gorm.Session{})
 	u.SelectedModes.db = db.Session(&gorm.Session{})
+	u.Pins.db = db.Session(&gorm.Session{})
 	return u
 }
 
@@ -301,6 +331,12 @@ type userHasManyMessages struct {
 		}
 		SelectedModes struct {
 			field.RelationField
+		}
+		Pins struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
 		}
 	}
 }
@@ -619,6 +655,87 @@ func (a userHasManySelectedModesTx) Count() int64 {
 }
 
 func (a userHasManySelectedModesTx) Unscoped() *userHasManySelectedModesTx {
+	a.tx = a.tx.Unscoped()
+	return &a
+}
+
+type userHasManyPins struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a userHasManyPins) Where(conds ...field.Expr) *userHasManyPins {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a userHasManyPins) WithContext(ctx context.Context) *userHasManyPins {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a userHasManyPins) Session(session *gorm.Session) *userHasManyPins {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a userHasManyPins) Model(m *entities.User) *userHasManyPinsTx {
+	return &userHasManyPinsTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a userHasManyPins) Unscoped() *userHasManyPins {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type userHasManyPinsTx struct{ tx *gorm.Association }
+
+func (a userHasManyPinsTx) Find() (result []*entities.Pin, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a userHasManyPinsTx) Append(values ...*entities.Pin) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a userHasManyPinsTx) Replace(values ...*entities.Pin) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a userHasManyPinsTx) Delete(values ...*entities.Pin) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a userHasManyPinsTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a userHasManyPinsTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a userHasManyPinsTx) Unscoped() *userHasManyPinsTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }

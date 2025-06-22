@@ -21,11 +21,12 @@ type TelegramHandler struct {
 	modes        *repository.ModesRepository
 	donations    *repository.DonationsRepository
 	messages     *repository.MessagesRepository
+	pins         *repository.PinsRepository
 	throttler    *throttler.Throttler
 	balancer     *balancer.AIBalancer
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, orchestrator *artificial.Orchestrator, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, throttler *throttler.Throttler, balancer *balancer.AIBalancer) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, orchestrator *artificial.Orchestrator, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, throttler *throttler.Throttler, balancer *balancer.AIBalancer) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:     diplomat,
 		users:        users,
@@ -34,6 +35,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		modes:        modes,
 		donations:    donations,
 		messages:     messages,
+		pins:         pins,
 		throttler:    throttler,
 		balancer:     balancer,
 	}
@@ -95,6 +97,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleStatsCommand(log, user, msg)
 		case "context":
 			x.HandleContextCommand(log, user, msg)
+		case "pinned":
+			x.HandlePinnedCommand(log, user, msg)
 		case "wtf":
 			x.HandleWtfCommand(log, user, msg)
 		default:
