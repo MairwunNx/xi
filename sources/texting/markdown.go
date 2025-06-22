@@ -353,7 +353,7 @@ func isBlockQuoteStart(runes []rune, pos int) bool {
 }
 
 func EscapeMarkdown(input string) string {
-	return EscapeNecessary(TrimSpecials(input))
+	return EscapeNecessary2(TrimSpecials(input))
 }
 
 // EscapeMarkdown2 - альтернативная реализация для тестирования
