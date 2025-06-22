@@ -7,7 +7,16 @@ import (
 )
 
 const escapable = "_[]()~>#+-={}.!`\\"
-var headerRegex = regexp.MustCompile(`(^|\n)#{1,6}\s?`)
+var headerRegex = regexp.MustCompile(`(^|\n)#{1,6}\s?[^\n]*`)
+var quoteRegex = regexp.MustCompile(`(^|\n)(\*\*)?>\s`)
+
+// Умная замена двойных звездочек на одинарные только для markdown разметки
+func replaceMarkdownBold(input string) string {
+	// Регулярное выражение для поиска markdown жирного текста
+	// Ищем ** в начале слова, затем текст, затем ** в конце слова
+	boldRegex := regexp.MustCompile(`\*\*([^\*\n]+?)\*\*`)
+	return boldRegex.ReplaceAllString(input, "*$1*")
+}
 
 // Типы контекстов для парсинга
 type ContextType int
@@ -31,6 +40,9 @@ type ParserState struct {
 }
 
 func EscapeNecessary(input string) string {
+	// Хак: умная замена двойных звездочек на одинарные только для markdown разметки
+	input = replaceMarkdownBold(input)
+	
 	runes := []rune(input)
 	result := strings.Builder{}
 	state := &ParserState{context: ContextNormal}
@@ -351,7 +363,7 @@ func isBlockQuoteStart(runes []rune, pos int) bool {
 }
 
 func EscapeMarkdown(input string) string {
-	return TrimSpecials(EscapeNecessary(input))
+	return EscapeNecessary(TrimSpecials(input))
 }
 
 func UnescapeSpecials(input string) string {
@@ -393,6 +405,12 @@ func UnescapeSpecials(input string) string {
 	return result
 }
 
-func TrimSpecials(input string) string {	
-	return headerRegex.ReplaceAllString(input, "$1")
+func TrimSpecials(input string) string {
+	// Удаляем заголовки
+	result := headerRegex.ReplaceAllString(input, "$1")
+	
+	// Убираем пробел после > в цитатах: "> text" → ">text", "**> text" → "**>text"  
+	result = quoteRegex.ReplaceAllString(result, "$1$2>")
+	
+	return result
 }
