@@ -24,6 +24,7 @@ func EscapeMarkdown(input string) string {
 func RemoveRestrictedMarkdown(input string) string {
 	lines := strings.Split(input, "\n")
 	
+	// Обрабатываем заголовки
 	for i, line := range lines {
 		if len(line) == 0 {
 			continue
@@ -45,7 +46,46 @@ func RemoveRestrictedMarkdown(input string) string {
 		}
 	}
 	
-	return strings.Join(lines, "\n")
+	// Убираем лишние ньюлайны после кодовых блоков
+	for i := 0; i < len(lines); i++ {
+		trimmedLine := strings.TrimSpace(lines[i])
+		if trimmedLine == "```" {
+			// Убираем все пустые строки после кодового блока
+			j := i + 1
+			for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+				j++
+			}
+			if j > i + 1 {
+				// Удаляем пустые строки, оставляем только одну
+				lines = append(lines[:i+1], append([]string{""}, lines[j:]...)...)
+			}
+		}
+	}
+	
+	// Убираем сепараторы ---
+	filteredLines := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		if line == "---" {
+			// Проверяем контекст: если это сепаратор между параграфами
+			if i > 0 && i < len(lines)-1 {
+				// Пропускаем сепаратор и возможные пустые строки после него
+				j := i + 1
+				for j < len(lines) && strings.TrimSpace(lines[j]) == "" {
+					j++
+				}
+				// Добавляем один ньюлайн вместо сепаратора
+				if len(filteredLines) > 0 && filteredLines[len(filteredLines)-1] != "" {
+					filteredLines = append(filteredLines, "")
+				}
+				i = j - 1 // -1 потому что цикл сделает i++
+				continue
+			}
+		}
+		filteredLines = append(filteredLines, lines[i])
+	}
+	
+	return strings.Join(filteredLines, "\n")
 }
 
 func RemoveEscapedMarkdown(input string) string {
