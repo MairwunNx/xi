@@ -112,6 +112,7 @@ func RemoveEscapedMarkdown(input string) string {
 	// Убираем экраны со ссылок
 	result := strings.Join(lines, "\n")
 	result = unescapeLinks(result)
+	result = sanitizeAlerts(result)
 	
 	return result
 }
@@ -191,4 +192,11 @@ func isPartOfLink(runes []rune, pos int) bool {
 	}
 	
 	return false
+}
+
+func sanitizeAlerts(input string) string {
+	if strings.HasSuffix(input, "||**") {
+		return strings.TrimSuffix(input, "**")
+	}
+	return input
 }
