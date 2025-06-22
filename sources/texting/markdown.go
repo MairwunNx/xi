@@ -97,14 +97,14 @@ func RemoveEscapedMarkdown(input string) string {
 		}
 		
 		// Проверяем коллапсируемые цитаты: **\\> -> **>
-		if strings.HasPrefix(line, "**\\\\>") {
-			lines[i] = strings.Replace(line, "**\\\\>", "**>", 1)
+		if strings.HasPrefix(line, `**\>`) {
+			lines[i] = strings.Replace(line, `**\>`, "**>", 1)
 			continue
 		}
 		
 		// Проверяем обычные цитаты: \\> -> >
-		if strings.HasPrefix(line, "\\\\>") {
-			lines[i] = strings.Replace(line, "\\\\>", ">", 1)
+		if strings.HasPrefix(line, `\>`) {
+			lines[i] = strings.Replace(line, `\>`, ">", 1)
 			continue
 		}
 	}
@@ -122,15 +122,15 @@ func unescapeLinks(input string) string {
 	runes := []rune(input)
 	
 	for i := 0; i < len(runes); i++ {
-		if i < len(runes)-2 && runes[i] == '\\' && runes[i+1] == '\\' {
+		if i < len(runes)-1 && runes[i] == '\\' {
 			// Проверяем на экранированные символы ссылок
-			next := runes[i+2]
+			next := runes[i+1]
 			if next == '[' || next == ']' || next == '(' || next == ')' {
 				// Проверяем что это может быть частью ссылки
-				if isPartOfLink(runes, i+1) {
-					// Пропускаем двойной экран, записываем только символ
+				if isPartOfLink(runes, i) {
+					// Пропускаем экран, записываем только символ
 					result.WriteRune(next)
-					i += 2 // пропускаем следующие два символа
+					i++ // пропускаем следующий символ
 					continue
 				}
 			}
@@ -148,44 +148,44 @@ func isPartOfLink(runes []rune, pos int) bool {
 	
 	char := runes[pos+1]
 	
-	// Простая проверка: ищем паттерн \\[text\\]\\(url\\)
+	// Простая проверка: ищем паттерн \[text\]\(url\)
 	if char == '[' {
-		// Ищем вперед \\]
+		// Ищем вперед \]
 		i := pos + 2
 		foundClosingBracket := false
-		for i < len(runes)-2 {
-			if runes[i] == '\\' && runes[i+1] == '\\' && i+2 < len(runes) && runes[i+2] == ']' {
+		for i < len(runes)-1 {
+			if runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == ']' {
 				foundClosingBracket = true
-				i += 3
+				i += 2
 				break
 			}
 			i++
 		}
-		// Проверяем что после \\] идет \\(
-		if foundClosingBracket && i < len(runes)-2 && runes[i] == '\\' && runes[i+1] == '\\' && runes[i+2] == '(' {
+		// Проверяем что после \] идет \(
+		if foundClosingBracket && i < len(runes)-1 && runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == '(' {
 			return true
 		}
 	} else if char == ']' {
-		// Проверяем что после текущей позиции идет \\(
-		if pos+4 < len(runes) && runes[pos+2] == '\\' && runes[pos+3] == '\\' && runes[pos+4] == '(' {
-			// Ищем назад \\[
-			for i := pos - 2; i >= 2; i-- {
-				if runes[i-2] == '\\' && runes[i-1] == '\\' && runes[i] == '[' {
+		// Проверяем что после текущей позиции идет \(
+		if pos+3 < len(runes) && runes[pos+2] == '\\' && runes[pos+3] == '(' {
+			// Ищем назад \[
+			for i := pos - 1; i >= 1; i-- {
+				if runes[i-1] == '\\' && runes[i] == '[' {
 					return true
 				}
 			}
 		}
 	} else if char == '(' {
-		// Ищем назад \\]
-		for i := pos - 2; i >= 2; i-- {
-			if runes[i-2] == '\\' && runes[i-1] == '\\' && runes[i] == ']' {
+		// Ищем назад \]
+		for i := pos - 1; i >= 1; i-- {
+			if runes[i-1] == '\\' && runes[i] == ']' {
 				return true
 			}
 		}
 	} else if char == ')' {
-		// Ищем назад \\(
-		for i := pos - 2; i >= 2; i-- {
-			if runes[i-2] == '\\' && runes[i-1] == '\\' && runes[i] == '(' {
+		// Ищем назад \(
+		for i := pos - 1; i >= 1; i-- {
+			if runes[i-1] == '\\' && runes[i] == '(' {
 				return true
 			}
 		}
