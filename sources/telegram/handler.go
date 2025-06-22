@@ -77,6 +77,10 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 		log = log.With(tracing.CommandIssued, msg.Command())
 
 		switch msg.Command() {
+		case "start":
+			x.HandleStartCommand(log, user, msg)
+		case "help":
+			x.HandleHelpCommand(log, user, msg)
 		case "xi":
 			x.HandleXiCommand(log, user, msg)
 		case "mode":
@@ -94,7 +98,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 		case "wtf":
 			x.HandleWtfCommand(log, user, msg)
 		default:
-			x.diplomat.Reply(log, msg, texting.MsgHelpText)
+			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
 	} else {
 		x.HandleXiCommand(log.With(tracing.CommandIssued, "xi/direct"), user, msg)

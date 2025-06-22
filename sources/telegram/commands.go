@@ -179,3 +179,11 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 func (x *TelegramHandler) HandleWtfCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.WtfCommand(log, msg)
 }
+
+func (x *TelegramHandler) HandleStartCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	x.diplomat.Reply(log, msg, texting.MsgStartText)
+}
+
+func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	x.diplomat.Reply(log, msg, texting.MsgHelpText)
+}
