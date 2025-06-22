@@ -23,6 +23,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 				
 				if (msg.From.UserName == "mairwunnx" || msg.From.UserName == "lynfortune") { // TODO: remove
 					logger.D("Sending message", "chunk", chunk)
+					logger.D("Escaped message", "chunk", texting.EscapeMarkdown(chunk))
 				}
 
 				chattable := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(chunk))
