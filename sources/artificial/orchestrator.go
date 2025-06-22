@@ -110,11 +110,11 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 		ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 		defer cancel()
 		
-		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, response, persona)
+		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, texting.InternalDonationPromptAddition0, persona)
 		if donationErr != nil {
 			logger.E("Failed to get donation reminder response", tracing.InnerError, donationErr)
 		} else {
-			response = donationResponse
+			response = response + "\n\n" + donationResponse
 		}
 	}
 
