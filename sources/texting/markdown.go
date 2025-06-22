@@ -4,22 +4,47 @@ import (
 	"strings"
 )
 
-var shouldBeEscaped = "_*[]()~`>#+-=|{}.!"
+const escapable = "_[]()~>#+-=|{}.!"
 
 func EscapeMarkdown(input string) string {
-	var result []rune
-	var escaped bool
-	for _, r := range input {
-		if r == '\\' {
-			escaped = !escaped
-			result = append(result, r)
-			continue
+	var str strings.Builder
+	for _, char := range input {
+		if strings.ContainsRune(escapable, char) {
+			str.WriteRune('\\')
 		}
-		if strings.ContainsRune(shouldBeEscaped, r) && !escaped {
-			result = append(result, '\\')
-		}
-		escaped = false
-		result = append(result, r)
+		str.WriteRune(char)
 	}
-	return string(result)
+	
+	return UnescapeSpecials(str.String())
+}
+
+func UnescapeSpecials(input string) string {
+	result := input
+	
+	// Убираем экранирование для символа > после жирного текста
+	result = strings.ReplaceAll(result, "**\\>", "**>")
+	
+	// Убираем экранирование звездочек внутри жирного текста **text \* text**
+	result = strings.ReplaceAll(result, "**\\*", "***")
+	result = strings.ReplaceAll(result, "\\***", "***")
+	
+	// Убираем экранирование подчеркиваний внутри подчеркнутого текста __text \_ text__
+	result = strings.ReplaceAll(result, "__\\_", "__")
+	result = strings.ReplaceAll(result, "\\___", "___")
+	
+	// Убираем экранирование тильд внутри зачеркнутого текста ~text \~ text~
+	result = strings.ReplaceAll(result, "~\\~", "~~")
+	
+	// Убираем экранирование вертикальных черт внутри спойлеров ||text \| text||
+	result = strings.ReplaceAll(result, "||\\|", "|||")
+	result = strings.ReplaceAll(result, "\\|||", "|||")
+	
+	// Убираем экранирование @ внутри markdown конструкций (например **@username**)
+	result = strings.ReplaceAll(result, "**\\@", "**@")
+	result = strings.ReplaceAll(result, "_\\@", "_@")
+	result = strings.ReplaceAll(result, "__\\@", "__@")
+	result = strings.ReplaceAll(result, "~\\@", "~@")
+	result = strings.ReplaceAll(result, "||\\@", "||@")
+	
+	return result
 }
