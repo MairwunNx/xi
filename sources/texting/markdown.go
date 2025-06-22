@@ -352,11 +352,18 @@ func isBlockQuoteStart(runes []rune, pos int) bool {
 }
 
 func EscapeMarkdown(input string) string {
-	return EscapeNecessary(TrimSpecials(input))
+	return TrimEndingBold(EscapeNecessary(TrimSpecials(input)))
 }
 
 func TrimSpecials(input string) string {
 	result := headerRegex.ReplaceAllString(input, "$1")
 	result = quoteRegex.ReplaceAllString(result, "$1$2>")
 	return result
+}
+
+func TrimEndingBold(input string) string {
+	if strings.Contains(input, "**>") {
+		return strings.TrimSuffix(input, "**")
+	}
+	return input
 }
