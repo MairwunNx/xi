@@ -118,81 +118,54 @@ func RemoveEscapedMarkdown(input string) string {
 }
 
 func unescapeLinks(input string) string {
-	var result strings.Builder
-	runes := []rune(input)
+	result := input
 	
-	for i := 0; i < len(runes); i++ {
-		if i < len(runes)-1 && runes[i] == '\\' {
-			// Проверяем на экранированные символы ссылок
-			next := runes[i+1]
-			if next == '[' || next == ']' || next == '(' || next == ')' {
-				// Проверяем что это может быть частью ссылки
-				if isPartOfLink(runes, i) {
-					// Пропускаем экран, записываем только символ
-					result.WriteRune(next)
-					i++ // пропускаем следующий символ
-					continue
-				}
-			}
+	// Ищем полные ссылки в формате \[text\]\(url\) и заменяем их на [text](url)
+	for {
+		// Ищем начало ссылки \[
+		startBracket := strings.Index(result, `\[`)
+		if startBracket == -1 {
+			break
 		}
-		result.WriteRune(runes[i])
+		
+		// Ищем конец текста ссылки \]
+		endBracket := strings.Index(result[startBracket:], `\]`)
+		if endBracket == -1 {
+			break
+		}
+		endBracket += startBracket
+		
+		// Проверяем что сразу после \] идет \(
+		if endBracket+2 >= len(result) || !strings.HasPrefix(result[endBracket+2:], `\(`) {
+			// Это не ссылка, пропускаем
+			result = result[:startBracket] + result[startBracket+1:] // убираем \ но оставляем [
+			continue
+		}
+		
+		startParen := endBracket + 2
+		
+		// Ищем конец URL \)
+		endParen := strings.Index(result[startParen:], `\)`)
+		if endParen == -1 {
+			break
+		}
+		endParen += startParen
+		
+		// Извлекаем части ссылки
+		linkText := result[startBracket+2:endBracket] // текст между \[ и \]
+		linkUrl := result[startParen+2:endParen]     // URL между \( и \)
+		
+		// Заменяем экранированную ссылку на нормальную
+		oldLink := result[startBracket:endParen+2]
+		newLink := "[" + linkText + "](" + linkUrl + ")"
+		
+		result = strings.Replace(result, oldLink, newLink, 1)
 	}
 	
-	return result.String()
+	return result
 }
 
-func isPartOfLink(runes []rune, pos int) bool {
-	if pos >= len(runes)-1 {
-		return false
-	}
-	
-	char := runes[pos+1]
-	
-	// Простая проверка: ищем паттерн \[text\]\(url\)
-	if char == '[' {
-		// Ищем вперед \]
-		i := pos + 2
-		foundClosingBracket := false
-		for i < len(runes)-1 {
-			if runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == ']' {
-				foundClosingBracket = true
-				i += 2
-				break
-			}
-			i++
-		}
-		// Проверяем что после \] идет \(
-		if foundClosingBracket && i < len(runes)-1 && runes[i] == '\\' && i+1 < len(runes) && runes[i+1] == '(' {
-			return true
-		}
-	} else if char == ']' {
-		// Проверяем что после текущей позиции идет \(
-		if pos+3 < len(runes) && runes[pos+2] == '\\' && runes[pos+3] == '(' {
-			// Ищем назад \[
-			for i := pos - 1; i >= 1; i-- {
-				if runes[i-1] == '\\' && runes[i] == '[' {
-					return true
-				}
-			}
-		}
-	} else if char == '(' {
-		// Ищем назад \]
-		for i := pos - 1; i >= 1; i-- {
-			if runes[i-1] == '\\' && runes[i] == ']' {
-				return true
-			}
-		}
-	} else if char == ')' {
-		// Ищем назад \(
-		for i := pos - 1; i >= 1; i-- {
-			if runes[i-1] == '\\' && runes[i] == '(' {
-				return true
-			}
-		}
-	}
-	
-	return false
-}
+
 
 func sanitizeAlerts(input string) string {
 	if strings.HasSuffix(input, "||**") {
