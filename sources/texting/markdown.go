@@ -362,5 +362,8 @@ func TrimSpecials(input string) string {
 }
 
 func TrimEndingBold(input string) string {
-	return strings.TrimSuffix(input, "**") + "||"
+	if strings.Contains(input, "**>") {
+		return strings.TrimSuffix(input, "**") + "||"
+	}
+	return input
 }
