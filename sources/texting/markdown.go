@@ -1,6 +1,7 @@
 package texting
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"unicode"
@@ -355,51 +356,251 @@ func EscapeMarkdown(input string) string {
 	return EscapeNecessary(TrimSpecials(input))
 }
 
-func UnescapeSpecials(input string) string {
+// EscapeMarkdown2 - альтернативная реализация для тестирования
+func EscapeMarkdown2(input string) string {
+	return EscapeNecessary2(TrimSpecials(input))
+}
+
+func TrimSpecials(input string) string {
+	result := headerRegex.ReplaceAllString(input, "$1")
+	result = quoteRegex.ReplaceAllString(result, "$1$2>")
+	return result
+}
+
+// EscapeNecessary2 - новая реализация основанная на telegramify-markdown
+func EscapeNecessary2(input string) string {
+	if input == "" {
+		return ""
+	}
+	
+	// Этап 1: Заменяем ** на * для жирного текста (как в telegramify-markdown)
+	input = convertBoldMarkdown(input)
+	
+	// Этап 2: Первый проход - экранируем все специальные символы
+	firstPass := escapeAllSpecials(input)
+	
+	// Этап 3: Второй проход - убираем двойное экранирование в контекстах разметки
+	finalResult := removeDoubleEscaping(firstPass)
+	
+	return finalResult
+}
+
+// Конвертирует ** в * для жирного текста, но только в контексте разметки
+func convertBoldMarkdown(input string) string {
+	// Умно заменяем **text** на *text*, но НЕ трогаем **> (expandable quotes)
+	boldRegex := regexp.MustCompile(`\*\*([^\*\n\r>]+?)\*\*`)
+	return boldRegex.ReplaceAllString(input, "*$1*")
+}
+
+// Первый проход - экранирует все специальные символы
+func escapeAllSpecials(input string) string {
+	// Экранируем все специальные символы (как в telegramify-markdown)
+	specialChars := regexp.MustCompile(`([_*\\[\]()~` + "`>#\\+\\-=|{}.!\\\\])")
+	return specialChars.ReplaceAllString(input, "\\$1")
+}
+
+// Второй проход - убирает двойное экранирование в допустимых контекстах
+func removeDoubleEscaping(input string) string {
 	result := input
 	
-	// Убираем экранирование звездочек внутри жирного текста *text \* text*
-	result = strings.ReplaceAll(result, "*\\*", "**")
+	// Убираем двойное экранирование для специальных символов в контекстах разметки
+	doubleEscapeRegex := regexp.MustCompile(`\\\\([_*\\[\]()~` + "`>#\\+\\-=|{}.!\\\\])")
+	result = doubleEscapeRegex.ReplaceAllString(result, "\\$1")
 	
-	// Убираем экранирование звездочек внутри курсивного текста **text \* text**
-	result = strings.ReplaceAll(result, "**\\*", "***")
-	result = strings.ReplaceAll(result, "\\***", "***")
+	// Обработка цитат - убираем экранирование > в начале строки
+	result = unescapeQuotes(result)
 	
-	// Убираем экранирование подчеркиваний внутри курсивного текста _text \_ text_
-	result = strings.ReplaceAll(result, "_\\_", "__")
+	// Обработка ссылок - убираем экранирование внутри [text](url)
+	result = unescapeLinks(result)
 	
-	// Убираем экранирование подчеркиваний внутри подчеркнутого текста __text \_ text__
-	result = strings.ReplaceAll(result, "__\\_", "___")
-	result = strings.ReplaceAll(result, "\\___", "___")
+	// Обработка кода - убираем экранирование внутри `code` и ```code```
+	result = unescapeCode(result)
 	
-	// Убираем экранирование тильд внутри зачеркнутого текста ~text \~ text~
-	result = strings.ReplaceAll(result, "~\\~", "~~")
-	
-	// Убираем экранирование вертикальных черт внутри спойлеров ||text \| text||
-	result = strings.ReplaceAll(result, "||\\|", "|||")
-	result = strings.ReplaceAll(result, "\\|||", "|||")
-	
-	// Убираем экранирование @ внутри markdown конструкций (например *@username*)
-	result = strings.ReplaceAll(result, "*\\@", "*@")
-	result = strings.ReplaceAll(result, "**\\@", "**@")
-	result = strings.ReplaceAll(result, "_\\@", "_@")
-	result = strings.ReplaceAll(result, "__\\@", "__@")
-	result = strings.ReplaceAll(result, "~\\@", "~@")
-	result = strings.ReplaceAll(result, "||\\@", "||@")
-
-	// Убираем экранирование для символа > после жирного текста
-	result = strings.ReplaceAll(result, "*\\>", "*>")
-	result = strings.ReplaceAll(result, "**\\>", "**>")
+	// Обработка форматирования - убираем экранирование внутри *bold*, _italic_, ~strike~, ||spoiler||
+	result = unescapeFormatting(result)
 	
 	return result
 }
 
-func TrimSpecials(input string) string {
-	// Удаляем заголовки
-	result := headerRegex.ReplaceAllString(input, "$1")
+// Убирает экранирование > в цитатах
+func unescapeQuotes(input string) string {
+	result := input
 	
-	// Убираем пробел после > в цитатах: "> text" → ">text", "**> text" → "**>text"  
-	result = quoteRegex.ReplaceAllString(result, "$1$2>")
+	// Обычные цитаты: \> в начале строки → >
+	quoteStartRegex := regexp.MustCompile(`(^|\n)\\>`)
+	result = quoteStartRegex.ReplaceAllString(result, "$1>")
+	
+	// Expandable цитаты: **\> → **> (ищем именно две звездочки!)
+	expandableQuoteRegex := regexp.MustCompile(`\*\*\\>`)
+	result = expandableQuoteRegex.ReplaceAllString(result, "**>")
+	
+	return result
+}
+
+// Убирает экранирование внутри ссылок [text](url)
+func unescapeLinks(input string) string {
+	// Находим все ссылки и убираем экранирование внутри них
+	linkRegex := regexp.MustCompile(`\[([^\]]*)\]\(([^)]*)\)`)
+	
+	return linkRegex.ReplaceAllStringFunc(input, func(match string) string {
+		parts := linkRegex.FindStringSubmatch(match)
+		if len(parts) != 3 {
+			return match
+		}
+		
+		text := parts[1]
+		url := parts[2]
+		
+		// Убираем экранирование всего кроме ] и ) внутри ссылки
+		text = strings.ReplaceAll(text, "\\[", "[")
+		text = strings.ReplaceAll(text, "\\*", "*")
+		text = strings.ReplaceAll(text, "\\_", "_")
+		text = strings.ReplaceAll(text, "\\~", "~")
+		text = strings.ReplaceAll(text, "\\|", "|")
+		
+		// В URL убираем экранирование всего кроме ) и \
+		url = strings.ReplaceAll(url, "\\[", "[")
+		url = strings.ReplaceAll(url, "\\]", "]")
+		url = strings.ReplaceAll(url, "\\*", "*")
+		url = strings.ReplaceAll(url, "\\_", "_")
+		url = strings.ReplaceAll(url, "\\~", "~")
+		url = strings.ReplaceAll(url, "\\|", "|")
+		url = strings.ReplaceAll(url, "\\#", "#")
+		url = strings.ReplaceAll(url, "\\+", "+")
+		url = strings.ReplaceAll(url, "\\-", "-")
+		url = strings.ReplaceAll(url, "\\=", "=")
+		url = strings.ReplaceAll(url, "\\{", "{")
+		url = strings.ReplaceAll(url, "\\}", "}")
+		url = strings.ReplaceAll(url, "\\.", ".")
+		url = strings.ReplaceAll(url, "\\!", "!")
+		
+		return fmt.Sprintf("[%s](%s)", text, url)
+	})
+}
+
+// Убирает экранирование внутри кода
+func unescapeCode(input string) string {
+	result := input
+	
+	// Inline code: `code`
+	inlineCodeRegex := regexp.MustCompile("(`+)([^`]*?)(`+)")
+	result = inlineCodeRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := inlineCodeRegex.FindStringSubmatch(match)
+		if len(parts) != 4 {
+			return match
+		}
+		
+		openTicks := parts[1]
+		code := parts[2]
+		closeTicks := parts[3]
+		
+		// Внутри кода убираем экранирование всего кроме ` и \
+		unescapedCode := code
+		for _, char := range "_*[]()~>#+-=|{}.!" {
+			unescapedCode = strings.ReplaceAll(unescapedCode, "\\"+string(char), string(char))
+		}
+		
+		return openTicks + unescapedCode + closeTicks
+	})
+	
+	// Block code: ```code```
+	blockCodeRegex := regexp.MustCompile("(?s)(```[^\\n]*\\n)(.*?)(```)")
+	result = blockCodeRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := blockCodeRegex.FindStringSubmatch(match)
+		if len(parts) != 4 {
+			return match
+		}
+		
+		openBlock := parts[1]
+		code := parts[2]
+		closeBlock := parts[3]
+		
+		// Внутри блока кода убираем экранирование всего кроме ` и \
+		unescapedCode := code
+		for _, char := range "_*[]()~>#+-=|{}.!" {
+			unescapedCode = strings.ReplaceAll(unescapedCode, "\\"+string(char), string(char))
+		}
+		
+		return openBlock + unescapedCode + closeBlock
+	})
+	
+	return result
+}
+
+// Убирает экранирование внутри форматирования
+func unescapeFormatting(input string) string {
+	result := input
+	
+	// *bold* - убираем экранирование внутри жирного текста
+	boldRegex := regexp.MustCompile(`\*([^*\n]+?)\*`)
+	result = boldRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := boldRegex.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		content := parts[1]
+		// Убираем экранирование символов внутри жирного текста
+		content = strings.ReplaceAll(content, "\\@", "@")
+		content = strings.ReplaceAll(content, "\\#", "#")
+		content = strings.ReplaceAll(content, "\\.", ".")
+		return "*" + content + "*"
+	})
+	
+	// _italic_ - убираем экранирование внутри курсива
+	italicRegex := regexp.MustCompile(`_([^_\n]+?)_`)
+	result = italicRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := italicRegex.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		content := parts[1]
+		content = strings.ReplaceAll(content, "\\@", "@")
+		content = strings.ReplaceAll(content, "\\#", "#")
+		content = strings.ReplaceAll(content, "\\.", ".")
+		return "_" + content + "_"
+	})
+	
+	// __underline__ - убираем экранирование внутри подчеркивания
+	underlineRegex := regexp.MustCompile(`__([^_\n]+?)__`)
+	result = underlineRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := underlineRegex.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		content := parts[1]
+		content = strings.ReplaceAll(content, "\\@", "@")
+		content = strings.ReplaceAll(content, "\\#", "#")
+		content = strings.ReplaceAll(content, "\\.", ".")
+		return "__" + content + "__"
+	})
+	
+	// ~strikethrough~ - убираем экранирование внутри зачеркивания
+	strikeRegex := regexp.MustCompile(`~([^~\n]+?)~`)
+	result = strikeRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := strikeRegex.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		content := parts[1]
+		content = strings.ReplaceAll(content, "\\@", "@")
+		content = strings.ReplaceAll(content, "\\#", "#")
+		content = strings.ReplaceAll(content, "\\.", ".")
+		return "~" + content + "~"
+	})
+	
+	// ||spoiler|| - убираем экранирование внутри спойлеров
+	spoilerRegex := regexp.MustCompile(`\|\|([^|\n]+?)\|\|`)
+	result = spoilerRegex.ReplaceAllStringFunc(result, func(match string) string {
+		parts := spoilerRegex.FindStringSubmatch(match)
+		if len(parts) != 2 {
+			return match
+		}
+		content := parts[1]
+		content = strings.ReplaceAll(content, "\\@", "@")
+		content = strings.ReplaceAll(content, "\\#", "#")
+		content = strings.ReplaceAll(content, "\\.", ".")
+		return "||" + content + "||"
+	})
 	
 	return result
 }
