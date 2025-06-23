@@ -70,6 +70,9 @@ type DonationsCmd struct {
 		Username string  `arg:"" help:"Username (with @ prefix)"`
 		Sum      float64 `arg:"" help:"Donation amount"`
 	} `cmd:"" help:"Add a new donation"`
+
+	List struct {
+	} `cmd:"" help:"List all donations"`
 }
 
 type ContextCmd struct {

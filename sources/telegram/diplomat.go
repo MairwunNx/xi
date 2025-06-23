@@ -20,12 +20,6 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 	tracing.ReportExecution(logger,
 		func() {
 			for _, chunk := range texting.Chunks(text, x.config.ChunkSize) {
-				
-				if (msg.From.UserName == "mairwunnx" || msg.From.UserName == "lynfortune") { // TODO: remove
-					logger.D("Sending message", "chunk", chunk)
-					logger.D("Escaped message", "chunk", texting.EscapeMarkdown(chunk))
-				}
-
 				chattable := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(chunk))
 				chattable.ReplyToMessageID = msg.MessageID
 				chattable.ParseMode = tgbotapi.ModeMarkdownV2

@@ -33,6 +33,22 @@ func (x *DonationsRepository) GetDonationsByUser(logger *tracing.Logger, user *e
 	return donations, nil
 }
 
+func (x *DonationsRepository) GetDonationsWithUsers(logger *tracing.Logger) ([]*entities.Donation, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	donations, err := q.Donation.Preload(query.Donation.User).Order(query.Donation.CreatedAt.Desc()).Find()
+	if err != nil {
+		logger.E("Failed to get donations with users", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Donations with users fetched")
+	return donations, nil
+}
+
 func (x *DonationsRepository) MustGetDonationsByUser(logger *tracing.Logger, user *entities.User) []*entities.Donation {
 	donations, err := x.GetDonationsByUser(logger, user)
 	if err != nil {

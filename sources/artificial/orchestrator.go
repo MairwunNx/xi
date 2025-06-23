@@ -57,7 +57,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (" + *user.Username + ")"
-	prompt := mode.Prompt + texting.InternalQualifierPromptAddition
+	prompt := mode.Prompt
 
 	pins, err := x.pins.GetPinsByChat(logger, msg.Chat.ID)
 	if err != nil {

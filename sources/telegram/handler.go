@@ -105,6 +105,10 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
 	} else {
+		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID != x.diplomat.bot.Self.ID {
+			log.W("Message is a reply to another user, ignoring")
+			return nil
+		}
 		x.HandleXiCommand(log.With(tracing.CommandIssued, "xi/direct"), user, msg)
 	}
 

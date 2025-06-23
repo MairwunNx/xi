@@ -447,6 +447,42 @@ func (x *TelegramHandler) DonationsCommandAdd(log *tracing.Logger, msg *tgbotapi
 	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgDonationsAdded, *user.Username, sum)))
 }
 
+func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
+	donations, err := x.donations.GetDonationsWithUsers(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgDonationsErrorList))
+		return
+	}
+
+	if len(donations) == 0 {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgDonationsNoDonations))
+		return
+	}
+
+	var builder strings.Builder
+	builder.WriteString(texting.MsgDonationsListHeader)
+
+	for _, donation := range donations {
+		if donation.Sum.IsZero() {
+			continue
+		}
+
+		username := "Мертвая душа"
+		if donation.User.Username != nil {
+			username = "@" + *donation.User.Username
+		}
+
+		builder.WriteString(fmt.Sprintf(
+			texting.MsgDonationsListItem,
+			username,
+			donation.Sum.StringFixed(2),
+			donation.CreatedAt.Format("02.01.2006"),
+		))
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(builder.String()))
+}
+
 // =========================  /stats command handlers  =========================
 
 func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {

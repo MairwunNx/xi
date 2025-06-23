@@ -313,7 +313,7 @@ func (x *MessagesRepository) MarkChatMessagesAsRemoved(logger *tracing.Logger, c
 	q := query.Message.WithContext(ctx)
 	_, err := q.
 		Where(query.Message.ChatID.Eq(chatID)).
-		Where(query.Message.MessageTime.Gte(fromTime)).
+		Where(query.Message.MessageTime.Lte(fromTime)).
 		Update(query.Message.IsRemoved, true)
 
 	if err != nil {
