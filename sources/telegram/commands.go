@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"fmt"
+	"os"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
@@ -179,6 +180,13 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 
 func (x *TelegramHandler) HandleWtfCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.WtfCommand(log, msg)
+}
+
+func (x *TelegramHandler) HandleRestartCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	if user.Username != nil && *user.Username == "mairwunnx" {
+		x.diplomat.Reply(log, msg, texting.MsgRestartText)
+		os.Exit(0)
+	}
 }
 
 func (x *TelegramHandler) HandleStartCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {

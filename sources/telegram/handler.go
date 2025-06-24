@@ -107,6 +107,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandlePinnedCommand(log, user, msg)
 		case "wtf":
 			x.HandleWtfCommand(log, user, msg)
+		case "restart":
+			x.HandleRestartCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
