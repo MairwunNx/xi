@@ -35,6 +35,12 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 		return
 	}
 
+	if strings.TrimSpace(response) == "" {
+		log.W("Empty response from AI orchestrator", "response", response)
+		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
+		return
+	}
+
 	x.diplomat.Reply(log, msg, texting.Xiify(response))
 }
 

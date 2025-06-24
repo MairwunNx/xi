@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"errors"
+	"strings"
 	"ximanager/sources/artificial"
 	"ximanager/sources/balancer"
 	"ximanager/sources/persistence/entities"
@@ -62,6 +63,11 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 		return nil
 	}
 
+	if msg.Sticker != nil {
+		log.I("Ignoring sticker message")
+		return nil
+	}
+
 	if msg.Photo != nil && len(msg.Photo) != 0 {
 		x.HandleXiCommand(log.With(tracing.CommandIssued, "xi/photo"), user, msg)
 		return nil
@@ -105,10 +111,28 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
 	} else {
+		if msg.GroupChatCreated || msg.SuperGroupChatCreated || msg.ChannelChatCreated ||
+			msg.MigrateToChatID != 0 || msg.MigrateFromChatID != 0 ||
+			msg.PinnedMessage != nil || msg.NewChatMembers != nil || msg.LeftChatMember != nil ||
+			msg.NewChatTitle != "" || msg.NewChatPhoto != nil || msg.DeleteChatPhoto ||
+			msg.VoiceChatParticipantsInvited != nil || msg.VoiceChatStarted != nil || msg.VoiceChatEnded != nil || msg.VoiceChatScheduled != nil {
+			log.I("Ignoring system message")
+			return nil
+		}
+
 		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID != x.diplomat.bot.Self.ID {
 			log.W("Message is a reply to another user, ignoring")
 			return nil
 		}
+
+		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID == x.diplomat.bot.Self.ID {
+			msgText := strings.TrimSpace(msg.Text)
+			if strings.HasPrefix(msgText, "/noreply") || strings.HasPrefix(msgText, "!") {
+				log.I("Ignoring noreply/! command")
+				return nil
+			}
+		}
+
 		x.HandleXiCommand(log.With(tracing.CommandIssued, "xi/direct"), user, msg)
 	}
 
