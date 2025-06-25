@@ -11,11 +11,11 @@ import (
 type (
 	Donation struct {
 		ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		UserID    uuid.UUID       `gorm:"type:uuid;not null" json:"user_id"`
+		User      uuid.UUID       `gorm:"type:uuid;not null;column:user" json:"user"`
 		Sum       decimal.Decimal `gorm:"type:decimal(10,2);not null" json:"sum"`
 		CreatedAt time.Time       `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
-		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+		UserEntity User `gorm:"foreignKey:User;references:ID" json:"user_entity"`
 	}
 
 	Message struct {
@@ -59,11 +59,11 @@ type (
 	Pin struct {
 		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		ChatID    int64     `gorm:"not null" json:"chat_id"`
-		UserID    uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+		User      uuid.UUID `gorm:"type:uuid;not null;column:user" json:"user"`
 		Message   string    `gorm:"type:text;not null" json:"message"`
 		CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
-		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+		UserEntity User `gorm:"foreignKey:User;references:ID" json:"user_entity"`
 	}
 
 	User struct {
@@ -78,10 +78,10 @@ type (
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 		Messages      []Message      `gorm:"foreignKey:UserID;references:ID" json:"messages"`
-		Donations     []Donation     `gorm:"foreignKey:UserID;references:ID" json:"donations"`
+		Donations     []Donation     `gorm:"foreignKey:User;references:ID" json:"donations"`
 		CreatedModes  []Mode         `gorm:"foreignKey:CreatedBy;references:ID" json:"created_modes"`
 		SelectedModes []SelectedMode `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
-		Pins          []Pin          `gorm:"foreignKey:UserID;references:ID" json:"pins"`
+		Pins          []Pin          `gorm:"foreignKey:User;references:ID" json:"pins"`
 	}
 )
 

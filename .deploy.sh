@@ -49,11 +49,7 @@ if git pull origin "$BRANCH"; then
         MIGRATION_BACKUP=""
         if [ -n "$MAGIC_PROMPT" ]; then
             log "🔧 Подставляем magic prompt из переменной окружения..."
-            
-						mkdir -p .backup
-            MIGRATION_BACKUP=".backup/V4__create_modes_tables.sql"
-            cp migrations/V4__create_modes_tables.sql "$MIGRATION_BACKUP"
-            
+
             python3 -c "
 import os
 import base64

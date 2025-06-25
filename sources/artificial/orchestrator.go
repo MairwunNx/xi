@@ -126,14 +126,14 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string)
 	userNames := make(map[string]string)
 	
 	for _, pin := range pins {
-		userKey := pin.UserID.String()
+		userKey := pin.User.String()
 		
 		userName := "Мертвая душа"
-		if pin.User.Fullname != nil && *pin.User.Fullname != "" {
-			userName = *pin.User.Fullname
+		if pin.UserEntity.Fullname != nil && *pin.UserEntity.Fullname != "" {
+			userName = *pin.UserEntity.Fullname
 		}
-		if pin.User.Username != nil && *pin.User.Username != "" {
-			userName += " (@" + *pin.User.Username + ")"
+		if pin.UserEntity.Username != nil && *pin.UserEntity.Username != "" {
+			userName += " (@" + *pin.UserEntity.Username + ")"
 		}
 		
 		userNames[userKey] = userName

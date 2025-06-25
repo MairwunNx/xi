@@ -474,8 +474,8 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 		}
 
 		username := "Мертвая душа"
-		if donation.User.Username != nil {
-			username = "@" + *donation.User.Username
+		if donation.UserEntity.Username != nil {
+			username = "@" + *donation.UserEntity.Username
 		}
 
 		builder.WriteString(fmt.Sprintf(
@@ -634,12 +634,12 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 	response := texting.MsgPinnedListHeader
 	for i, pin := range pins {
 		authorName := "Мертвая душа"
-		if pin.User.Fullname != nil && *pin.User.Fullname != "" {
-			authorName = *pin.User.Fullname
+		if pin.UserEntity.Fullname != nil && *pin.UserEntity.Fullname != "" {
+			authorName = *pin.UserEntity.Fullname
 		}
 		username := ""
-		if pin.User.Username != nil && *pin.User.Username != "" {
-			username = " (@" + *pin.User.Username + ")"
+		if pin.UserEntity.Username != nil && *pin.UserEntity.Username != "" {
+			username = " (@" + *pin.UserEntity.Username + ")"
 		}
 		response += fmt.Sprintf("%d. %s%s: %s\n", i+1, authorName, username, pin.Message)
 	}

@@ -30,37 +30,37 @@ func newPin(db *gorm.DB, opts ...gen.DOOption) pin {
 	_pin.ALL = field.NewAsterisk(tableName)
 	_pin.ID = field.NewField(tableName, "id")
 	_pin.ChatID = field.NewInt64(tableName, "chat_id")
-	_pin.UserID = field.NewField(tableName, "user_id")
+	_pin.User = field.NewField(tableName, "user")
 	_pin.Message = field.NewString(tableName, "message")
 	_pin.CreatedAt = field.NewTime(tableName, "created_at")
-	_pin.User = pinHasOneUser{
+	_pin.UserEntity = pinBelongsToUserEntity{
 		db: db.Session(&gorm.Session{}),
 
-		RelationField: field.NewRelation("User", "entities.User"),
+		RelationField: field.NewRelation("UserEntity", "entities.User"),
 		Messages: struct {
 			field.RelationField
 			User struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Messages", "entities.Message"),
+			RelationField: field.NewRelation("UserEntity.Messages", "entities.Message"),
 			User: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Messages.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Messages.User", "entities.User"),
 			},
 		},
 		Donations: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Donations", "entities.Donation"),
-			User: struct {
+			RelationField: field.NewRelation("UserEntity.Donations", "entities.Donation"),
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Donations.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Donations.UserEntity", "entities.User"),
 			},
 		},
 		CreatedModes: struct {
@@ -78,11 +78,11 @@ func newPin(db *gorm.DB, opts ...gen.DOOption) pin {
 				}
 			}
 		}{
-			RelationField: field.NewRelation("User.CreatedModes", "entities.Mode"),
+			RelationField: field.NewRelation("UserEntity.CreatedModes", "entities.Mode"),
 			Creator: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.CreatedModes.Creator", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.CreatedModes.Creator", "entities.User"),
 			},
 			SelectedModes: struct {
 				field.RelationField
@@ -93,35 +93,35 @@ func newPin(db *gorm.DB, opts ...gen.DOOption) pin {
 					field.RelationField
 				}
 			}{
-				RelationField: field.NewRelation("User.CreatedModes.SelectedModes", "entities.SelectedMode"),
+				RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes", "entities.SelectedMode"),
 				Mode: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("User.CreatedModes.SelectedModes.Mode", "entities.Mode"),
+					RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes.Mode", "entities.Mode"),
 				},
 				User: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("User.CreatedModes.SelectedModes.User", "entities.User"),
+					RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes.User", "entities.User"),
 				},
 			},
 		},
 		SelectedModes: struct {
 			field.RelationField
 		}{
-			RelationField: field.NewRelation("User.SelectedModes", "entities.SelectedMode"),
+			RelationField: field.NewRelation("UserEntity.SelectedModes", "entities.SelectedMode"),
 		},
 		Pins: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Pins", "entities.Pin"),
-			User: struct {
+			RelationField: field.NewRelation("UserEntity.Pins", "entities.Pin"),
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Pins.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Pins.UserEntity", "entities.User"),
 			},
 		},
 	}
@@ -134,13 +134,13 @@ func newPin(db *gorm.DB, opts ...gen.DOOption) pin {
 type pin struct {
 	pinDo pinDo
 
-	ALL       field.Asterisk
-	ID        field.Field
-	ChatID    field.Int64
-	UserID    field.Field
-	Message   field.String
-	CreatedAt field.Time
-	User      pinHasOneUser
+	ALL        field.Asterisk
+	ID         field.Field
+	ChatID     field.Int64
+	User       field.Field
+	Message    field.String
+	CreatedAt  field.Time
+	UserEntity pinBelongsToUserEntity
 
 	fieldMap map[string]field.Expr
 }
@@ -159,7 +159,7 @@ func (p *pin) updateTableName(table string) *pin {
 	p.ALL = field.NewAsterisk(table)
 	p.ID = field.NewField(table, "id")
 	p.ChatID = field.NewInt64(table, "chat_id")
-	p.UserID = field.NewField(table, "user_id")
+	p.User = field.NewField(table, "user")
 	p.Message = field.NewString(table, "message")
 	p.CreatedAt = field.NewTime(table, "created_at")
 
@@ -189,7 +189,7 @@ func (p *pin) fillFieldMap() {
 	p.fieldMap = make(map[string]field.Expr, 6)
 	p.fieldMap["id"] = p.ID
 	p.fieldMap["chat_id"] = p.ChatID
-	p.fieldMap["user_id"] = p.UserID
+	p.fieldMap["user"] = p.User
 	p.fieldMap["message"] = p.Message
 	p.fieldMap["created_at"] = p.CreatedAt
 
@@ -197,18 +197,18 @@ func (p *pin) fillFieldMap() {
 
 func (p pin) clone(db *gorm.DB) pin {
 	p.pinDo.ReplaceConnPool(db.Statement.ConnPool)
-	p.User.db = db.Session(&gorm.Session{Initialized: true})
-	p.User.db.Statement.ConnPool = db.Statement.ConnPool
+	p.UserEntity.db = db.Session(&gorm.Session{Initialized: true})
+	p.UserEntity.db.Statement.ConnPool = db.Statement.ConnPool
 	return p
 }
 
 func (p pin) replaceDB(db *gorm.DB) pin {
 	p.pinDo.ReplaceDB(db)
-	p.User.db = db.Session(&gorm.Session{})
+	p.UserEntity.db = db.Session(&gorm.Session{})
 	return p
 }
 
-type pinHasOneUser struct {
+type pinBelongsToUserEntity struct {
 	db *gorm.DB
 
 	field.RelationField
@@ -221,7 +221,7 @@ type pinHasOneUser struct {
 	}
 	Donations struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}
@@ -245,13 +245,13 @@ type pinHasOneUser struct {
 	}
 	Pins struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}
 }
 
-func (a pinHasOneUser) Where(conds ...field.Expr) *pinHasOneUser {
+func (a pinBelongsToUserEntity) Where(conds ...field.Expr) *pinBelongsToUserEntity {
 	if len(conds) == 0 {
 		return &a
 	}
@@ -264,32 +264,32 @@ func (a pinHasOneUser) Where(conds ...field.Expr) *pinHasOneUser {
 	return &a
 }
 
-func (a pinHasOneUser) WithContext(ctx context.Context) *pinHasOneUser {
+func (a pinBelongsToUserEntity) WithContext(ctx context.Context) *pinBelongsToUserEntity {
 	a.db = a.db.WithContext(ctx)
 	return &a
 }
 
-func (a pinHasOneUser) Session(session *gorm.Session) *pinHasOneUser {
+func (a pinBelongsToUserEntity) Session(session *gorm.Session) *pinBelongsToUserEntity {
 	a.db = a.db.Session(session)
 	return &a
 }
 
-func (a pinHasOneUser) Model(m *entities.Pin) *pinHasOneUserTx {
-	return &pinHasOneUserTx{a.db.Model(m).Association(a.Name())}
+func (a pinBelongsToUserEntity) Model(m *entities.Pin) *pinBelongsToUserEntityTx {
+	return &pinBelongsToUserEntityTx{a.db.Model(m).Association(a.Name())}
 }
 
-func (a pinHasOneUser) Unscoped() *pinHasOneUser {
+func (a pinBelongsToUserEntity) Unscoped() *pinBelongsToUserEntity {
 	a.db = a.db.Unscoped()
 	return &a
 }
 
-type pinHasOneUserTx struct{ tx *gorm.Association }
+type pinBelongsToUserEntityTx struct{ tx *gorm.Association }
 
-func (a pinHasOneUserTx) Find() (result *entities.User, err error) {
+func (a pinBelongsToUserEntityTx) Find() (result *entities.User, err error) {
 	return result, a.tx.Find(&result)
 }
 
-func (a pinHasOneUserTx) Append(values ...*entities.User) (err error) {
+func (a pinBelongsToUserEntityTx) Append(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -297,7 +297,7 @@ func (a pinHasOneUserTx) Append(values ...*entities.User) (err error) {
 	return a.tx.Append(targetValues...)
 }
 
-func (a pinHasOneUserTx) Replace(values ...*entities.User) (err error) {
+func (a pinBelongsToUserEntityTx) Replace(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -305,7 +305,7 @@ func (a pinHasOneUserTx) Replace(values ...*entities.User) (err error) {
 	return a.tx.Replace(targetValues...)
 }
 
-func (a pinHasOneUserTx) Delete(values ...*entities.User) (err error) {
+func (a pinBelongsToUserEntityTx) Delete(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -313,15 +313,15 @@ func (a pinHasOneUserTx) Delete(values ...*entities.User) (err error) {
 	return a.tx.Delete(targetValues...)
 }
 
-func (a pinHasOneUserTx) Clear() error {
+func (a pinBelongsToUserEntityTx) Clear() error {
 	return a.tx.Clear()
 }
 
-func (a pinHasOneUserTx) Count() int64 {
+func (a pinBelongsToUserEntityTx) Count() int64 {
 	return a.tx.Count()
 }
 
-func (a pinHasOneUserTx) Unscoped() *pinHasOneUserTx {
+func (a pinBelongsToUserEntityTx) Unscoped() *pinBelongsToUserEntityTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }

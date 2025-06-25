@@ -48,7 +48,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			}
 			Donations struct {
 				field.RelationField
-				User struct {
+				UserEntity struct {
 					field.RelationField
 				}
 			}
@@ -72,7 +72,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			}
 			Pins struct {
 				field.RelationField
-				User struct {
+				UserEntity struct {
 					field.RelationField
 				}
 			}
@@ -85,15 +85,15 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			},
 			Donations: struct {
 				field.RelationField
-				User struct {
+				UserEntity struct {
 					field.RelationField
 				}
 			}{
 				RelationField: field.NewRelation("Messages.User.Donations", "entities.Donation"),
-				User: struct {
+				UserEntity: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("Messages.User.Donations.User", "entities.User"),
+					RelationField: field.NewRelation("Messages.User.Donations.UserEntity", "entities.User"),
 				},
 			},
 			CreatedModes: struct {
@@ -146,15 +146,15 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			},
 			Pins: struct {
 				field.RelationField
-				User struct {
+				UserEntity struct {
 					field.RelationField
 				}
 			}{
 				RelationField: field.NewRelation("Messages.User.Pins", "entities.Pin"),
-				User: struct {
+				UserEntity: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("Messages.User.Pins.User", "entities.User"),
+					RelationField: field.NewRelation("Messages.User.Pins.UserEntity", "entities.User"),
 				},
 			},
 		},
@@ -310,7 +310,7 @@ type userHasManyMessages struct {
 		}
 		Donations struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}
@@ -334,7 +334,7 @@ type userHasManyMessages struct {
 		}
 		Pins struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}

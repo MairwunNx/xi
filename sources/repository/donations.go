@@ -23,7 +23,7 @@ func (x *DonationsRepository) GetDonationsByUser(logger *tracing.Logger, user *e
 
 	q := query.Q.WithContext(ctx)
 
-	donations, err := q.Donation.Where(query.Donation.UserID.Eq(user.ID)).Order(query.Donation.CreatedAt.Desc()).Find()
+	donations, err := q.Donation.Where(query.Donation.User.Eq(user.ID)).Order(query.Donation.CreatedAt.Desc()).Find()
 	if err != nil {
 		logger.E("Failed to get donations", tracing.InnerError, err)
 		return nil, err
@@ -39,7 +39,7 @@ func (x *DonationsRepository) GetDonationsWithUsers(logger *tracing.Logger) ([]*
 
 	q := query.Q.WithContext(ctx)
 
-	donations, err := q.Donation.Preload(query.Donation.User).Order(query.Donation.CreatedAt.Desc()).Find()
+	donations, err := q.Donation.Preload(query.Donation.UserEntity).Order(query.Donation.CreatedAt.Desc()).Find()
 	if err != nil {
 		logger.E("Failed to get donations with users", tracing.InnerError, err)
 		return nil, err
@@ -65,8 +65,8 @@ func (x *DonationsRepository) CreateDonation(logger *tracing.Logger, user *entit
 	q := query.Q.WithContext(ctx)
 
 	donation := &entities.Donation{
-		UserID: user.ID,
-		Sum:    decimal.NewFromFloat(sum),
+		User: user.ID,
+		Sum:  decimal.NewFromFloat(sum),
 	}
 
 	err := q.Donation.Create(donation)

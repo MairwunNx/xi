@@ -29,37 +29,37 @@ func newDonation(db *gorm.DB, opts ...gen.DOOption) donation {
 	tableName := _donation.donationDo.TableName()
 	_donation.ALL = field.NewAsterisk(tableName)
 	_donation.ID = field.NewField(tableName, "id")
-	_donation.UserID = field.NewField(tableName, "user_id")
+	_donation.User = field.NewField(tableName, "user")
 	_donation.Sum = field.NewField(tableName, "sum")
 	_donation.CreatedAt = field.NewTime(tableName, "created_at")
-	_donation.User = donationHasOneUser{
+	_donation.UserEntity = donationBelongsToUserEntity{
 		db: db.Session(&gorm.Session{}),
 
-		RelationField: field.NewRelation("User", "entities.User"),
+		RelationField: field.NewRelation("UserEntity", "entities.User"),
 		Messages: struct {
 			field.RelationField
 			User struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Messages", "entities.Message"),
+			RelationField: field.NewRelation("UserEntity.Messages", "entities.Message"),
 			User: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Messages.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Messages.User", "entities.User"),
 			},
 		},
 		Donations: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Donations", "entities.Donation"),
-			User: struct {
+			RelationField: field.NewRelation("UserEntity.Donations", "entities.Donation"),
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Donations.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Donations.UserEntity", "entities.User"),
 			},
 		},
 		CreatedModes: struct {
@@ -77,11 +77,11 @@ func newDonation(db *gorm.DB, opts ...gen.DOOption) donation {
 				}
 			}
 		}{
-			RelationField: field.NewRelation("User.CreatedModes", "entities.Mode"),
+			RelationField: field.NewRelation("UserEntity.CreatedModes", "entities.Mode"),
 			Creator: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.CreatedModes.Creator", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.CreatedModes.Creator", "entities.User"),
 			},
 			SelectedModes: struct {
 				field.RelationField
@@ -92,35 +92,35 @@ func newDonation(db *gorm.DB, opts ...gen.DOOption) donation {
 					field.RelationField
 				}
 			}{
-				RelationField: field.NewRelation("User.CreatedModes.SelectedModes", "entities.SelectedMode"),
+				RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes", "entities.SelectedMode"),
 				Mode: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("User.CreatedModes.SelectedModes.Mode", "entities.Mode"),
+					RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes.Mode", "entities.Mode"),
 				},
 				User: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("User.CreatedModes.SelectedModes.User", "entities.User"),
+					RelationField: field.NewRelation("UserEntity.CreatedModes.SelectedModes.User", "entities.User"),
 				},
 			},
 		},
 		SelectedModes: struct {
 			field.RelationField
 		}{
-			RelationField: field.NewRelation("User.SelectedModes", "entities.SelectedMode"),
+			RelationField: field.NewRelation("UserEntity.SelectedModes", "entities.SelectedMode"),
 		},
 		Pins: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Pins", "entities.Pin"),
-			User: struct {
+			RelationField: field.NewRelation("UserEntity.Pins", "entities.Pin"),
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Pins.User", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Pins.UserEntity", "entities.User"),
 			},
 		},
 	}
@@ -133,12 +133,12 @@ func newDonation(db *gorm.DB, opts ...gen.DOOption) donation {
 type donation struct {
 	donationDo donationDo
 
-	ALL       field.Asterisk
-	ID        field.Field
-	UserID    field.Field
-	Sum       field.Field
-	CreatedAt field.Time
-	User      donationHasOneUser
+	ALL        field.Asterisk
+	ID         field.Field
+	User       field.Field
+	Sum        field.Field
+	CreatedAt  field.Time
+	UserEntity donationBelongsToUserEntity
 
 	fieldMap map[string]field.Expr
 }
@@ -156,7 +156,7 @@ func (d donation) As(alias string) *donation {
 func (d *donation) updateTableName(table string) *donation {
 	d.ALL = field.NewAsterisk(table)
 	d.ID = field.NewField(table, "id")
-	d.UserID = field.NewField(table, "user_id")
+	d.User = field.NewField(table, "user")
 	d.Sum = field.NewField(table, "sum")
 	d.CreatedAt = field.NewTime(table, "created_at")
 
@@ -185,7 +185,7 @@ func (d *donation) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 func (d *donation) fillFieldMap() {
 	d.fieldMap = make(map[string]field.Expr, 5)
 	d.fieldMap["id"] = d.ID
-	d.fieldMap["user_id"] = d.UserID
+	d.fieldMap["user"] = d.User
 	d.fieldMap["sum"] = d.Sum
 	d.fieldMap["created_at"] = d.CreatedAt
 
@@ -193,18 +193,18 @@ func (d *donation) fillFieldMap() {
 
 func (d donation) clone(db *gorm.DB) donation {
 	d.donationDo.ReplaceConnPool(db.Statement.ConnPool)
-	d.User.db = db.Session(&gorm.Session{Initialized: true})
-	d.User.db.Statement.ConnPool = db.Statement.ConnPool
+	d.UserEntity.db = db.Session(&gorm.Session{Initialized: true})
+	d.UserEntity.db.Statement.ConnPool = db.Statement.ConnPool
 	return d
 }
 
 func (d donation) replaceDB(db *gorm.DB) donation {
 	d.donationDo.ReplaceDB(db)
-	d.User.db = db.Session(&gorm.Session{})
+	d.UserEntity.db = db.Session(&gorm.Session{})
 	return d
 }
 
-type donationHasOneUser struct {
+type donationBelongsToUserEntity struct {
 	db *gorm.DB
 
 	field.RelationField
@@ -217,7 +217,7 @@ type donationHasOneUser struct {
 	}
 	Donations struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}
@@ -241,13 +241,13 @@ type donationHasOneUser struct {
 	}
 	Pins struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}
 }
 
-func (a donationHasOneUser) Where(conds ...field.Expr) *donationHasOneUser {
+func (a donationBelongsToUserEntity) Where(conds ...field.Expr) *donationBelongsToUserEntity {
 	if len(conds) == 0 {
 		return &a
 	}
@@ -260,32 +260,32 @@ func (a donationHasOneUser) Where(conds ...field.Expr) *donationHasOneUser {
 	return &a
 }
 
-func (a donationHasOneUser) WithContext(ctx context.Context) *donationHasOneUser {
+func (a donationBelongsToUserEntity) WithContext(ctx context.Context) *donationBelongsToUserEntity {
 	a.db = a.db.WithContext(ctx)
 	return &a
 }
 
-func (a donationHasOneUser) Session(session *gorm.Session) *donationHasOneUser {
+func (a donationBelongsToUserEntity) Session(session *gorm.Session) *donationBelongsToUserEntity {
 	a.db = a.db.Session(session)
 	return &a
 }
 
-func (a donationHasOneUser) Model(m *entities.Donation) *donationHasOneUserTx {
-	return &donationHasOneUserTx{a.db.Model(m).Association(a.Name())}
+func (a donationBelongsToUserEntity) Model(m *entities.Donation) *donationBelongsToUserEntityTx {
+	return &donationBelongsToUserEntityTx{a.db.Model(m).Association(a.Name())}
 }
 
-func (a donationHasOneUser) Unscoped() *donationHasOneUser {
+func (a donationBelongsToUserEntity) Unscoped() *donationBelongsToUserEntity {
 	a.db = a.db.Unscoped()
 	return &a
 }
 
-type donationHasOneUserTx struct{ tx *gorm.Association }
+type donationBelongsToUserEntityTx struct{ tx *gorm.Association }
 
-func (a donationHasOneUserTx) Find() (result *entities.User, err error) {
+func (a donationBelongsToUserEntityTx) Find() (result *entities.User, err error) {
 	return result, a.tx.Find(&result)
 }
 
-func (a donationHasOneUserTx) Append(values ...*entities.User) (err error) {
+func (a donationBelongsToUserEntityTx) Append(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -293,7 +293,7 @@ func (a donationHasOneUserTx) Append(values ...*entities.User) (err error) {
 	return a.tx.Append(targetValues...)
 }
 
-func (a donationHasOneUserTx) Replace(values ...*entities.User) (err error) {
+func (a donationBelongsToUserEntityTx) Replace(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -301,7 +301,7 @@ func (a donationHasOneUserTx) Replace(values ...*entities.User) (err error) {
 	return a.tx.Replace(targetValues...)
 }
 
-func (a donationHasOneUserTx) Delete(values ...*entities.User) (err error) {
+func (a donationBelongsToUserEntityTx) Delete(values ...*entities.User) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -309,15 +309,15 @@ func (a donationHasOneUserTx) Delete(values ...*entities.User) (err error) {
 	return a.tx.Delete(targetValues...)
 }
 
-func (a donationHasOneUserTx) Clear() error {
+func (a donationBelongsToUserEntityTx) Clear() error {
 	return a.tx.Clear()
 }
 
-func (a donationHasOneUserTx) Count() int64 {
+func (a donationBelongsToUserEntityTx) Count() int64 {
 	return a.tx.Count()
 }
 
-func (a donationHasOneUserTx) Unscoped() *donationHasOneUserTx {
+func (a donationBelongsToUserEntityTx) Unscoped() *donationBelongsToUserEntityTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }

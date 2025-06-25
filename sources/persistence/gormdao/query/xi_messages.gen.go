@@ -55,15 +55,15 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 		},
 		Donations: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
 			RelationField: field.NewRelation("User.Donations", "entities.Donation"),
-			User: struct {
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Donations.User", "entities.User"),
+				RelationField: field.NewRelation("User.Donations.UserEntity", "entities.User"),
 			},
 		},
 		CreatedModes: struct {
@@ -116,15 +116,15 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 		},
 		Pins: struct {
 			field.RelationField
-			User struct {
+			UserEntity struct {
 				field.RelationField
 			}
 		}{
 			RelationField: field.NewRelation("User.Pins", "entities.Pin"),
-			User: struct {
+			UserEntity: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Pins.User", "entities.User"),
+				RelationField: field.NewRelation("User.Pins.UserEntity", "entities.User"),
 			},
 		},
 	}
@@ -233,7 +233,7 @@ type messageHasOneUser struct {
 	}
 	Donations struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}
@@ -257,7 +257,7 @@ type messageHasOneUser struct {
 	}
 	Pins struct {
 		field.RelationField
-		User struct {
+		UserEntity struct {
 			field.RelationField
 		}
 	}

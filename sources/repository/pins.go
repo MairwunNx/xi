@@ -39,7 +39,7 @@ func (x *PinsRepository) CreatePin(logger *tracing.Logger, user *entities.User, 
 	}
 
 	q := query.Q.WithContext(ctx)
-	pin := &entities.Pin{ChatID: chatID, UserID: user.ID, Message: message}
+	pin := &entities.Pin{ChatID: chatID, User: user.ID, Message: message}
 
 	err := q.Pin.Create(pin)
 	if err != nil {
@@ -56,7 +56,7 @@ func (x *PinsRepository) GetPinsByChat(logger *tracing.Logger, chatID int64) ([]
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-	pins, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID)).Preload(query.Pin.User).Order(query.Pin.CreatedAt.Desc()).Find()
+	pins, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID)).Preload(query.Pin.UserEntity).Order(query.Pin.CreatedAt.Desc()).Find()
 	if err != nil {
 		logger.E("Failed to get pins by chat", tracing.InnerError, err)
 		return nil, err
@@ -71,7 +71,7 @@ func (x *PinsRepository) GetPinByUserChatAndMessage(logger *tracing.Logger, user
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-	pin, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.UserID.Eq(user.ID), query.Pin.Message.Eq(message)).First()
+	pin, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.User.Eq(user.ID), query.Pin.Message.Eq(message)).First()
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.W("Pin not found when expected")
@@ -93,7 +93,7 @@ func (x *PinsRepository) DeletePin(logger *tracing.Logger, user *entities.User, 
 	message = strings.TrimSpace(strings.ToValidUTF8(message, ""))
 
 	q := query.Q.WithContext(ctx)
-	_, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.UserID.Eq(user.ID), query.Pin.Message.Eq(message)).Delete(&entities.Pin{})
+	_, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.User.Eq(user.ID), query.Pin.Message.Eq(message)).Delete(&entities.Pin{})
 	if err != nil {
 		logger.E("Failed to delete pin", tracing.InnerError, err)
 		return err
@@ -108,7 +108,7 @@ func (x *PinsRepository) CountPinsByUserInChat(logger *tracing.Logger, user *ent
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-	count, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.UserID.Eq(user.ID)).Count()
+	count, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.User.Eq(user.ID)).Count()
 	if err != nil {
 		logger.E("Failed to count pins by user in chat", tracing.InnerError, err)
 		return 0, err
