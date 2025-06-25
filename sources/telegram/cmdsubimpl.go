@@ -486,7 +486,7 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 		))
 	}
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(builder.String()))
+	x.diplomat.Reply(log, msg, builder.String())
 }
 
 // =========================  /stats command handlers  =========================
@@ -650,7 +650,7 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 	limit := x.pins.GetPinLimit(log, user, donations)
 	response += fmt.Sprintf("\n" + texting.MsgPinnedListFooter, userPinsCount, limit)
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
+	x.diplomat.Reply(log, msg, response)
 }
 
 // =========================  /wtf command handlers  =========================
