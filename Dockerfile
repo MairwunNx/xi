@@ -22,7 +22,7 @@ COPY . .
 RUN CGO_ENABLED=1 go build \
     -trimpath \
     -o ximanager \
-    -ldflags="-s -w -X main.version=2.0.4 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
+    -ldflags="-s -w -X main.version=2.0.5 -X main.buildTime=$(date -u +%Y%m%d-%H%M%S)" \
     ./program.go
 
 FROM python:3.11-slim

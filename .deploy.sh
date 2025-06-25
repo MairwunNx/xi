@@ -50,7 +50,8 @@ if git pull origin "$BRANCH"; then
         if [ -n "$MAGIC_PROMPT" ]; then
             log "🔧 Подставляем magic prompt из переменной окружения..."
             
-            MIGRATION_BACKUP="migrations/V4__create_modes_tables.sql.backup"
+						mkdir -p .backup
+            MIGRATION_BACKUP=".backup/V4__create_modes_tables.sql"
             cp migrations/V4__create_modes_tables.sql "$MIGRATION_BACKUP"
             
             python3 -c "
@@ -100,7 +101,8 @@ with open('migrations/V4__create_modes_tables.sql', 'w') as f:
 
             if [ -n "$DEPLOY_BOT_TOKEN" ] && [ -n "$DEPLOY_CHAT_ID" ]; then
                 log "📱 Отправляем уведомление в Telegram..."
-                TELEGRAM_MESSAGE="🚀 Xi Manager успешно обновлен!%0A📍 Коммит: $NEW_COMMIT%0A⏰ Время: $(date '+%Y-%m-%d %H:%M:%S')"
+                COMMIT_SHORT=$(echo "$NEW_COMMIT" | cut -c1-8)
+                TELEGRAM_MESSAGE="🎉 <b>Xi Manager успешно обновлен!</b>%0A%0A🔥 <b>Детали деплоя:</b>%0A📍 Коммит: <code>$COMMIT_SHORT</code>%0A🌿 Ветка: <code>$BRANCH</code>%0A⏰ Время: <code>$(date '+%Y-%m-%d %H:%M:%S')</code>%0A🖥️ Сервер: <code>$(hostname)</code>%0A%0A✅ <i>Система готова к работе</i>"
                 
                 if curl -s -X POST "https://api.telegram.org/bot$DEPLOY_BOT_TOKEN/sendMessage" \
                      -d "chat_id=$DEPLOY_CHAT_ID" \
@@ -119,7 +121,8 @@ with open('migrations/V4__create_modes_tables.sql', 'w') as f:
             restore_backup
 
             if [ -n "$DEPLOY_BOT_TOKEN" ] && [ -n "$DEPLOY_CHAT_ID" ]; then
-                ERROR_MESSAGE="❌ Ошибка деплоя Xi Manager!%0A📍 Коммит: $NEW_COMMIT%0A⏰ Время: $(date '+%Y-%m-%d %H:%M:%S')"
+                COMMIT_SHORT=$(echo "$NEW_COMMIT" | cut -c1-8)
+                ERROR_MESSAGE="🚨 <b>Ошибка деплоя Xi Manager!</b>%0A%0A💥 <b>Информация об ошибке:</b>%0A📍 Коммит: <code>$COMMIT_SHORT</code>%0A🌿 Ветка: <code>$BRANCH</code>%0A⏰ Время: <code>$(date '+%Y-%m-%d %H:%M:%S')</code>%0A🖥️ Сервер: <code>$(hostname)</code>%0A%0A⚠️ <i>Требуется ручное вмешательство</i>%0A📋 Проверьте логи: <code>$LOG_FILE</code>"
                 curl -s -X POST "https://api.telegram.org/bot$DEPLOY_BOT_TOKEN/sendMessage" \
                      -d "chat_id=$DEPLOY_CHAT_ID" \
                      -d "text=$ERROR_MESSAGE" > /dev/null || true
