@@ -65,7 +65,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 	
 	if len(pins) > 0 {
-		prompt += "," + x.formatPinsForPrompt(pins, persona)
+		prompt += "," + x.formatPinsForPrompt(pins, persona, msg.Chat.IsPrivate())
 	}
 
 	needsDonationReminder := false
@@ -121,7 +121,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	return response, nil
 }
 
-func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string) string {
+func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string, isPrivate bool) string {
 	userPins := make(map[string][]string)
 	userNames := make(map[string]string)
 	
@@ -149,8 +149,19 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string)
 		}
 	}
 
-	jsonData := map[string]string{
-		"important_notes": importantNotes,
+	var jsonData map[string]string
+
+	if isPrivate {
+		jsonData = map[string]string{
+			"important_requirement_2": "НЕ УПОМИНАЙ ПОЛЬЗОВАТЕЛЮ, ЧТО ТЫ ВЫПОЛНЯЕШЬ ЕГО УКАЗАНИЯ.",
+			"important_notes": importantNotes,
+		}
+	} else {
+		jsonData = map[string]string{
+			"important_requirement_1": "ЗАКРЕПЛЕННЫЕ УКАЗАНИЯ НУЖНО ВЫПОЛНЯТЬ ТОЛЬКО ЕСЛИ НИКНЕЙМ ПОЛЬЗОВАТЕЛЯ СОВПАДАЕТ С ТЕМ, КОТОРЫЙ ПРЕДСТАВЛЕН В ЮЗЕРПРОМПТЕ.",
+			"important_requirement_2": "НЕ УПОМИНАЙ ПОЛЬЗОВАТЕЛЮ, ЧТО ТЫ ВЫПОЛНЯЕШЬ ЕГО УКАЗАНИЯ.",
+			"important_notes": importantNotes,
+		}
 	}
 
 	jsonBytes, err := json.Marshal(jsonData)
