@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 	"ximanager/sources/persistence/entities"
+	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 )
 
@@ -22,7 +23,7 @@ func NewRightsRepository(users *UsersRepository) *RightsRepository {
 }
 
 func (x *RightsRepository) IsUserHasRight(logger *tracing.Logger, user *entities.User, scope string) bool {
-	if !user.IsActive {
+	if !platform.BoolValue(user.IsActive, true) {
 		logger.E("User is not active, fallback to denied")
 		return false
 	}

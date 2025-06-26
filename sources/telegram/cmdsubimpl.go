@@ -340,7 +340,7 @@ func (x *TelegramHandler) UsersCommandDisable(log *tracing.Logger, msg *tgbotapi
 		return
 	}
 
-	user.IsActive = false
+	user.IsActive = platform.BoolPtr(false)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgUsersErrorDisable)
@@ -356,7 +356,7 @@ func (x *TelegramHandler) UsersCommandEnable(log *tracing.Logger, msg *tgbotapi.
 		return
 	}
 
-	user.IsActive = true
+	user.IsActive = platform.BoolPtr(true)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgUsersErrorEnable)
@@ -388,7 +388,7 @@ func (x *TelegramHandler) UsersCommandStack(log *tracing.Logger, msg *tgbotapi.M
 		return
 	}
 
-	user.IsStackAllowed = enabled
+	user.IsStackAllowed = platform.BoolPtr(enabled)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgUsersErrorStack)
@@ -549,7 +549,7 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, msg *tgbota
 }
 
 func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	user.IsStackEnabled = false
+	user.IsStackEnabled = platform.BoolPtr(false)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorDisable))
@@ -560,7 +560,7 @@ func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entit
 }
 
 func (x *TelegramHandler) ContextCommandEnable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	user.IsStackEnabled = true
+	user.IsStackEnabled = platform.BoolPtr(true)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorEnable))

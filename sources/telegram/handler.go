@@ -6,6 +6,7 @@ import (
 	"ximanager/sources/artificial"
 	"ximanager/sources/balancer"
 	"ximanager/sources/persistence/entities"
+	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
 	"ximanager/sources/throttler"
@@ -52,13 +53,13 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 	}
 
 	log = log.With(
-		tracing.InternalUserActive, user.IsActive,
+		tracing.InternalUserActive, platform.BoolValue(user.IsActive, false),
 		tracing.InternalUserRights, user.Rights,
 		tracing.InternalUserWindow, user.WindowLimit,
-		tracing.InternalUserStack, user.IsStackAllowed,
+		tracing.InternalUserStack, platform.BoolValue(user.IsStackAllowed, false),
 	)
 
-	if !user.IsActive {
+	if !platform.BoolValue(user.IsActive, true) {
 		x.diplomat.Reply(log, msg, texting.MsgXiUserBlocked)
 		return nil
 	}

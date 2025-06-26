@@ -31,9 +31,12 @@ func (x *UsersRepository) CreateUser(logger *tracing.Logger, euid int64, uname *
 	q := query.Q.WithContext(ctx)
 
 	user := &entities.User{
-		UserID:   euid,
-		Username: uname,
-		Fullname: ufullname,
+		UserID:         euid,
+		Username:       uname,
+		Fullname:       ufullname,
+		IsActive:       platform.BoolPtr(true),
+		IsStackAllowed: platform.BoolPtr(false),
+		IsStackEnabled: platform.BoolPtr(true),
 	}
 
 	err := q.User.Create(user)

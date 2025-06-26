@@ -71,12 +71,12 @@ func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entit
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	if !user.IsStackAllowed {
+	if !platform.BoolValue(user.IsStackAllowed, false) {
 		logger.I("User stack access denied")
 		return []MessagePair{}, nil
 	}
 
-	if !user.IsStackEnabled {
+	if !platform.BoolValue(user.IsStackEnabled, true) {
 		logger.I("User stack usage disabled")
 		return []MessagePair{}, nil
 	}
