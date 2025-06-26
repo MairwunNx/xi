@@ -541,11 +541,33 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, msg *tgbotapi.Message, chatID int64) {
 	err := x.messages.MarkChatMessagesAsRemoved(log, chatID, time.Now())
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextError))
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorRefresh))
 		return
 	}
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
+}
+
+func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	user.IsStackEnabled = false
+	_, err := x.users.UpdateUser(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorDisable))
+		return
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextDisabled))
+}
+
+func (x *TelegramHandler) ContextCommandEnable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	user.IsStackEnabled = true
+	_, err := x.users.UpdateUser(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorEnable))
+		return
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextEnabled))
 }
 
 // =========================  /wtf command handlers  =========================

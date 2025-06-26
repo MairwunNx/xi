@@ -74,6 +74,7 @@ type (
 		Rights         pq.StringArray `gorm:"type:user_right[];not null;default:ARRAY[]::user_right[]" json:"rights"`
 		IsActive       bool           `gorm:"not null;default:true" json:"is_active"`
 		IsStackAllowed bool           `gorm:"not null;default:false" json:"is_stack_allowed"`
+		IsStackEnabled bool           `gorm:"not null;default:true" json:"is_stack_enabled"`
 		WindowLimit    int64          `gorm:"not null;default:0" json:"window_limit"`
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 

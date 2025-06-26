@@ -76,6 +76,11 @@ func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entit
 		return []MessagePair{}, nil
 	}
 
+	if !user.IsStackEnabled {
+		logger.I("User stack usage disabled")
+		return []MessagePair{}, nil
+	}
+
 	if user.WindowLimit == 0 {
 		logger.I("User window limit is 0")
 		return []MessagePair{}, nil

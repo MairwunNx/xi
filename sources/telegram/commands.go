@@ -172,6 +172,10 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 			chatID = msg.Chat.ID
 		}
 		x.ContextCommandRefresh(log, msg, chatID)
+	case "disable":
+		x.ContextCommandDisable(log, user, msg)
+	case "enable":
+		x.ContextCommandEnable(log, user, msg)
 	default:
 		log.W("Unknown context subcommand", tracing.InternalCommand, ctx.Command())
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
