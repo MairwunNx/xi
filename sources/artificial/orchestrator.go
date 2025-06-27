@@ -70,15 +70,21 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 
 	needsDonationReminder := false
+	needsSoftDonationReminder := false
 	donation, err := x.donations.GetDonationsByUser(logger, user)
 	if err != nil {
-		logger.E("Failed to get donation", tracing.InnerError, err)
 		if strings.ToLower(*user.Username) != "mairwunnx" {
 			needsDonationReminder = true
 		}
 	} else {
 		if len(donation) == 0 && strings.ToLower(*user.Username) != "mairwunnx" {
 			needsDonationReminder = true
+		} else if len(donation) > 0 && strings.ToLower(*user.Username) != "mairwunnx" {
+			monthAgo := time.Now().AddDate(0, 0, -30)
+			expired := donation[0].CreatedAt.Before(monthAgo)
+			if expired {
+				needsSoftDonationReminder = true
+			}
 		}
 	}
 
@@ -131,11 +137,18 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 		logger.E("Error saving Xi response", tracing.InnerError, err)
 	}
 
-	if needsDonationReminder && response != "" {
+	if (needsDonationReminder || needsSoftDonationReminder) && response != "" {
 		ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 		defer cancel()
 
-		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, texting.InternalDonationPromptAddition0, persona)
+		var donationPrompt string
+		if !needsDonationReminder && needsSoftDonationReminder {
+			donationPrompt = texting.InternalSoftDonationPromptAddition
+		} else if needsDonationReminder {
+			donationPrompt = texting.InternalDonationPromptAddition
+		}
+
+		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, donationPrompt, texting.InternalDonationPromptAddition0, persona)
 		if donationErr != nil {
 			logger.E("Failed to get donation reminder response", tracing.InnerError, donationErr)
 		} else {
