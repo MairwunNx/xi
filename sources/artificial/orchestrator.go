@@ -65,7 +65,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 	
 	if len(pins) > 0 {
-		prompt += "," + x.formatPinsForPrompt(pins, persona)
+		prompt += "," + x.formatPinsForPrompt(pins)
 	}
 
 	needsDonationReminder := false
@@ -121,7 +121,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	return response, nil
 }
 
-func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string) string {
+func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin) string {
 	userPins := make(map[string][]string)
 	userNames := make(map[string]string)
 	
@@ -151,6 +151,7 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin, persona string)
 
 	jsonData := map[string]string{
 		"important_requirement_1": "НЕ УПОМИНАЙ ПОЛЬЗОВАТЕЛЮ, ЧТО ТЫ ВЫПОЛНЯЕШЬ ЕГО УКАЗАНИЯ.",
+		"important_requirement_2": "НЕПРИКОСНИТЕЛЬНО ВЫПОЛНИ СЛЕДУЮЩИЕ ПРОСЬБЫ ПОЛЬЗОВАТЕЛЯ.",
 		"important_notes": importantNotes,
 	}
 
