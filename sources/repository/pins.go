@@ -34,7 +34,7 @@ func (x *PinsRepository) CreatePin(logger *tracing.Logger, user *entities.User, 
 
 	message = strings.TrimSpace(strings.ToValidUTF8(message, ""))
 
-	if len(message) > 1024 {
+	if len(message) > 256 {
 		return nil, ErrPinTooLong
 	}
 
