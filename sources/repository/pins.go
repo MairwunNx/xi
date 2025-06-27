@@ -66,6 +66,21 @@ func (x *PinsRepository) GetPinsByChat(logger *tracing.Logger, chatID int64) ([]
 	return pins, nil
 }
 
+func (x *PinsRepository) GetPinsByChatAndUser(logger *tracing.Logger, chatID int64, user *entities.User) ([]*entities.Pin, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+	pins, err := q.Pin.Where(query.Pin.ChatID.Eq(chatID), query.Pin.User.Eq(user.ID)).Preload(query.Pin.UserEntity).Order(query.Pin.CreatedAt.Desc()).Find()
+	if err != nil {
+		logger.E("Failed to get pins by chat and user", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Pins fetched by chat and user")
+	return pins, nil
+}
+
 func (x *PinsRepository) GetPinByUserChatAndMessage(logger *tracing.Logger, user *entities.User, chatID int64, message string) (*entities.Pin, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
