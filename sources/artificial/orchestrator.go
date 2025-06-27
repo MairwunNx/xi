@@ -33,15 +33,15 @@ func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, 
 }
 
 func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message, req string) (string, error) {
-	mode, err := x.modes.GetModeByChat(logger, msg.Chat.ID)
+	modeConfig, err := x.modes.GetModeConfigByChat(logger, msg.Chat.ID)
 	if err != nil {
-		logger.E("Failed to get current mode", tracing.InnerError, err)
+		logger.E("Failed to get mode config", tracing.InnerError, err)
 		return "", err
 	}
 
-	if mode == nil {
-		logger.E("No available modes")
-		return "", errors.New("no available modes")
+	if modeConfig == nil {
+		logger.E("No available mode config")
+		return "", errors.New("no available mode config")
 	}
 
 	user, err := x.users.GetUserByEid(logger, msg.From.ID)
@@ -57,7 +57,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (" + *user.Username + ")"
-	prompt := mode.Prompt
+	prompt := modeConfig.Prompt
 
 	pins, err := x.pins.GetPinsByChatAndUser(logger, msg.Chat.ID, user)
 	if err != nil {
@@ -84,7 +84,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	var response string
 
 	for attempt := 0; attempt < x.config.MaxRetries; attempt++ {
-		response, err = x.balancer.BalancedResponse(logger, prompt, req, persona, history)
+		response, err = x.balancer.BalancedResponseWithParams(logger, prompt, req, persona, history, modeConfig.Params)
 		if err == nil {
 			break
 		}

@@ -66,6 +66,10 @@ func NewAIClientsMap(openai *OpenAIClient, deepseek *DeepseekClient, grok *GrokC
 }
 
 func (p *OpenAIClient) Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
+	return p.ResponseWithParams(ctx, log, prompt, req, persona, history, nil)
+}
+
+func (p *OpenAIClient) ResponseWithParams(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error) {
 	req = UserReq(persona, req)
 
 	messages := []openai.ChatCompletionMessage{
@@ -91,6 +95,21 @@ func (p *OpenAIClient) Response(ctx context.Context, log *tracing.Logger, prompt
 		MaxCompletionTokens: at,
 	}
 
+	if params != nil {
+		if params.TopP != nil {
+			request.TopP = *params.TopP
+		}
+		if params.PresencePenalty != nil {
+			request.PresencePenalty = *params.PresencePenalty
+		}
+		if params.FrequencyPenalty != nil {
+			request.FrequencyPenalty = *params.FrequencyPenalty
+		}
+		if params.Temperature != nil {
+			request.Temperature = *params.Temperature
+		}
+	}
+
 	log.I("ai action requested", tracing.AiKind, "openai", tracing.AiModel, model, tracing.AiTokens, at, "history_pairs", len(history), "total_messages", len(messages))
 
 	if response, err := p.client.CreateChatCompletion(ctx, request); err != nil {
@@ -101,6 +120,10 @@ func (p *OpenAIClient) Response(ctx context.Context, log *tracing.Logger, prompt
 }
 
 func (p *OpenAIClient) ResponseImage(ctx context.Context, log *tracing.Logger, iurl string, req string, persona string) (string, error) {
+	return p.ResponseImageWithParams(ctx, log, iurl, req, persona, nil)
+}
+
+func (p *OpenAIClient) ResponseImageWithParams(ctx context.Context, log *tracing.Logger, iurl string, req string, persona string, params *repository.AIParams) (string, error) {
 	if req == "" {
 		req = texting.InternalAIImageMessage
 	}
@@ -133,7 +156,22 @@ func (p *OpenAIClient) ResponseImage(ctx context.Context, log *tracing.Logger, i
 				},
 			},
 		},
-		MaxTokens: at,
+		MaxCompletionTokens: at,
+	}
+
+	if params != nil {
+		if params.TopP != nil {
+			request.TopP = *params.TopP
+		}
+		if params.PresencePenalty != nil {
+			request.PresencePenalty = *params.PresencePenalty
+		}
+		if params.FrequencyPenalty != nil {
+			request.FrequencyPenalty = *params.FrequencyPenalty
+		}
+		if params.Temperature != nil {
+			request.Temperature = *params.Temperature
+		}
 	}
 
 	log.I("ai response requested", tracing.AiKind, "openai/image", tracing.AiModel, model, tracing.AiTokens, at)
@@ -214,6 +252,10 @@ func (x *OpenAIClient) ResponseMediumWeight(ctx context.Context, log *tracing.Lo
 }
 
 func (x *DeepseekClient) Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
+	return x.ResponseWithParams(ctx, log, prompt, req, persona, history, nil)
+}
+
+func (x *DeepseekClient) ResponseWithParams(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error) {
 	req = UserReq(persona, req)
 
 	messages := []deepseek.ChatCompletionMessage{
@@ -239,6 +281,21 @@ func (x *DeepseekClient) Response(ctx context.Context, log *tracing.Logger, prom
 		MaxTokens: at,
 	}
 
+	if params != nil {
+		if params.TopP != nil {
+			request.TopP = *params.TopP
+		}
+		if params.PresencePenalty != nil {
+			request.PresencePenalty = *params.PresencePenalty
+		}
+		if params.FrequencyPenalty != nil {
+			request.FrequencyPenalty = *params.FrequencyPenalty
+		}
+		if params.Temperature != nil {
+			request.Temperature = *params.Temperature
+		}
+	}
+
 	log.I("ai action requested", tracing.AiKind, "deepseek", tracing.AiModel, model, tracing.AiTokens, at, "history_pairs", len(history), "total_messages", len(messages))
 
 	if response, err := x.client.CreateChatCompletion(ctx, request); err != nil {
@@ -249,6 +306,10 @@ func (x *DeepseekClient) Response(ctx context.Context, log *tracing.Logger, prom
 }
 
 func (p *AnthropicClient) Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
+	return p.ResponseWithParams(ctx, log, prompt, req, persona, history, nil)
+}
+
+func (p *AnthropicClient) ResponseWithParams(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error) {
 	req = UserReq(persona, req)
 	model := p.config.AnthropicModel
 	at := texting.TokensInfer(log, prompt, req, persona, p.config.AnthropicMaxTokens)
@@ -262,12 +323,36 @@ func (p *AnthropicClient) Response(ctx context.Context, log *tracing.Logger, pro
 
 	log.I("ai action requested", tracing.AiKind, "anthropic", tracing.AiModel, model, tracing.AiTokens, at, "history_pairs", len(history), "total_messages", len(messages))
 
-	if resp, err := p.client.CreateMessages(ctx, anthropic.MessagesRequest{
+	var thinking *anthropic.Thinking = nil
+
+	if at > 2048 {
+		thinking = &anthropic.Thinking{Type: anthropic.ThinkingTypeEnabled, BudgetTokens: at / 2}
+	}
+
+	requestParams := anthropic.MessagesRequest{
 		Model:     anthropic.Model(model),
 		System:    prompt,
 		Messages:  messages,
 		MaxTokens: at,
-	}); err != nil {
+		Thinking: thinking,
+	}
+
+	if params != nil {
+		if params.TopP != nil {
+			requestParams.TopP = params.TopP
+		}
+		if params.TopK != nil {
+			requestParams.TopK = params.TopK
+		}
+		if params.Temperature != nil {
+			requestParams.Temperature = params.Temperature
+		}
+		if params.PresencePenalty != nil || params.FrequencyPenalty != nil {
+			log.W("Anthropic ignores presence_penalty and frequency_penalty parameters")
+		}
+	}
+
+	if resp, err := p.client.CreateMessages(ctx, requestParams); err != nil {
 		return "", err
 	} else {
 		return resp.Content[0].GetText(), nil
@@ -275,6 +360,10 @@ func (p *AnthropicClient) Response(ctx context.Context, log *tracing.Logger, pro
 }
 
 func (p *GrokClient) Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error) {
+	return p.ResponseWithParams(ctx, log, prompt, req, persona, history, nil)
+}
+
+func (p *GrokClient) ResponseWithParams(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error) {
 	req = UserReq(persona, req)
 
 	messages := []openai.ChatCompletionMessage{
@@ -298,6 +387,21 @@ func (p *GrokClient) Response(ctx context.Context, log *tracing.Logger, prompt s
 		Model:               model,
 		Messages:            messages,
 		MaxCompletionTokens: at,
+	}
+
+	if params != nil {
+		if params.TopP != nil {
+			request.TopP = *params.TopP
+		}
+		if params.PresencePenalty != nil {
+			request.PresencePenalty = *params.PresencePenalty
+		}
+		if params.FrequencyPenalty != nil {
+			request.FrequencyPenalty = *params.FrequencyPenalty
+		}
+		if params.Temperature != nil {
+			request.Temperature = *params.Temperature
+		}
 	}
 
 	log.I("ai action requested", tracing.AiKind, "grok", tracing.AiModel, model, tracing.AiTokens, at, "history_pairs", len(history), "total_messages", len(messages))

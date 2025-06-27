@@ -29,6 +29,8 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 		return
 	}
 
+	x.diplomat.SendTyping(log, msg.Chat.ID)
+
 	response, err := x.orchestrator.Orchestrate(log, msg, req)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
@@ -45,6 +47,8 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 }
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Message) {
+	x.diplomat.SendTyping(log, msg.Chat.ID)
+	
 	photo := msg.Photo[len(msg.Photo)-1]
 
 	fileConfig := tgbotapi.FileConfig{FileID: photo.FileID}
@@ -81,6 +85,8 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
+	x.diplomat.SendTyping(log, msg.Chat.ID)
+	
 	var fileID string
 	var fileExt string
 

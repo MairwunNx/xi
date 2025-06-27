@@ -37,6 +37,7 @@ type (
 		Type      string     `gorm:"size:50;not null" json:"type"`
 		Name      string     `gorm:"size:255;not null" json:"name"`
 		Prompt    string     `gorm:"type:text;not null" json:"prompt"`
+		Config    *string    `gorm:"type:json;column:config" json:"config"`
 		IsEnabled bool       `gorm:"not null;default:true" json:"is_enabled"`
 		CreatedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 		CreatedBy *uuid.UUID `gorm:"type:uuid" json:"created_by"`

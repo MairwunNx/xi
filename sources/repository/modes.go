@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 	"ximanager/sources/persistence/entities"
@@ -9,6 +10,7 @@ import (
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +19,41 @@ var (
 	ErrModeNotFound = errors.New("mode not found")
 	ErrInvalidMode  = errors.New("invalid mode values")
 )
+
+type ModeConfig struct {
+	Prompt string `json:"prompt"`
+	Params *AIParams `json:"params,omitempty"`
+}
+
+type AIParams struct {
+	// Nucleus sampling (0.1-1.0) - меньшие значения = более фокусированные ответы
+	TopP *float32 `json:"top_p,omitempty"`
+	
+	// Top-K sampling (1-100) - количество наиболее вероятных токенов (специфично для Anthropic)
+	TopK *int `json:"top_k,omitempty"`
+
+	// Штраф за повторение тем (0.0-2.0) - не поддерживается Anthropic
+	PresencePenalty *float32 `json:"presence_penalty,omitempty"`
+	
+	// Штраф за повторение слов (0.0-2.0) - не поддерживается Anthropic  
+	FrequencyPenalty *float32 `json:"frequency_penalty,omitempty"`
+	
+	// Температура (0-2) - управляет случайностью ответов
+	Temperature *float32 `json:"temperature,omitempty"`
+}
+
+func DefaultModeConfig(prompt string) *ModeConfig {
+	return &ModeConfig{
+		Prompt: prompt,
+		Params: &AIParams{
+			TopP:             nil,
+			TopK:             nil,
+			PresencePenalty:  nil,
+			FrequencyPenalty: nil,
+			Temperature:      nil,
+		},
+	}
+}
 
 type ModesRepository struct {
 	users *UsersRepository
@@ -242,4 +279,91 @@ func (r *ModesRepository) MustDeleteMode(logger *tracing.Logger, mode *entities.
 	if err != nil {
 		logger.F("Got error while not expected", tracing.InnerError, err)
 	}
+}
+
+func (x *ModesRepository) ParseModeConfig(mode *entities.Mode, logger *tracing.Logger) *ModeConfig {
+	// Если есть JSON конфигурация, пытаемся ее распарсить
+	if mode.Config != nil && *mode.Config != "" {
+		var config ModeConfig
+		if err := json.Unmarshal([]byte(*mode.Config), &config); err != nil {
+			logger.E("Failed to parse mode config JSON, falling back to prompt", "mode_id", mode.ID, tracing.InnerError, err)
+			// Fallback на старый формат
+			return DefaultModeConfig(mode.Prompt)
+		}
+		return &config
+	}
+	
+	// Fallback на старый формат, если нет JSON конфигурации
+	logger.I("Using fallback mode config", "mode_id", mode.ID)
+	return DefaultModeConfig(mode.Prompt)
+}
+
+func (x *ModesRepository) SerializeModeConfig(config *ModeConfig) (string, error) {
+	data, err := json.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func (x *ModesRepository) GetModeConfigByChat(logger *tracing.Logger, chatID int64) (*ModeConfig, error) {
+	mode, err := x.GetModeByChat(logger, chatID)
+	if err != nil {
+		return nil, err
+	}
+	if mode == nil {
+		return nil, nil
+	}
+	
+	return x.ParseModeConfig(mode, logger), nil
+}
+
+func (x *ModesRepository) UpdateModeConfig(logger *tracing.Logger, modeID uuid.UUID, config *ModeConfig) error {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
+	defer cancel()
+
+	configJSON, err := x.SerializeModeConfig(config)
+	if err != nil {
+		logger.E("Failed to serialize mode config", tracing.InnerError, err)
+		return err
+	}
+
+	q := query.Q.WithContext(ctx)
+	// Обновляем и prompt и config одновременно
+	_, err = q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"prompt": config.Prompt, "config": configJSON})
+	if err != nil {
+		logger.E("Failed to update mode config", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Mode config updated", "mode_id", modeID)
+	return nil
+}
+
+func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSettings *AIParams) *AIParams {
+	if config.Params == nil {
+		return globalSettings
+	}
+	
+	// Создаем копию глобальных настроек
+	result := &AIParams{}
+	if globalSettings != nil {
+		*result = *globalSettings
+	}
+	
+	// Переопределяем только те значения, которые заданы в конфигурации режима
+	if config.Params.TopP != nil {
+		result.TopP = config.Params.TopP
+	}
+	if config.Params.PresencePenalty != nil {
+		result.PresencePenalty = config.Params.PresencePenalty
+	}
+	if config.Params.FrequencyPenalty != nil {
+		result.FrequencyPenalty = config.Params.FrequencyPenalty
+	}
+	if config.Params.Temperature != nil {
+		result.Temperature = config.Params.Temperature
+	}
+	
+	return result
 }

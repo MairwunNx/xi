@@ -39,3 +39,10 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 		}, func(l *tracing.Logger) { l.I("Message sent") },
 	)
 }
+
+func (x *Diplomat) SendTyping(logger *tracing.Logger, chatID int64) {
+	action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
+	if _, err := x.bot.Send(action); err != nil {
+		logger.W("Failed to send typing action", tracing.InnerError, err)
+	}
+}

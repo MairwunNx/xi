@@ -12,6 +12,7 @@ import (
 
 type NeuroProvider interface {
 	Response(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair) (string, error)
+	ResponseWithParams(ctx context.Context, log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error)
 }
 
 type AIBalancer struct {
@@ -35,6 +36,14 @@ func (x *AIBalancer) BalancedResponse(log *tracing.Logger, prompt string, req st
 
 	provider := x.GetNeuroProvider()
 	return provider.Response(ctx, log, prompt, req, persona, history)
+}
+
+func (x *AIBalancer) BalancedResponseWithParams(log *tracing.Logger, prompt string, req string, persona string, history []repository.MessagePair, params *repository.AIParams) (string, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	provider := x.GetNeuroProvider()
+	return provider.ResponseWithParams(ctx, log, prompt, req, persona, history, params)
 }
 
 func (x *AIBalancer) GetNeuroProvider() NeuroProvider {
