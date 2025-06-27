@@ -23,6 +23,7 @@ var (
 type ModeConfig struct {
 	Prompt string `json:"prompt"`
 	Params *AIParams `json:"params,omitempty"`
+	Final  bool   `json:"final,omitempty"`
 }
 
 type AIParams struct {
@@ -45,6 +46,7 @@ type AIParams struct {
 func DefaultModeConfig(prompt string) *ModeConfig {
 	return &ModeConfig{
 		Prompt: prompt,
+		Final:  false,
 		Params: &AIParams{
 			TopP:             nil,
 			TopK:             nil,
@@ -188,7 +190,8 @@ func (x *ModesRepository) AddModeForChat(logger *tracing.Logger, cid int64, mode
 		Type:      modeType,
 		Name:      name,
 		Prompt:    prompt,
-		IsEnabled: true,
+		Final:     platform.BoolPtr(false),
+		IsEnabled: platform.BoolPtr(true),
 		CreatedBy: &user.ID,
 	}
 
@@ -329,8 +332,7 @@ func (x *ModesRepository) UpdateModeConfig(logger *tracing.Logger, modeID uuid.U
 	}
 
 	q := query.Q.WithContext(ctx)
-	// Обновляем и prompt и config одновременно
-	_, err = q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"prompt": config.Prompt, "config": configJSON})
+	_, err = q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"prompt": config.Prompt, "config": configJSON, "final":  config.Final})
 	if err != nil {
 		logger.E("Failed to update mode config", tracing.InnerError, err)
 		return err
@@ -366,4 +368,42 @@ func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSetting
 	}
 	
 	return result
+}
+
+func (x *ModesRepository) AddModeWithConfig(logger *tracing.Logger, cid int64, modeType string, name string, config *ModeConfig, euid int64) (*entities.Mode, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	user, err := x.users.GetUserByEid(logger, euid)
+	if err != nil {
+		return nil, err
+	}
+
+	configJSON, err := x.SerializeModeConfig(config)
+	if err != nil {
+		logger.E("Failed to serialize mode config", tracing.InnerError, err)
+		return nil, err
+	}
+
+	newMode := &entities.Mode{
+		ChatID:    cid,
+		Type:      modeType,
+		Name:      name,
+		Prompt:    config.Prompt,
+		Config:    &configJSON,
+		Final:     platform.BoolPtr(config.Final),
+		IsEnabled: platform.BoolPtr(true),
+		CreatedBy: &user.ID,
+	}
+
+	err = q.Mode.Create(newMode)
+	if err != nil {
+		logger.E("Failed to create mode", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Created new mode with config", tracing.ModeId, newMode.ID, tracing.ModeName, newMode.Name, tracing.ChatId, cid, "final", platform.BoolValue(newMode.Final, false))
+	return newMode, nil
 }

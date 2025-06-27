@@ -34,6 +34,7 @@ func newMode(db *gorm.DB, opts ...gen.DOOption) mode {
 	_mode.Name = field.NewString(tableName, "name")
 	_mode.Prompt = field.NewString(tableName, "prompt")
 	_mode.Config = field.NewString(tableName, "config")
+	_mode.Final = field.NewBool(tableName, "final")
 	_mode.IsEnabled = field.NewBool(tableName, "is_enabled")
 	_mode.CreatedAt = field.NewTime(tableName, "created_at")
 	_mode.CreatedBy = field.NewField(tableName, "created_by")
@@ -187,6 +188,7 @@ type mode struct {
 	Name          field.String
 	Prompt        field.String
 	Config        field.String
+	Final         field.Bool
 	IsEnabled     field.Bool
 	CreatedAt     field.Time
 	CreatedBy     field.Field
@@ -215,6 +217,7 @@ func (m *mode) updateTableName(table string) *mode {
 	m.Name = field.NewString(table, "name")
 	m.Prompt = field.NewString(table, "prompt")
 	m.Config = field.NewString(table, "config")
+	m.Final = field.NewBool(table, "final")
 	m.IsEnabled = field.NewBool(table, "is_enabled")
 	m.CreatedAt = field.NewTime(table, "created_at")
 	m.CreatedBy = field.NewField(table, "created_by")
@@ -242,13 +245,14 @@ func (m *mode) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (m *mode) fillFieldMap() {
-	m.fieldMap = make(map[string]field.Expr, 11)
+	m.fieldMap = make(map[string]field.Expr, 12)
 	m.fieldMap["id"] = m.ID
 	m.fieldMap["chat_id"] = m.ChatID
 	m.fieldMap["type"] = m.Type
 	m.fieldMap["name"] = m.Name
 	m.fieldMap["prompt"] = m.Prompt
 	m.fieldMap["config"] = m.Config
+	m.fieldMap["final"] = m.Final
 	m.fieldMap["is_enabled"] = m.IsEnabled
 	m.fieldMap["created_at"] = m.CreatedAt
 	m.fieldMap["created_by"] = m.CreatedBy

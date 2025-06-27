@@ -44,12 +44,12 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 	}
 
 	switch ctx.Command() {
-	case "add <chatid> <type> <name> <prompt>":
+	case "add <chatid> <type> <name> <config>":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeModifyNoAccess))
 			return
 		}
-		x.ModeCommandAdd(log, user, msg, int64(cmd.Add.ChatID), cmd.Add.Type, cmd.Add.Name, cmd.Add.Prompt)
+		x.ModeCommandAdd(log, user, msg, int64(cmd.Add.ChatID), cmd.Add.Type, cmd.Add.Name, cmd.Add.Config)
 	case "list <chatid>":
 		if !x.rights.IsUserHasRight(log, user, "switch_mode") {
 			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeNoAccess))
@@ -74,12 +74,12 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 			return
 		}
 		x.ModeCommandDelete(log, msg, int64(cmd.Delete.ChatID), cmd.Delete.Type)
-	case "edit <chatid> <type> <prompt>":
+	case "edit <chatid> <type> <config>":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeModifyNoAccess))
 			return
 		}
-		x.ModeCommandEdit(log, msg, int64(cmd.Edit.ChatID), cmd.Edit.Type, cmd.Edit.Prompt)
+		x.ModeCommandEdit(log, msg, int64(cmd.Edit.ChatID), cmd.Edit.Type, cmd.Edit.Config)
 	default:
 		log.W("Unknown mode subcommand", tracing.InternalCommand, ctx.Command())
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeHelpText))

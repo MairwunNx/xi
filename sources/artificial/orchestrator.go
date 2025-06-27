@@ -18,18 +18,19 @@ import (
 )
 
 type Orchestrator struct {
-	balancer *balancer.AIBalancer
-	config   *OrchestratorConfig
-	modes    *repository.ModesRepository
-	messages *repository.MessagesRepository
-	users    *repository.UsersRepository
-	donations *repository.DonationsRepository
-	pins     *repository.PinsRepository
-	openaiClient *OpenAIClient
+	balancer      *balancer.AIBalancer
+	config        *OrchestratorConfig
+	modes         *repository.ModesRepository
+	messages      *repository.MessagesRepository
+	users         *repository.UsersRepository
+	donations     *repository.DonationsRepository
+	pins          *repository.PinsRepository
+	openaiClient  *OpenAIClient
+	topicAnalyzer *TopicAnalyzer
 }
 
-func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository, pins *repository.PinsRepository, openaiClient *OpenAIClient) *Orchestrator {
-	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations, pins: pins, openaiClient: openaiClient}
+func NewOrchestrator(balancer *balancer.AIBalancer, config *OrchestratorConfig, modes *repository.ModesRepository, messages *repository.MessagesRepository, users *repository.UsersRepository, donations *repository.DonationsRepository, pins *repository.PinsRepository, openaiClient *OpenAIClient, topicAnalyzer *TopicAnalyzer) *Orchestrator {
+	return &Orchestrator{balancer: balancer, config: config, modes: modes, messages: messages, users: users, donations: donations, pins: pins, openaiClient: openaiClient, topicAnalyzer: topicAnalyzer}
 }
 
 func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message, req string) (string, error) {
@@ -63,7 +64,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	if err != nil {
 		pins = []*entities.Pin{}
 	}
-	
+
 	if len(pins) > 0 {
 		prompt += "," + x.formatPinsForPrompt(pins)
 	}
@@ -83,8 +84,32 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 
 	var response string
 
+	finalParams := modeConfig.Params
+
+	if !modeConfig.Final {
+		logger.I("Analyzing message topic for temperature adjustment", "final_mode", modeConfig.Final)
+
+		topicResult, err := x.topicAnalyzer.AnalyzeMessageTopic(logger, req, persona)
+		if err != nil {
+			logger.W("Failed to analyze message topic, using mode config", tracing.InnerError, err)
+		} else {
+			if finalParams == nil {
+				finalParams = &repository.AIParams{}
+			} else {
+				paramsCopy := *finalParams
+				finalParams = &paramsCopy
+			}
+
+			finalParams.Temperature = &topicResult.DetectedTopic.Temperature
+
+			logger.I("Temperature adjusted based on topic analysis", "original_temperature", modeConfig.Params.Temperature, "detected_topic", topicResult.DetectedTopic.Type, "new_temperature", *finalParams.Temperature, "confidence", topicResult.Confidence)
+		}
+	} else {
+		logger.I("Using fixed mode configuration, skipping topic analysis", "final_mode", modeConfig.Final)
+	}
+
 	for attempt := 0; attempt < x.config.MaxRetries; attempt++ {
-		response, err = x.balancer.BalancedResponseWithParams(logger, prompt, req, persona, history, modeConfig.Params)
+		response, err = x.balancer.BalancedResponseWithParams(logger, prompt, req, persona, history, finalParams)
 		if err == nil {
 			break
 		}
@@ -109,7 +134,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 	if needsDonationReminder && response != "" {
 		ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 		defer cancel()
-		
+
 		donationResponse, donationErr := x.openaiClient.ResponseMediumWeight(ctx, logger, texting.InternalDonationPromptAddition, texting.InternalDonationPromptAddition0, persona)
 		if donationErr != nil {
 			logger.E("Failed to get donation reminder response", tracing.InnerError, donationErr)
@@ -124,10 +149,10 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin) string {
 	userPins := make(map[string][]string)
 	userNames := make(map[string]string)
-	
+
 	for _, pin := range pins {
 		userKey := pin.User.String()
-		
+
 		userName := "Мертвая душа"
 		if pin.UserEntity.Fullname != nil && *pin.UserEntity.Fullname != "" {
 			userName = *pin.UserEntity.Fullname
@@ -135,7 +160,7 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin) string {
 		if pin.UserEntity.Username != nil && *pin.UserEntity.Username != "" {
 			userName += " (@" + *pin.UserEntity.Username + ")"
 		}
-		
+
 		userNames[userKey] = userName
 		userPins[userKey] = append(userPins[userKey], pin.Message)
 	}
@@ -152,7 +177,7 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin) string {
 	jsonData := map[string]string{
 		"important_requirement_1": "НЕ УПОМИНАЙ ПОЛЬЗОВАТЕЛЮ, ЧТО ТЫ ВЫПОЛНЯЕШЬ ЕГО УКАЗАНИЯ.",
 		"important_requirement_2": "НЕПРИКОСНИТЕЛЬНО ВЫПОЛНИ СЛЕДУЮЩИЕ ПРОСЬБЫ ПОЛЬЗОВАТЕЛЯ.",
-		"important_notes": importantNotes,
+		"important_notes":         importantNotes,
 	}
 
 	jsonBytes, err := json.Marshal(jsonData)

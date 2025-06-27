@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -189,8 +190,19 @@ func (x *TelegramHandler) ModeCommandSwitch(log *tracing.Logger, user *entities.
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeChanged, mode.Name, mode.Type))
 }
 
-func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, chatID int64, modeType string, modeName string, prompt string) {
-	mode, err := x.modes.AddModeForChat(log, chatID, modeType, modeName, prompt, msg.From.ID)
+func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, chatID int64, modeType string, modeName string, configJSON string) {
+	var config repository.ModeConfig
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigParse))
+		return
+	}
+
+	if config.Prompt == strings.TrimSpace(config.Prompt) {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
+		return
+	}
+
+	mode, err := x.modes.AddModeWithConfig(log, chatID, modeType, modeName, &config, msg.From.ID)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorAdd)
 		return
@@ -235,7 +247,7 @@ func (x *TelegramHandler) ModeCommandDisable(log *tracing.Logger, msg *tgbotapi.
 		return
 	}
 	
-	mode.IsEnabled = false
+	mode.IsEnabled = platform.BoolPtr(false)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorDisable)
@@ -251,7 +263,7 @@ func (x *TelegramHandler) ModeCommandEnable(log *tracing.Logger, msg *tgbotapi.M
 		return
 	}
 	
-	mode.IsEnabled = true
+	mode.IsEnabled = platform.BoolPtr(true)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorEnable)
@@ -276,14 +288,24 @@ func (x *TelegramHandler) ModeCommandDelete(log *tracing.Logger, msg *tgbotapi.M
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeDeleted, mode.Name, mode.Type))
 }
 
-func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string, prompt string) {
+func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string, configJSON string) {
 	mode := x.retrieveModeByChat(log, msg, chatID, modeType)
 	if mode == nil {
 		return
 	}
 
-	mode.Prompt = prompt
-	_, err := x.modes.UpdateMode(log, mode)
+	var config repository.ModeConfig
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigParse))
+		return
+	}
+
+	if config.Prompt == "" {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
+		return
+	}
+
+	err := x.modes.UpdateModeConfig(log, mode.ID, &config)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorEdit)
 		return

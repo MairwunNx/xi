@@ -11,6 +11,7 @@ var Module = fx.Module("artificial",
 		NewGrokClient,
 		NewAnthropicClient,
 		NewAIClientsMap,
+		NewTopicAnalyzer,
 		NewOrchestrator,
 	),
 )

@@ -7,7 +7,7 @@ type ModeCmd struct {
 		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
 		Type   string `arg:"" name:"type" help:"Mode type"`
 		Name   string `arg:"" name:"name" help:"Mode name"`
-		Prompt string `arg:"" name:"prompt" help:"Mode prompt"`
+		Config string `arg:"" name:"config" help:"Mode configuration (JSON)"`
 	} `cmd:"" help:"Add a new mode"`
 
 	List struct {
@@ -32,8 +32,8 @@ type ModeCmd struct {
 	Edit struct {
 		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
 		Type   string `arg:"" name:"type" help:"Mode type"`
-		Prompt string `arg:"" name:"prompt" help:"New mode prompt"`
-	} `cmd:"" help:"Edit mode prompt"`
+		Config string `arg:"" name:"config" help:"Mode configuration (JSON)"`
+	} `cmd:"" help:"Edit mode configuration"`
 }
 
 type UsersCmd struct {
