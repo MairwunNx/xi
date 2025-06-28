@@ -108,7 +108,7 @@ func (x *Orchestrator) Orchestrate(logger *tracing.Logger, msg *tgbotapi.Message
 
 			finalParams.Temperature = &topicResult.DetectedTopic.Temperature
 
-			logger.I("Temperature adjusted based on topic analysis", "original_temperature", modeConfig.Params.Temperature, "detected_topic", topicResult.DetectedTopic.Type, "new_temperature", *finalParams.Temperature, "confidence", topicResult.Confidence)
+			logger.I("Temperature adjusted based on topic analysis", "topic", topicResult)
 		}
 	} else {
 		logger.I("Using fixed mode configuration, skipping topic analysis", "final_mode", modeConfig.Final)
