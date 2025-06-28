@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/persistence/gormdao/query"
@@ -12,6 +13,10 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+)
+
+const (
+	fallbackPrompt = "Ты - Xi Manager, представитель великого Xi. Следуешь китайским традициям. Отвечай на вопросы пользователя и сопровождай эмодзи. Но на всякий предупреди пользователя, что сейчас наблюдаются технические проблемы с Xi Manager ботом (это кстати ты), и время ответа может быть увеличено, а качество ответов снижено."
 )
 
 var (
@@ -44,6 +49,10 @@ type AIParams struct {
 }
 
 func DefaultModeConfig(prompt string) *ModeConfig {
+	if strings.TrimSpace(prompt) == "" {
+		prompt = fallbackPrompt
+	}
+	
 	return &ModeConfig{
 		Prompt: prompt,
 		Final:  false,
@@ -211,26 +220,50 @@ func (r *ModesRepository) GetModeByChat(logger *tracing.Logger, cid int64) (*ent
 
 	q := query.Q.WithContext(ctx)
 
-	cmode, err := q.SelectedMode.
+	selectedMode, err := q.SelectedMode.
 		Where(query.SelectedMode.ChatID.Eq(cid)).
 		Order(query.SelectedMode.SwitchedAt.Desc()).
-		Preload(query.SelectedMode.Mode.Where(
-			query.Mode.IsEnabled.Is(true),
-			query.Mode.ChatID.In(cid, 0),
-		)).
 		First()
 
-	if err != nil {
+	if err == nil {
+		mode, err := q.Mode.
+			Where(
+				query.Mode.ID.Eq(selectedMode.ModeID),
+				query.Mode.IsEnabled.Is(true),
+				query.Mode.ChatID.In(cid, 0),
+			).
+			First()
+		
+		if err == nil {
+			logger.I("Gathered selected mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
+			return mode, nil
+		} else {
+			logger.W("Selected mode not found or disabled, falling back to default", 
+				"selected_mode_id", selectedMode.ModeID, tracing.InnerError, err)
+		}
+	} else {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.E("No selected mode, falling back to default")
+			logger.I("No selected mode for chat, falling back to default")
 		} else {
 			logger.E("Failed to get selected mode, falling back to default", tracing.InnerError, err)
 		}
-	} else {
-		logger.I("Gathered selected mode", tracing.ModeId, cmode.Mode.ID, tracing.ModeName, cmode.Mode.Name)
-		return &cmode.Mode, nil
 	}
 
+	// Fallback: ищем любой доступный режим для чата или глобальный
+	mode, err := q.Mode.
+		Where(
+			query.Mode.ChatID.In(cid, 0),
+			query.Mode.IsEnabled.Is(true),
+		).
+		Order(query.Mode.CreatedAt.Desc()).
+		First()
+	
+	if err == nil {
+		logger.I("Using fallback mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
+		return mode, nil
+	}
+
+	// Последний fallback: дефолтный режим
 	dmode, err := r.GetDefaultMode(logger)
 	if err != nil {
 		return nil, err
@@ -295,6 +328,17 @@ func (x *ModesRepository) ParseModeConfig(mode *entities.Mode, logger *tracing.L
 			// Fallback на старый формат
 			return DefaultModeConfig(mode.Prompt)
 		}
+		
+		if strings.TrimSpace(config.Prompt) == "" {
+			logger.W("Empty prompt in mode config JSON, using mode.Prompt as fallback", "mode_id", mode.ID)
+			config.Prompt = mode.Prompt
+		}
+		
+		if strings.TrimSpace(config.Prompt) == "" {
+			logger.E("Both config.Prompt and mode.Prompt are empty, using default prompt", "mode_id", mode.ID)
+			config.Prompt = fallbackPrompt
+		}
+		
 		return &config
 	}
 	
@@ -358,6 +402,9 @@ func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSetting
 	// Переопределяем только те значения, которые заданы в конфигурации режима
 	if config.Params.TopP != nil {
 		result.TopP = config.Params.TopP
+	}
+	if config.Params.TopK != nil {
+		result.TopK = config.Params.TopK
 	}
 	if config.Params.PresencePenalty != nil {
 		result.PresencePenalty = config.Params.PresencePenalty
