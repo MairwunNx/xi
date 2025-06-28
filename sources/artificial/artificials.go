@@ -3,6 +3,7 @@ package artificial
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 
@@ -345,7 +346,8 @@ func (p *AnthropicClient) ResponseWithParams(ctx context.Context, log *tracing.L
 			requestParams.TopK = params.TopK
 		}
 		if params.Temperature != nil {
-			requestParams.Temperature = params.Temperature
+			temp := float32(math.Min(1.0, float64(*params.Temperature)))
+			requestParams.Temperature = &temp
 		}
 		if params.PresencePenalty != nil || params.FrequencyPenalty != nil {
 			log.W("Anthropic ignores presence_penalty and frequency_penalty parameters")
