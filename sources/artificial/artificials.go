@@ -96,6 +96,8 @@ func (p *OpenAIClient) ResponseWithParams(ctx context.Context, log *tracing.Logg
 		MaxCompletionTokens: at,
 	}
 
+	log.I("prompt ResponseWithParams", messages[0].Content)
+
 	if params != nil {
 		if params.TopP != nil {
 			request.TopP = *params.TopP

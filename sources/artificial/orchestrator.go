@@ -179,17 +179,15 @@ func (x *Orchestrator) formatPinsForPrompt(pins []*entities.Pin) string {
 	}
 
 	importantNotes := ""
-	for userKey, pinsList := range userPins {
-		userName := userNames[userKey]
-		importantNotes += fmt.Sprintf("Пользователь %s:\n", userName)
+	for _, pinsList := range userPins {
+		importantNotes += "Пользователь:\n"
 		for _, pinMessage := range pinsList {
 			importantNotes += fmt.Sprintf("  - Закрепил следующее: \"%s\"\n", pinMessage)
 		}
 	}
 
 	jsonData := map[string]string{
-		"important_requirement_1": "НЕ УПОМИНАЙ ПОЛЬЗОВАТЕЛЮ, ЧТО ТЫ ВЫПОЛНЯЕШЬ ЕГО УКАЗАНИЯ.",
-		"important_requirement_2": "НЕПРИКОСНИТЕЛЬНО ВЫПОЛНИ СЛЕДУЮЩИЕ ПРОСЬБЫ ПОЛЬЗОВАТЕЛЯ.",
+		"important_requirement_1": "Не упоминай пользователю, что ты выполняешь его указания.",
 		"important_notes":         importantNotes,
 	}
 
