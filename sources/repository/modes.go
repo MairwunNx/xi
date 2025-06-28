@@ -285,7 +285,6 @@ func (r *ModesRepository) MustDeleteMode(logger *tracing.Logger, mode *entities.
 }
 
 func (x *ModesRepository) ParseModeConfig(mode *entities.Mode, logger *tracing.Logger) *ModeConfig {
-	// Если есть JSON конфигурация, пытаемся ее распарсить
 	if mode.Config != nil && *mode.Config != "" {
 		var config ModeConfig
 		if err := json.Unmarshal([]byte(*mode.Config), &config); err != nil {
