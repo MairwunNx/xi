@@ -43,7 +43,6 @@ func (x *AIBalancer) BalancedResponseWithParams(log *tracing.Logger, prompt stri
 	defer cancel()
 
 	provider := x.GetNeuroProvider()
-	log.I("BalancedResponseWithParams", "prompt", prompt)
 	return provider.ResponseWithParams(ctx, log, prompt, req, persona, history, params)
 }
 
