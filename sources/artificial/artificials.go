@@ -324,18 +324,11 @@ func (p *AnthropicClient) ResponseWithParams(ctx context.Context, log *tracing.L
 
 	log.I("ai action requested", tracing.AiKind, "anthropic", tracing.AiModel, model, tracing.AiTokens, at, "history_pairs", len(history), "total_messages", len(messages))
 
-	var thinking *anthropic.Thinking = nil
-
-	if at > 2048 {
-		thinking = &anthropic.Thinking{Type: anthropic.ThinkingTypeEnabled, BudgetTokens: at / 2}
-	}
-
 	requestParams := anthropic.MessagesRequest{
 		Model:     anthropic.Model(model),
 		System:    prompt,
 		Messages:  messages,
 		MaxTokens: at,
-		Thinking: thinking,
 	}
 
 	if params != nil {
