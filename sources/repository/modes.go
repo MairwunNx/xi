@@ -216,7 +216,7 @@ func (r *ModesRepository) GetModeByChat(logger *tracing.Logger, cid int64) (*ent
 		Order(query.SelectedMode.SwitchedAt.Desc()).
 		Preload(query.SelectedMode.Mode.Where(
 			query.Mode.IsEnabled.Is(true),
-			query.Mode.ChatID.Eq(cid),
+			query.Mode.ChatID.In(cid, 0),
 		)).
 		First()
 

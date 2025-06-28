@@ -197,7 +197,7 @@ func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.Use
 		return
 	}
 
-	if config.Prompt == strings.TrimSpace(config.Prompt) {
+	if strings.TrimSpace(config.Prompt) == "" {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
 		return
 	}
@@ -300,7 +300,7 @@ func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Mes
 		return
 	}
 
-	if config.Prompt == "" {
+	if strings.TrimSpace(config.Prompt) == "" {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
 		return
 	}
