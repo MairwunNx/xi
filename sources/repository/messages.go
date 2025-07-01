@@ -359,3 +359,167 @@ func (x *MessagesRepository) getContextTimeLimit(chatID int64) time.Duration {
 	}
 	return 2 * 24 * time.Hour
 }
+
+func (x *MessagesRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalCost decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get total cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	return totalCost, nil
+}
+
+func (x *MessagesRepository) GetTotalCostLastMonth(logger *tracing.Logger) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalCost decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.MessageTime.Gte(lastMonth)).
+		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get total cost for last month", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	return totalCost, nil
+}
+
+func (x *MessagesRepository) GetUserCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalCost decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.UserID.Eq(user.ID)).
+		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	return totalCost, nil
+}
+
+func (x *MessagesRepository) GetUserCostLastMonth(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalCost decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.UserID.Eq(user.ID)).
+		Where(query.Message.MessageTime.Gte(lastMonth)).
+		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user cost for last month", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	return totalCost, nil
+}
+
+func (x *MessagesRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalTokens int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get total tokens", tracing.InnerError, err)
+		return 0, err
+	}
+
+	return totalTokens, nil
+}
+
+func (x *MessagesRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (int64, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalTokens int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.MessageTime.Gte(lastMonth)).
+		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get total tokens for last month", tracing.InnerError, err)
+		return 0, err
+	}
+
+	return totalTokens, nil
+}
+
+func (x *MessagesRepository) GetUserTokens(logger *tracing.Logger, user *entities.User) (int64, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalTokens int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.UserID.Eq(user.ID)).
+		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get user tokens", tracing.InnerError, err)
+		return 0, err
+	}
+
+	return totalTokens, nil
+}
+
+func (x *MessagesRepository) GetUserTokensLastMonth(logger *tracing.Logger, user *entities.User) (int64, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalTokens int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Message.
+		Where(query.Message.UserID.Eq(user.ID)).
+		Where(query.Message.MessageTime.Gte(lastMonth)).
+		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get user tokens for last month", tracing.InnerError, err)
+		return 0, err
+	}
+
+	return totalTokens, nil
+}

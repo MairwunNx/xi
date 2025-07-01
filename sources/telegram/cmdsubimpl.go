@@ -695,5 +695,66 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 
 // =========================  /budget command handler  =========================
 
-func (x *TelegramHandler) BudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {	x.diplomat.Reply(log, msg, texting.XiifyManual("Команда /budget находится в разработке. Скоро будет доступна статистика по использованию AI токенов и затратам."))
+func (x *TelegramHandler) BudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	totalCost, err := x.messages.GetTotalCost(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	totalCostLastMonth, err := x.messages.GetTotalCostLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	totalTokens, err := x.messages.GetTotalTokens(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	totalTokensLastMonth, err := x.messages.GetTotalTokensLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	userCost, err := x.messages.GetUserCost(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	userCostLastMonth, err := x.messages.GetUserCostLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	userTokens, err := x.messages.GetUserTokens(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	userTokensLastMonth, err := x.messages.GetUserTokensLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
+		return
+	}
+
+	response := texting.MsgBudgetTitle +
+		fmt.Sprintf(texting.MsgBudgetGeneral, 
+			totalCost.InexactFloat64(), 
+			totalCostLastMonth.InexactFloat64(), 
+			totalTokens, 
+			totalTokensLastMonth) +
+		fmt.Sprintf(texting.MsgBudgetPersonal, 
+			userCost.InexactFloat64(), 
+			userCostLastMonth.InexactFloat64(), 
+			userTokens, 
+			userTokensLastMonth)
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
