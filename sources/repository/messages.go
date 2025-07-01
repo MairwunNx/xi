@@ -10,6 +10,7 @@ import (
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/shopspring/decimal"
 )
 
 type MessagePair struct {
@@ -30,7 +31,7 @@ func NewMessagesRepository(users *UsersRepository) *MessagesRepository {
 	}
 }
 
-func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.Message, text string, isXiResponse bool) error {
+func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.Message, text string, isXiResponse bool, cost decimal.Decimal, tokens int) error {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -46,6 +47,8 @@ func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.M
 		IsAggressive: false,
 		IsXiResponse: isXiResponse,
 		UserID:       &user.ID,
+		Cost:         cost,
+		Tokens:       tokens,
 	}
 
 	q := query.Q.WithContext(ctx)
@@ -58,13 +61,6 @@ func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.M
 	logger.I("Message saved")
 
 	return nil
-}
-
-func (x *MessagesRepository) MustSaveMessage(logger *tracing.Logger, msg *tgbotapi.Message, text string, isXiResponse bool) {
-	err := x.SaveMessage(logger, msg, text, isXiResponse)
-	if err != nil {
-		logger.F("Failed to save message", tracing.InnerError, err)
-	}
 }
 
 func (x *MessagesRepository) GetMessagePairs(logger *tracing.Logger, user *entities.User, chatID int64) ([]MessagePair, error) {
@@ -169,45 +165,45 @@ func (x *MessagesRepository) MustGetMessagePairs(logger *tracing.Logger, user *e
 // Сообщения приходят в порядке DESC (самые новые сначала)
 func (x *MessagesRepository) zip(logger *tracing.Logger, messages []*entities.Message) []MessagePair {
 	var pairs []MessagePair
-	
+
 	// Обрабатываем сообщения в обратном порядке (самые старые сначала)
 	// чтобы правильно строить пары: User Message -> Xi Response
 	for i := len(messages) - 1; i >= 0; i-- {
 		msg := messages[i]
-		
+
 		// Если это сообщение пользователя, создаем новую пару
 		if !msg.IsXiResponse {
 			pair := MessagePair{
 				UserMessage: msg,
 				XiResponse:  nil,
 			}
-			
+
 			// Ищем соответствующий ответ Xi ПОСЛЕ этого сообщения (более новый по времени)
 			for j := i - 1; j >= 0; j-- {
 				nextMsg := messages[j]
-				
+
 				// Если нашли ответ Xi в том же чате, привязываем его
 				if nextMsg.IsXiResponse && nextMsg.ChatID == msg.ChatID {
 					pair.XiResponse = nextMsg
 					break
 				}
-				
+
 				// Если встретили другое сообщение пользователя, прерываем поиск
 				if !nextMsg.IsXiResponse {
 					break
 				}
 			}
-			
+
 			pairs = append(pairs, pair)
 		}
 	}
-	
+
 	// Возвращаем пары в правильном порядке (самые новые сначала)
 	// для соответствия порядку исходных сообщений
 	for i := 0; i < len(pairs)/2; i++ {
 		pairs[i], pairs[len(pairs)-1-i] = pairs[len(pairs)-1-i], pairs[i]
 	}
-	
+
 	logger.I("Grouped messages into pairs", "messages_count", len(messages), "pairs_count", len(pairs))
 	return pairs
 }

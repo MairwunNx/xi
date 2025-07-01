@@ -1,6 +1,8 @@
 package telegram
 
 import (
+	"strings"
+	"ximanager/sources/repository"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
@@ -10,10 +12,12 @@ import (
 type Diplomat struct {
 	bot *tgbotapi.BotAPI
 	config *DiplomatConfig
+	users *repository.UsersRepository
+	donations *repository.DonationsRepository
 }
 
-func NewDiplomat(bot *tgbotapi.BotAPI, config *DiplomatConfig) *Diplomat {
-	return &Diplomat{bot: bot, config: config}
+func NewDiplomat(bot *tgbotapi.BotAPI, config *DiplomatConfig, users *repository.UsersRepository, donations *repository.DonationsRepository) *Diplomat {
+	return &Diplomat{bot: bot, config: config, users: users, donations: donations}
 }
 
 func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
@@ -23,6 +27,26 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 				chattable := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(chunk))
 				chattable.ReplyToMessageID = msg.MessageID
 				chattable.ParseMode = tgbotapi.ModeMarkdownV2
+
+				if strings.HasPrefix(text, texting.MsgXiResponse) {
+					user, err := x.users.GetUserByEid(logger, msg.From.ID)
+					if err != nil {
+						logger.E("Failed to get user", tracing.InnerError, err)
+					} else {
+						grade, err := x.donations.GetUserGrade(logger, user)
+						if err != nil {
+							logger.E("Failed to get donations", tracing.InnerError, err)
+						} else {
+							if grade != repository.UserGradeGold && *user.Username != "mairwunnx" {
+								chattable.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+									tgbotapi.NewInlineKeyboardRow(
+										tgbotapi.NewInlineKeyboardButtonURL("Поддержать проект ❤️‍🔥", "https://www.tbank.ru/cf/3uoCqIOiT8V"),
+									),
+								)
+							}
+						}
+					}
+				}
 
 				if _, err := x.bot.Send(chattable); err != nil {
 					logger.E("Message chunk sending error", tracing.InnerError, err)

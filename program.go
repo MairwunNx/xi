@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"ximanager/sources/artificial"
-	"ximanager/sources/balancer"
 	"ximanager/sources/external"
 	"ximanager/sources/network"
 	"ximanager/sources/persistence"
@@ -29,7 +28,6 @@ func main() {
 		repository.Module,
 		throttler.Module,
 		artificial.Module,
-		balancer.Module,
 		telegram.Module,
 	
 		fx.Invoke(func(lc fx.Lifecycle, log *tracing.Logger) {

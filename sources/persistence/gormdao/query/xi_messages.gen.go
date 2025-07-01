@@ -31,11 +31,13 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 	_message.ID = field.NewField(tableName, "id")
 	_message.ChatID = field.NewInt64(tableName, "chat_id")
 	_message.MessageTime = field.NewTime(tableName, "message_time")
-	_message.MessageText = field.NewBytes(tableName, "message_text")
+	_message.MessageText = field.NewString(tableName, "message_text")
 	_message.IsAggressive = field.NewBool(tableName, "is_aggressive")
 	_message.IsXiResponse = field.NewBool(tableName, "is_xi_response")
 	_message.IsRemoved = field.NewBool(tableName, "is_removed")
 	_message.UserID = field.NewField(tableName, "user_id")
+	_message.Cost = field.NewField(tableName, "cost")
+	_message.Tokens = field.NewInt(tableName, "tokens")
 	_message.User = messageHasOneUser{
 		db: db.Session(&gorm.Session{}),
 
@@ -141,11 +143,13 @@ type message struct {
 	ID           field.Field
 	ChatID       field.Int64
 	MessageTime  field.Time
-	MessageText  field.Bytes
+	MessageText  field.String
 	IsAggressive field.Bool
 	IsXiResponse field.Bool
 	IsRemoved    field.Bool
 	UserID       field.Field
+	Cost         field.Field
+	Tokens       field.Int
 	User         messageHasOneUser
 
 	fieldMap map[string]field.Expr
@@ -166,11 +170,13 @@ func (m *message) updateTableName(table string) *message {
 	m.ID = field.NewField(table, "id")
 	m.ChatID = field.NewInt64(table, "chat_id")
 	m.MessageTime = field.NewTime(table, "message_time")
-	m.MessageText = field.NewBytes(table, "message_text")
+	m.MessageText = field.NewString(table, "message_text")
 	m.IsAggressive = field.NewBool(table, "is_aggressive")
 	m.IsXiResponse = field.NewBool(table, "is_xi_response")
 	m.IsRemoved = field.NewBool(table, "is_removed")
 	m.UserID = field.NewField(table, "user_id")
+	m.Cost = field.NewField(table, "cost")
+	m.Tokens = field.NewInt(table, "tokens")
 
 	m.fillFieldMap()
 
@@ -195,7 +201,7 @@ func (m *message) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (m *message) fillFieldMap() {
-	m.fieldMap = make(map[string]field.Expr, 9)
+	m.fieldMap = make(map[string]field.Expr, 11)
 	m.fieldMap["id"] = m.ID
 	m.fieldMap["chat_id"] = m.ChatID
 	m.fieldMap["message_time"] = m.MessageTime
@@ -204,6 +210,8 @@ func (m *message) fillFieldMap() {
 	m.fieldMap["is_xi_response"] = m.IsXiResponse
 	m.fieldMap["is_removed"] = m.IsRemoved
 	m.fieldMap["user_id"] = m.UserID
+	m.fieldMap["cost"] = m.Cost
+	m.fieldMap["tokens"] = m.Tokens
 
 }
 

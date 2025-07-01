@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"ximanager/sources/artificial"
-	"ximanager/sources/balancer"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -16,30 +15,32 @@ import (
 )
 
 type TelegramHandler struct {
-	diplomat     *Diplomat
-	users        *repository.UsersRepository
-	rights       *repository.RightsRepository
-	orchestrator *artificial.Orchestrator
-	modes        *repository.ModesRepository
-	donations    *repository.DonationsRepository
-	messages     *repository.MessagesRepository
-	pins         *repository.PinsRepository
-	throttler    *throttler.Throttler
-	balancer     *balancer.AIBalancer
+	diplomat  *Diplomat
+	users     *repository.UsersRepository
+	rights    *repository.RightsRepository
+	dialer    *artificial.Dialer
+	whisper   *artificial.Whisper
+	vision    *artificial.Vision
+	modes     *repository.ModesRepository
+	donations *repository.DonationsRepository
+	messages  *repository.MessagesRepository
+	pins      *repository.PinsRepository
+	throttler *throttler.Throttler
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, orchestrator *artificial.Orchestrator, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, throttler *throttler.Throttler, balancer *balancer.AIBalancer) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, throttler *throttler.Throttler) *TelegramHandler {
 	return &TelegramHandler{
-		diplomat:     diplomat,
-		users:        users,
-		rights:       rights,
-		orchestrator: orchestrator,
-		modes:        modes,
-		donations:    donations,
-		messages:     messages,
-		pins:         pins,
-		throttler:    throttler,
-		balancer:     balancer,
+		diplomat:  diplomat,
+		users:     users,
+		rights:    rights,
+		dialer:    dialer,
+		whisper:   whisper,
+		vision:    vision,
+		modes:     modes,
+		donations: donations,
+		messages:  messages,
+		pins:      pins,
+		throttler: throttler,
 	}
 }
 
@@ -106,10 +107,10 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleContextCommand(log, user, msg)
 		case "pinned":
 			x.HandlePinnedCommand(log, user, msg)
-		case "wtf":
-			x.HandleWtfCommand(log, user, msg)
 		case "restart":
 			x.HandleRestartCommand(log, user, msg)
+		case "budget":
+			x.HandleBudgetCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}

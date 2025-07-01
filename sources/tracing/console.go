@@ -30,6 +30,7 @@ const (
 	SqlQuery           = "sql_query"
 	AiProvider         = "ai_provider"
 	AiTokens           = "ai_tokens"
+	AiCost             = "ai_cost"
 	ModeId             = "mode_id"
 	ModeName           = "mode_name"
 	CommandIssued      = "command_issued"

@@ -182,10 +182,6 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 	}
 }
 
-func (x *TelegramHandler) HandleWtfCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	x.WtfCommand(log, msg)
-}
-
 func (x *TelegramHandler) HandleRestartCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	if user.Username != nil && *user.Username == "mairwunnx" {
 		x.diplomat.Reply(log, msg, texting.MsgRestartText)
@@ -220,4 +216,8 @@ func (x *TelegramHandler) HandlePinnedCommand(log *tracing.Logger, user *entitie
 
 func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.diplomat.Reply(log, msg, texting.MsgHelpText)
+}
+
+func (x *TelegramHandler) HandleBudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	x.BudgetCommand(log, user, msg)
 }

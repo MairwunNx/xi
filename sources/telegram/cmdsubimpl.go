@@ -1,7 +1,6 @@
 package telegram
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"ximanager/sources/artificial"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -32,7 +30,7 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 
 	x.diplomat.SendTyping(log, msg.Chat.ID)
 
-	response, err := x.orchestrator.Orchestrate(log, msg, req)
+	response, err := x.dialer.Dial(log, msg, req, msg.From.FirstName+" "+msg.From.LastName, true)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
 		return
@@ -72,11 +70,8 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 		req = msg.Caption
 	}
 
-	oai := x.balancer.GetNeuroProviderByName("openai").(*artificial.OpenAIClient)
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	response, err := oai.ResponseImage(ctx, log, iurl, req, msg.From.FirstName+" "+msg.From.LastName)
+	persona := msg.From.FirstName + " " + msg.From.LastName
+	response, err := x.vision.Visionify(log, iurl, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
 		return
@@ -129,12 +124,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Mess
 	defer tempFile.Close()
 
 	userPrompt := strings.TrimSpace(msg.CommandArguments())
-	
-	oai := x.balancer.GetNeuroProviderByName("openai").(*artificial.OpenAIClient)
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	transcriptedText, err := oai.ResponseAudio(ctx, log, tempFile, "")
+	transcriptedText, err := x.whisper.Whisperify(log, tempFile)
 	if err != nil {
 		log.E("Error transcribing audio", tracing.InnerError, err)
 		x.diplomat.Reply(log, msg, texting.MsgAudioError)
@@ -142,7 +132,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Mess
 	}
 
 	if userPrompt != "" {
-		response, err := oai.ResponseLightweight(ctx, log, transcriptedText, userPrompt, msg.From.FirstName+" "+msg.From.LastName)
+		response, err := x.dialer.Dial(log, msg, transcriptedText, msg.From.FirstName+" "+msg.From.LastName, false)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
 			x.diplomat.Reply(log, msg, texting.MsgAudioError)
@@ -703,40 +693,7 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 	x.diplomat.Reply(log, msg, response)
 }
 
-// =========================  /wtf command handlers  =========================
+// =========================  /budget command handler  =========================
 
-func (x *TelegramHandler) WtfCommand(log *tracing.Logger, msg *tgbotapi.Message) {
-	wtfDaysBack := platform.GetAsInt("WTF_DAYS_BACK", 2)
-	wtfMessageLimit := platform.GetAsInt("WTF_MESSAGE_LIMIT", 80)
-
-	fromTime := time.Now().AddDate(0, 0, -wtfDaysBack)
-
-	messages, err := x.messages.GetRecentUserQuestions(log, msg.Chat.ID, fromTime, wtfMessageLimit)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgWtfError))
-		return
-	}
-
-	if len(messages) == 0 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgWtfNoQuestions))
-		return
-	}
-
-	var questionsText strings.Builder
-	for i, message := range messages {
-		questionsText.WriteString(fmt.Sprintf("%d. %s\n", i+1, string(message.MessageText)))
-	}
-
-	oai := x.balancer.GetNeuroProviderByName("openai").(*artificial.OpenAIClient)
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Minute)
-	defer cancel()
-
-	response, err := oai.ResponseLightweight(ctx, log, questionsText.String(), texting.MsgWtfPrompt, msg.From.FirstName+" "+msg.From.LastName)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgWtfError))
-		return
-	}
-
-	finalResponse := texting.MsgWtfTitle + response
-	x.diplomat.Reply(log, msg, texting.XiifyManual(finalResponse))
+func (x *TelegramHandler) BudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {	x.diplomat.Reply(log, msg, texting.XiifyManual("Команда /budget находится в разработке. Скоро будет доступна статистика по использованию AI токенов и затратам."))
 }
