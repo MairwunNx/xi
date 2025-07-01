@@ -6,11 +6,9 @@ toolchain go1.24.3
 
 require (
 	github.com/alecthomas/kong v1.12.0
-	github.com/cohesion-org/deepseek-go v1.3.2
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
-	github.com/liushuangls/go-anthropic/v2 v2.15.2
 	github.com/pkoukk/tiktoken-go v0.1.7
 	github.com/prometheus/client_golang v1.22.0
 	github.com/redis/go-redis/v9 v9.11.0
@@ -38,11 +36,9 @@ require (
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/ollama/ollama v0.9.3 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
