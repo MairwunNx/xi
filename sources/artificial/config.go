@@ -28,7 +28,7 @@ func NewAIConfig() *AIConfig {
 		WhisperModel: platform.Get("WHISPER_MODEL", openai.Whisper1),
 
 		DialerPrimaryModel: platform.Get("DIALER_PRIMARY_MODEL", "openai/gpt-4.1"),
-		DialerFallbackModels: platform.GetAsSlice("DIALER_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-sonnet-4", "anthropic/claude-3.7-sonnet", "grok-beta", "deepseek/deepseek-r1"}),
+		DialerFallbackModels: platform.GetAsSlice("DIALER_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-sonnet-4", "grok-beta"}),
 		DialerReasoningEffort: platform.Get("DIALER_REASONING_EFFORT", "medium"),
 
 		VisionPrimaryModel: platform.Get("VISION_PRIMARY_MODEL", "openai/gpt-4o"),
