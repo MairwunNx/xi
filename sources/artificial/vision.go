@@ -12,7 +12,7 @@ import (
 )
 
 type Vision struct {
-	ai *openrouter.Client
+	ai     *openrouter.Client
 	config *AIConfig
 }
 
@@ -43,12 +43,13 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, req string, pers
 	}
 
 	request := openrouter.ChatCompletionRequest{
-		Model: v.config.VisionPrimaryModel,
-		Models: v.config.VisionFallbackModels,
+		Model:    v.config.VisionPrimaryModel,
+		Models:   v.config.VisionFallbackModels,
 		Messages: messages,
 		Usage:    &openrouter.IncludeUsage{Include: true},
 		Provider: &openrouter.ChatProvider{
 			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
 		},
 	}
 
