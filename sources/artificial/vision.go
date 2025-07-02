@@ -47,6 +47,9 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, req string, pers
 		Models: v.config.VisionFallbackModels,
 		Messages: messages,
 		Usage:    &openrouter.IncludeUsage{Include: true},
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+		},
 	}
 
 	logger = logger.With(tracing.AiKind, "openrouter/vision", tracing.AiModel, request.Model)
@@ -55,8 +58,24 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, req string, pers
 
 	response, err := v.ai.CreateChatCompletion(ctx, request)
 	if err != nil {
-		logger.E("Failed to visionify image", tracing.InnerError, err)
-		return "", err
+		switch e := err.(type) {
+		case *openrouter.APIError:
+			logger.E("OpenRouter API error in vision",
+				"code", e.Code,
+				"message", e.Message,
+				"http_status", e.HTTPStatusCode,
+				tracing.InnerError, err)
+			return "", err
+		case *openrouter.RequestError:
+			logger.E("OpenRouter request error in vision",
+				"http_status", e.HTTPStatusCode,
+				"http_status_text", e.HTTPStatus,
+				tracing.InnerError, e.Err)
+			return "", e.Err
+		default:
+			logger.E("Failed to visionify image", tracing.InnerError, err)
+			return "", err
+		}
 	}
 
 	tokens := response.Usage.TotalTokens

@@ -93,6 +93,9 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		Messages:  messages,
 		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(x.config.DialerReasoningEffort)},
 		Usage:     &openrouter.IncludeUsage{Include: true},
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+		},
 	}
 
 	if mode.Params != nil {
@@ -119,7 +122,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
-			log.E("OpenRouter API error", 
+			log.E("OpenRouter API error",
 				"code", e.Code,
 				"message", e.Message,
 				"http_status", e.HTTPStatusCode,
