@@ -117,13 +117,24 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	response, err := x.ai.CreateChatCompletion(ctx, request)
 	if err != nil {
-		if requestError, ok := err.(*openrouter.RequestError); ok {
-			log.E("Failed to dial", tracing.InnerError, requestError.Err)
-			return "", requestError.Err
+		switch e := err.(type) {
+		case *openrouter.APIError:
+			log.E("OpenRouter API error", 
+				"code", e.Code,
+				"message", e.Message,
+				"http_status", e.HTTPStatusCode,
+				tracing.InnerError, err)
+			return "", err
+		case *openrouter.RequestError:
+			log.E("OpenRouter request error",
+				"http_status", e.HTTPStatusCode,
+				"http_status_text", e.HTTPStatus,
+				tracing.InnerError, e.Err)
+			return "", e.Err
+		default:
+			log.E("Failed to dial", tracing.InnerError, err)
+			return "", err
 		}
-
-		log.E("Failed to dial", tracing.InnerError, err)
-		return "", err
 	}
 
 	tokens := response.Usage.TotalTokens
