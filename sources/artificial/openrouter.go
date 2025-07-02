@@ -1,19 +1,19 @@
 package artificial
 
 import (
+	"net/http"
 	"ximanager/sources/repository"
 
 	openrouter "github.com/revrost/go-openrouter"
 )
 
-func NewOpenRouterClient(config *AIConfig) *openrouter.Client {
-	client := openrouter.NewClient(
-		config.OpenRouterToken,
-		openrouter.WithXTitle("Xi Manager"),
-		openrouter.WithHTTPReferer("https://github.com/mairwunnx/xi"),
-	)
+func NewOpenRouterClient(config *AIConfig, client *http.Client) *openrouter.Client {
+	clientConfig := openrouter.DefaultConfig(config.OpenRouterToken)
+	clientConfig.HTTPClient = client
+	clientConfig.XTitle = "Xi Manager"
+	clientConfig.HttpReferer = "https://github.com/mairwunnx/xi"
 
-	return client
+	return openrouter.NewClientWithConfig(*clientConfig)
 }
 
 func OpenRouterMessageStackFrom(pairs []repository.MessagePair) []openrouter.ChatCompletionMessage {
