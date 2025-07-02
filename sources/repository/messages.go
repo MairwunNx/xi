@@ -364,11 +364,11 @@ func (x *MessagesRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decim
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
-	var totalCost decimal.Decimal
+	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
-		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Select(query.Message.Cost.Sum()).
 		Row().Scan(&totalCost)
 
 	if err != nil {
@@ -376,7 +376,11 @@ func (x *MessagesRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decim
 		return decimal.Zero, err
 	}
 
-	return totalCost, nil
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
 }
 
 func (x *MessagesRepository) GetTotalCostLastMonth(logger *tracing.Logger) (decimal.Decimal, error) {
@@ -384,12 +388,12 @@ func (x *MessagesRepository) GetTotalCostLastMonth(logger *tracing.Logger) (deci
 	defer cancel()
 
 	lastMonth := time.Now().AddDate(0, -1, 0)
-	var totalCost decimal.Decimal
+	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.MessageTime.Gte(lastMonth)).
-		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Select(query.Message.Cost.Sum()).
 		Row().Scan(&totalCost)
 
 	if err != nil {
@@ -397,19 +401,23 @@ func (x *MessagesRepository) GetTotalCostLastMonth(logger *tracing.Logger) (deci
 		return decimal.Zero, err
 	}
 
-	return totalCost, nil
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
 }
 
 func (x *MessagesRepository) GetUserCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
-	var totalCost decimal.Decimal
+	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.UserID.Eq(user.ID)).
-		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Select(query.Message.Cost.Sum()).
 		Row().Scan(&totalCost)
 
 	if err != nil {
@@ -417,7 +425,11 @@ func (x *MessagesRepository) GetUserCost(logger *tracing.Logger, user *entities.
 		return decimal.Zero, err
 	}
 
-	return totalCost, nil
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
 }
 
 func (x *MessagesRepository) GetUserCostLastMonth(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
@@ -425,13 +437,13 @@ func (x *MessagesRepository) GetUserCostLastMonth(logger *tracing.Logger, user *
 	defer cancel()
 
 	lastMonth := time.Now().AddDate(0, -1, 0)
-	var totalCost decimal.Decimal
+	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.UserID.Eq(user.ID)).
 		Where(query.Message.MessageTime.Gte(lastMonth)).
-		Select(query.Message.Cost.Sum().IfNull(decimal.Zero)).
+		Select(query.Message.Cost.Sum()).
 		Row().Scan(&totalCost)
 
 	if err != nil {
@@ -439,18 +451,22 @@ func (x *MessagesRepository) GetUserCostLastMonth(logger *tracing.Logger, user *
 		return decimal.Zero, err
 	}
 
-	return totalCost, nil
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
 }
 
 func (x *MessagesRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
-	var totalTokens int64
+	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
-		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Select(query.Message.Tokens.Sum()).
 		Row().Scan(&totalTokens)
 
 	if err != nil {
@@ -458,7 +474,11 @@ func (x *MessagesRepository) GetTotalTokens(logger *tracing.Logger) (int64, erro
 		return 0, err
 	}
 
-	return totalTokens, nil
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
 }
 
 func (x *MessagesRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (int64, error) {
@@ -466,12 +486,12 @@ func (x *MessagesRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (in
 	defer cancel()
 
 	lastMonth := time.Now().AddDate(0, -1, 0)
-	var totalTokens int64
+	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.MessageTime.Gte(lastMonth)).
-		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Select(query.Message.Tokens.Sum()).
 		Row().Scan(&totalTokens)
 
 	if err != nil {
@@ -479,19 +499,23 @@ func (x *MessagesRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (in
 		return 0, err
 	}
 
-	return totalTokens, nil
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
 }
 
 func (x *MessagesRepository) GetUserTokens(logger *tracing.Logger, user *entities.User) (int64, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
-	var totalTokens int64
+	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.UserID.Eq(user.ID)).
-		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Select(query.Message.Tokens.Sum()).
 		Row().Scan(&totalTokens)
 
 	if err != nil {
@@ -499,7 +523,11 @@ func (x *MessagesRepository) GetUserTokens(logger *tracing.Logger, user *entitie
 		return 0, err
 	}
 
-	return totalTokens, nil
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
 }
 
 func (x *MessagesRepository) GetUserTokensLastMonth(logger *tracing.Logger, user *entities.User) (int64, error) {
@@ -507,13 +535,13 @@ func (x *MessagesRepository) GetUserTokensLastMonth(logger *tracing.Logger, user
 	defer cancel()
 
 	lastMonth := time.Now().AddDate(0, -1, 0)
-	var totalTokens int64
+	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
 	
 	err := q.Message.
 		Where(query.Message.UserID.Eq(user.ID)).
 		Where(query.Message.MessageTime.Gte(lastMonth)).
-		Select(query.Message.Tokens.Sum().IfNull(0)).
+		Select(query.Message.Tokens.Sum()).
 		Row().Scan(&totalTokens)
 
 	if err != nil {
@@ -521,5 +549,9 @@ func (x *MessagesRepository) GetUserTokensLastMonth(logger *tracing.Logger, user
 		return 0, err
 	}
 
-	return totalTokens, nil
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
 }
