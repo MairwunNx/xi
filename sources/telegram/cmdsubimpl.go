@@ -469,7 +469,7 @@ func (x *TelegramHandler) DonationsCommandAdd(log *tracing.Logger, msg *tgbotapi
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgDonationsAdded, *user.Username, sum)))
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgDonationsAdded, *user.Username, texting.DecimalifyFloat(sum))))
 }
 
 func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
@@ -500,7 +500,7 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 		builder.WriteString(fmt.Sprintf(
 			texting.MsgDonationsListItem,
 			username,
-			donation.Sum.StringFixed(2),
+			texting.Decimalify(donation.Sum),
 			donation.CreatedAt.Format("02.01.2006"),
 		))
 	}
@@ -608,21 +608,25 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 	}
 
 	response := texting.MsgStatsTitle +
-		fmt.Sprintf(texting.MsgStatsGeneral, totalQuestions, chatQuestions) +
-		fmt.Sprintf(texting.MsgStatsPersonal, userQuestions, userChatQuestions) +
-		fmt.Sprintf(texting.MsgStatsUsers, totalUsers, totalChats) + "\n\n" +
-		fmt.Sprintf(texting.MsgStatsBudgetGeneral, 
-			totalCost.InexactFloat64(), 
-			totalCostLastMonth.InexactFloat64(),
-			avgDailyCost.InexactFloat64(),
-			totalTokens, 
-			totalTokensLastMonth) +
-		fmt.Sprintf(texting.MsgStatsBudgetPersonal, 
-			userCost.InexactFloat64(), 
-			userCostLastMonth.InexactFloat64(),
-			userAvgDailyCost.InexactFloat64(),
-			userTokens, 
-			userTokensLastMonth)
+		fmt.Sprintf(texting.MsgStatsGeneral, 
+			texting.Numberify(totalQuestions), 
+			texting.Numberify(chatQuestions),
+			texting.CurrencifyDecimal(totalCost),
+			texting.CurrencifyDecimal(totalCostLastMonth),
+			texting.CurrencifyDecimal(avgDailyCost),
+			texting.Numberify(totalTokens),
+			texting.Numberify(totalTokensLastMonth)) +
+		fmt.Sprintf(texting.MsgStatsPersonal, 
+			texting.Numberify(userQuestions), 
+			texting.Numberify(userChatQuestions),
+			texting.CurrencifyDecimal(userCost),
+			texting.CurrencifyDecimal(userCostLastMonth),
+			texting.CurrencifyDecimal(userAvgDailyCost),
+			texting.Numberify(userTokens),
+			texting.Numberify(userTokensLastMonth)) +
+		fmt.Sprintf(texting.MsgStatsUsers, 
+			texting.Numberify(totalUsers), 
+			texting.Numberify(totalChats))
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
