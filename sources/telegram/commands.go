@@ -151,10 +151,10 @@ func (x *TelegramHandler) HandleStatsCommand(log *tracing.Logger, user *entities
 }
 
 func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+	/*if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextNoAccess))
 		return
-	}
+	}*/
 
 	var cmd ContextCmd
 	ctx, err := x.ParseKongCommand(log, msg, &cmd)
