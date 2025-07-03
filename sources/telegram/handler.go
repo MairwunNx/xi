@@ -25,10 +25,11 @@ type TelegramHandler struct {
 	donations *repository.DonationsRepository
 	messages  *repository.MessagesRepository
 	pins      *repository.PinsRepository
+	usage     *repository.UsageRepository
 	throttler *throttler.Throttler
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, throttler *throttler.Throttler) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:  diplomat,
 		users:     users,
@@ -40,6 +41,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		donations: donations,
 		messages:  messages,
 		pins:      pins,
+		usage:     usage,
 		throttler: throttler,
 	}
 }
@@ -109,8 +111,6 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandlePinnedCommand(log, user, msg)
 		case "restart":
 			x.HandleRestartCommand(log, user, msg)
-		case "budget":
-			x.HandleBudgetCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}

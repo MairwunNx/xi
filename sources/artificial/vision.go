@@ -7,20 +7,24 @@ import (
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
+	"ximanager/sources/repository"
+
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/shopspring/decimal"
+	"github.com/google/uuid"
 )
 
 type Vision struct {
 	ai     *openrouter.Client
 	config *AIConfig
+	usage  *repository.UsageRepository
 }
 
-func NewVision(config *AIConfig, ai *openrouter.Client) *Vision {
-	return &Vision{ai: ai, config: config}
+func NewVision(config *AIConfig, ai *openrouter.Client, usage *repository.UsageRepository) *Vision {
+	return &Vision{ai: ai, config: config, usage: usage}
 }
 
-func (v *Vision) Visionify(logger *tracing.Logger, iurl string, req string, persona string) (string, error) {
+func (v *Vision) Visionify(logger *tracing.Logger, iurl string, userID uuid.UUID, chatID int64, req string, persona string) (string, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -81,6 +85,10 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, req string, pers
 
 	tokens := response.Usage.TotalTokens
 	cost := decimal.NewFromFloat(response.Usage.Cost)
+
+	if err := v.usage.SaveUsage(logger, userID, chatID, cost, tokens); err != nil {
+		logger.E("Error saving usage", tracing.InnerError, err)
+	}
 
 	logger.I("vision completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
 

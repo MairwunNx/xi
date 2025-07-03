@@ -27,8 +27,6 @@ type (
 		IsXiResponse bool            `gorm:"not null" json:"is_xi_response"`
 		IsRemoved    bool            `gorm:"not null;default:false" json:"is_removed"`
 		UserID       *uuid.UUID      `gorm:"type:uuid" json:"user_id"`
-		Cost         decimal.Decimal `gorm:"type:decimal(10,6);not null;default:0.0" json:"cost"`
-		Tokens       int             `gorm:"not null;default:0" json:"tokens"`
 
 		User *User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
@@ -70,6 +68,17 @@ type (
 		UserEntity User `gorm:"foreignKey:User;references:ID" json:"user_entity"`
 	}
 
+	Usage struct {
+		ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID    uuid.UUID       `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Cost      decimal.Decimal `gorm:"type:decimal(10,6);not null" json:"cost"`
+		Tokens    int             `gorm:"not null" json:"tokens"`
+		ChatID    int64           `gorm:"not null" json:"chat_id"`
+		CreatedAt time.Time       `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+
+		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+	}
+
 	User struct {
 		ID             uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID         int64          `gorm:"uniqueIndex;not null" json:"user_id"`
@@ -87,6 +96,7 @@ type (
 		CreatedModes  []Mode         `gorm:"foreignKey:CreatedBy;references:ID" json:"created_modes"`
 		SelectedModes []SelectedMode `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
 		Pins          []Pin          `gorm:"foreignKey:User;references:ID" json:"pins"`
+		Usages        []Usage        `gorm:"foreignKey:UserID;references:ID" json:"usages"`
 	}
 )
 
@@ -95,4 +105,5 @@ func (Message) TableName() string      { return "xi_messages" }
 func (Mode) TableName() string         { return "xi_modes" }
 func (Pin) TableName() string          { return "xi_pins" }
 func (SelectedMode) TableName() string { return "xi_selected_modes" }
+func (Usage) TableName() string        { return "xi_usage" }
 func (User) TableName() string         { return "xi_users" }

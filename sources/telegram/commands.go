@@ -217,7 +217,3 @@ func (x *TelegramHandler) HandlePinnedCommand(log *tracing.Logger, user *entitie
 func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.diplomat.Reply(log, msg, texting.MsgHelpText)
 }
-
-func (x *TelegramHandler) HandleBudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	x.BudgetCommand(log, user, msg)
-}

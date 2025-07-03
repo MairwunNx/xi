@@ -22,6 +22,7 @@ var (
 	Mode         *mode
 	Pin          *pin
 	SelectedMode *selectedMode
+	Usage        *usage
 	User         *user
 )
 
@@ -32,6 +33,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Mode = &Q.Mode
 	Pin = &Q.Pin
 	SelectedMode = &Q.SelectedMode
+	Usage = &Q.Usage
 	User = &Q.User
 }
 
@@ -43,6 +45,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Mode:         newMode(db, opts...),
 		Pin:          newPin(db, opts...),
 		SelectedMode: newSelectedMode(db, opts...),
+		Usage:        newUsage(db, opts...),
 		User:         newUser(db, opts...),
 	}
 }
@@ -55,6 +58,7 @@ type Query struct {
 	Mode         mode
 	Pin          pin
 	SelectedMode selectedMode
+	Usage        usage
 	User         user
 }
 
@@ -68,6 +72,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Mode:         q.Mode.clone(db),
 		Pin:          q.Pin.clone(db),
 		SelectedMode: q.SelectedMode.clone(db),
+		Usage:        q.Usage.clone(db),
 		User:         q.User.clone(db),
 	}
 }
@@ -88,6 +93,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Mode:         q.Mode.replaceDB(db),
 		Pin:          q.Pin.replaceDB(db),
 		SelectedMode: q.SelectedMode.replaceDB(db),
+		Usage:        q.Usage.replaceDB(db),
 		User:         q.User.replaceDB(db),
 	}
 }
@@ -98,6 +104,7 @@ type queryCtx struct {
 	Mode         IModeDo
 	Pin          IPinDo
 	SelectedMode ISelectedModeDo
+	Usage        IUsageDo
 	User         IUserDo
 }
 
@@ -108,6 +115,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Mode:         q.Mode.WithContext(ctx),
 		Pin:          q.Pin.WithContext(ctx),
 		SelectedMode: q.SelectedMode.WithContext(ctx),
+		Usage:        q.Usage.WithContext(ctx),
 		User:         q.User.WithContext(ctx),
 	}
 }

@@ -71,7 +71,8 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName
-	response, err := x.vision.Visionify(log, iurl, req, persona)
+	user := x.users.MustGetUserByEid(log, msg.From.ID)
+	response, err := x.vision.Visionify(log, iurl, user.ID, msg.Chat.ID, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
 		return
@@ -546,10 +547,82 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 		return
 	}
 
+	totalCost, err := x.usage.GetTotalCost(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	totalCostLastMonth, err := x.usage.GetTotalCostLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	avgDailyCost, err := x.usage.GetAverageDailyCost(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	totalTokens, err := x.usage.GetTotalTokens(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	totalTokensLastMonth, err := x.usage.GetTotalTokensLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	userCost, err := x.usage.GetUserCost(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	userCostLastMonth, err := x.usage.GetUserCostLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	userAvgDailyCost, err := x.usage.GetUserAverageDailyCost(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	userTokens, err := x.usage.GetUserTokens(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
+	userTokensLastMonth, err := x.usage.GetUserTokensLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		return
+	}
+
 	response := texting.MsgStatsTitle +
 		fmt.Sprintf(texting.MsgStatsGeneral, totalQuestions, chatQuestions) +
 		fmt.Sprintf(texting.MsgStatsPersonal, userQuestions, userChatQuestions) +
-		fmt.Sprintf(texting.MsgStatsUsers, totalUsers, totalChats)
+		fmt.Sprintf(texting.MsgStatsUsers, totalUsers, totalChats) + "\n\n" +
+		fmt.Sprintf(texting.MsgStatsBudgetGeneral, 
+			totalCost.InexactFloat64(), 
+			totalCostLastMonth.InexactFloat64(),
+			avgDailyCost.InexactFloat64(),
+			totalTokens, 
+			totalTokensLastMonth) +
+		fmt.Sprintf(texting.MsgStatsBudgetPersonal, 
+			userCost.InexactFloat64(), 
+			userCostLastMonth.InexactFloat64(),
+			userAvgDailyCost.InexactFloat64(),
+			userTokens, 
+			userTokensLastMonth)
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
@@ -691,70 +764,4 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 	response += fmt.Sprintf("\n" + texting.MsgPinnedListFooter, userPinsCount, limit)
 
 	x.diplomat.Reply(log, msg, response)
-}
-
-// =========================  /budget command handler  =========================
-
-func (x *TelegramHandler) BudgetCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	totalCost, err := x.messages.GetTotalCost(log)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	totalCostLastMonth, err := x.messages.GetTotalCostLastMonth(log)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	totalTokens, err := x.messages.GetTotalTokens(log)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	totalTokensLastMonth, err := x.messages.GetTotalTokensLastMonth(log)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	userCost, err := x.messages.GetUserCost(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	userCostLastMonth, err := x.messages.GetUserCostLastMonth(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	userTokens, err := x.messages.GetUserTokens(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	userTokensLastMonth, err := x.messages.GetUserTokensLastMonth(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBudgetError))
-		return
-	}
-
-	response := texting.MsgBudgetTitle +
-		fmt.Sprintf(texting.MsgBudgetGeneral, 
-			totalCost.InexactFloat64(), 
-			totalCostLastMonth.InexactFloat64(), 
-			totalTokens, 
-			totalTokensLastMonth) +
-		fmt.Sprintf(texting.MsgBudgetPersonal, 
-			userCost.InexactFloat64(), 
-			userCostLastMonth.InexactFloat64(), 
-			userTokens, 
-			userTokensLastMonth)
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }

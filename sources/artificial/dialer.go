@@ -22,10 +22,11 @@ type Dialer struct {
 	users    *repository.UsersRepository
 	messages *repository.MessagesRepository
 	pins     *repository.PinsRepository
+	usage    *repository.UsageRepository
 }
 
-func NewDialer(config *AIConfig, ai *openrouter.Client, modes *repository.ModesRepository, users *repository.UsersRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository) *Dialer {
-	return &Dialer{ai: ai, config: config, modes: modes, users: users, messages: messages, pins: pins}
+func NewDialer(config *AIConfig, ai *openrouter.Client, modes *repository.ModesRepository, users *repository.UsersRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository) *Dialer {
+	return &Dialer{ai: ai, config: config, modes: modes, users: users, messages: messages, pins: pins, usage: usage}
 }
 
 func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
@@ -148,11 +149,15 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	responseText := response.Choices[0].Message.Content.Text
 
-	if err := x.messages.SaveMessage(log, msg, req, false, cost, tokens); err != nil {
+	if err := x.messages.SaveMessage(log, msg, req, false); err != nil {
 		log.E("Error saving user message", tracing.InnerError, err)
 	}
-	if err := x.messages.SaveMessage(log, msg, responseText, true, cost, tokens); err != nil {
+	if err := x.messages.SaveMessage(log, msg, responseText, true); err != nil {
 		log.E("Error saving Xi response", tracing.InnerError, err)
+	}
+
+	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens); err != nil {
+		log.E("Error saving usage", tracing.InnerError, err)
 	}
 
 	return responseText, nil

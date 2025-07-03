@@ -36,8 +36,6 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 	_message.IsXiResponse = field.NewBool(tableName, "is_xi_response")
 	_message.IsRemoved = field.NewBool(tableName, "is_removed")
 	_message.UserID = field.NewField(tableName, "user_id")
-	_message.Cost = field.NewField(tableName, "cost")
-	_message.Tokens = field.NewInt(tableName, "tokens")
 	_message.User = messageHasOneUser{
 		db: db.Session(&gorm.Session{}),
 
@@ -129,6 +127,19 @@ func newMessage(db *gorm.DB, opts ...gen.DOOption) message {
 				RelationField: field.NewRelation("User.Pins.UserEntity", "entities.User"),
 			},
 		},
+		Usages: struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
+		}{
+			RelationField: field.NewRelation("User.Usages", "entities.Usage"),
+			User: struct {
+				field.RelationField
+			}{
+				RelationField: field.NewRelation("User.Usages.User", "entities.User"),
+			},
+		},
 	}
 
 	_message.fillFieldMap()
@@ -148,8 +159,6 @@ type message struct {
 	IsXiResponse field.Bool
 	IsRemoved    field.Bool
 	UserID       field.Field
-	Cost         field.Field
-	Tokens       field.Int
 	User         messageHasOneUser
 
 	fieldMap map[string]field.Expr
@@ -175,8 +184,6 @@ func (m *message) updateTableName(table string) *message {
 	m.IsXiResponse = field.NewBool(table, "is_xi_response")
 	m.IsRemoved = field.NewBool(table, "is_removed")
 	m.UserID = field.NewField(table, "user_id")
-	m.Cost = field.NewField(table, "cost")
-	m.Tokens = field.NewInt(table, "tokens")
 
 	m.fillFieldMap()
 
@@ -201,7 +208,7 @@ func (m *message) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (m *message) fillFieldMap() {
-	m.fieldMap = make(map[string]field.Expr, 11)
+	m.fieldMap = make(map[string]field.Expr, 9)
 	m.fieldMap["id"] = m.ID
 	m.fieldMap["chat_id"] = m.ChatID
 	m.fieldMap["message_time"] = m.MessageTime
@@ -210,8 +217,6 @@ func (m *message) fillFieldMap() {
 	m.fieldMap["is_xi_response"] = m.IsXiResponse
 	m.fieldMap["is_removed"] = m.IsRemoved
 	m.fieldMap["user_id"] = m.UserID
-	m.fieldMap["cost"] = m.Cost
-	m.fieldMap["tokens"] = m.Tokens
 
 }
 
@@ -266,6 +271,12 @@ type messageHasOneUser struct {
 	Pins struct {
 		field.RelationField
 		UserEntity struct {
+			field.RelationField
+		}
+	}
+	Usages struct {
+		field.RelationField
+		User struct {
 			field.RelationField
 		}
 	}

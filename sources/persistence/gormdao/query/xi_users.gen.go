@@ -77,6 +77,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 					field.RelationField
 				}
 			}
+			Usages struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}
 		}{
 			RelationField: field.NewRelation("Messages.User", "entities.User"),
 			Messages: struct {
@@ -158,6 +164,19 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 					RelationField: field.NewRelation("Messages.User.Pins.UserEntity", "entities.User"),
 				},
 			},
+			Usages: struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}{
+				RelationField: field.NewRelation("Messages.User.Usages", "entities.Usage"),
+				User: struct {
+					field.RelationField
+				}{
+					RelationField: field.NewRelation("Messages.User.Usages.User", "entities.User"),
+				},
+			},
 		},
 	}
 
@@ -183,6 +202,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 		db: db.Session(&gorm.Session{}),
 
 		RelationField: field.NewRelation("Pins", "entities.Pin"),
+	}
+
+	_user.Usages = userHasManyUsages{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Usages", "entities.Usage"),
 	}
 
 	_user.fillFieldMap()
@@ -213,6 +238,8 @@ type user struct {
 	SelectedModes userHasManySelectedModes
 
 	Pins userHasManyPins
+
+	Usages userHasManyUsages
 
 	fieldMap map[string]field.Expr
 }
@@ -263,7 +290,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 15)
+	u.fieldMap = make(map[string]field.Expr, 16)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["username"] = u.Username
@@ -289,6 +316,8 @@ func (u user) clone(db *gorm.DB) user {
 	u.SelectedModes.db.Statement.ConnPool = db.Statement.ConnPool
 	u.Pins.db = db.Session(&gorm.Session{Initialized: true})
 	u.Pins.db.Statement.ConnPool = db.Statement.ConnPool
+	u.Usages.db = db.Session(&gorm.Session{Initialized: true})
+	u.Usages.db.Statement.ConnPool = db.Statement.ConnPool
 	return u
 }
 
@@ -299,6 +328,7 @@ func (u user) replaceDB(db *gorm.DB) user {
 	u.CreatedModes.db = db.Session(&gorm.Session{})
 	u.SelectedModes.db = db.Session(&gorm.Session{})
 	u.Pins.db = db.Session(&gorm.Session{})
+	u.Usages.db = db.Session(&gorm.Session{})
 	return u
 }
 
@@ -339,6 +369,12 @@ type userHasManyMessages struct {
 		Pins struct {
 			field.RelationField
 			UserEntity struct {
+				field.RelationField
+			}
+		}
+		Usages struct {
+			field.RelationField
+			User struct {
 				field.RelationField
 			}
 		}
@@ -740,6 +776,87 @@ func (a userHasManyPinsTx) Count() int64 {
 }
 
 func (a userHasManyPinsTx) Unscoped() *userHasManyPinsTx {
+	a.tx = a.tx.Unscoped()
+	return &a
+}
+
+type userHasManyUsages struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a userHasManyUsages) Where(conds ...field.Expr) *userHasManyUsages {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a userHasManyUsages) WithContext(ctx context.Context) *userHasManyUsages {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a userHasManyUsages) Session(session *gorm.Session) *userHasManyUsages {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a userHasManyUsages) Model(m *entities.User) *userHasManyUsagesTx {
+	return &userHasManyUsagesTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a userHasManyUsages) Unscoped() *userHasManyUsages {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type userHasManyUsagesTx struct{ tx *gorm.Association }
+
+func (a userHasManyUsagesTx) Find() (result []*entities.Usage, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a userHasManyUsagesTx) Append(values ...*entities.Usage) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a userHasManyUsagesTx) Replace(values ...*entities.Usage) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a userHasManyUsagesTx) Delete(values ...*entities.Usage) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a userHasManyUsagesTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a userHasManyUsagesTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a userHasManyUsagesTx) Unscoped() *userHasManyUsagesTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }
