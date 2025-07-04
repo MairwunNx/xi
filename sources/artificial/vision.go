@@ -9,9 +9,9 @@ import (
 
 	"ximanager/sources/repository"
 
+	"github.com/google/uuid"
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/shopspring/decimal"
-	"github.com/google/uuid"
 )
 
 type Vision struct {
@@ -65,18 +65,8 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, userID uuid.UUID
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
-			logger.E("OpenRouter API error in vision",
-				"code", e.Code,
-				"message", e.Message,
-				"http_status", e.HTTPStatusCode,
-				tracing.InnerError, err)
+			logger.E("OpenRouter API error in vision", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 			return "", err
-		case *openrouter.RequestError:
-			logger.E("OpenRouter request error in vision",
-				"http_status", e.HTTPStatusCode,
-				"http_status_text", e.HTTPStatus,
-				tracing.InnerError, e.Err)
-			return "", e.Err
 		default:
 			logger.E("Failed to visionify image", tracing.InnerError, err)
 			return "", err
