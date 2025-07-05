@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 func Get(key, defaultValue string) string {
@@ -21,6 +23,16 @@ func GetAsInt(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func GetDecimal(key, defaultValue string) decimal.Decimal {
+	if valueStr := Get(key, defaultValue); valueStr != "" {
+		if value, err := decimal.NewFromString(valueStr); err == nil {
+			return value
+		}
+	}
+	d, _ := decimal.NewFromString(defaultValue)
+	return d
 }
 
 func GetAsSlice(key string, defaultValue []string) []string {

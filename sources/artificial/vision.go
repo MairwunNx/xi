@@ -2,14 +2,15 @@ package artificial
 
 import (
 	"context"
+	"fmt"
 	"time"
 	"ximanager/sources/platform"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
+	"ximanager/sources/persistence/entities"
 	"ximanager/sources/repository"
 
-	"github.com/google/uuid"
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/shopspring/decimal"
 )
@@ -18,15 +19,37 @@ type Vision struct {
 	ai     *openrouter.Client
 	config *AIConfig
 	usage  *repository.UsageRepository
+	limiter *SpendingLimiter
+	users  *repository.UsersRepository
 }
 
-func NewVision(config *AIConfig, ai *openrouter.Client, usage *repository.UsageRepository) *Vision {
-	return &Vision{ai: ai, config: config, usage: usage}
+func NewVision(config *AIConfig, ai *openrouter.Client, usage *repository.UsageRepository, limiter *SpendingLimiter, users *repository.UsersRepository) *Vision {
+	return &Vision{ai: ai, config: config, usage: usage, limiter: limiter, users: users}
 }
 
-func (v *Vision) Visionify(logger *tracing.Logger, iurl string, userID uuid.UUID, chatID int64, req string, persona string) (string, error) {
+func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.User, chatID int64, req string, persona string) (string, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
+
+	limitErr := v.limiter.CheckSpendingLimits(logger, user)
+	modelToUse := v.config.VisionPrimaryModel
+	fallbackModels := v.config.VisionFallbackModels
+	var limitWarning string
+	
+	if limitErr != nil {
+		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
+			logger.W("Spending limit exceeded for vision, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
+			
+			modelToUse = v.config.LimitExceededModel
+			fallbackModels = v.config.LimitExceededFallbackModels
+			
+			limitTypeText := texting.MsgSpendingLimitExceededDaily
+			if spendingErr.LimitType == LimitTypeMonthly {
+				limitTypeText = texting.MsgSpendingLimitExceededMonthly
+			}
+			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededVision, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
+		}
+	}
 
 	if req == "" {
 		req = texting.InternalAIImageMessage
@@ -47,8 +70,8 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, userID uuid.UUID
 	}
 
 	request := openrouter.ChatCompletionRequest{
-		Model:    v.config.VisionPrimaryModel,
-		Models:   v.config.VisionFallbackModels,
+		Model:    modelToUse,
+		Models:   fallbackModels,
 		Messages: messages,
 		Usage:    &openrouter.IncludeUsage{Include: true},
 		Provider: &openrouter.ChatProvider{
@@ -76,11 +99,17 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, userID uuid.UUID
 	tokens := response.Usage.TotalTokens
 	cost := decimal.NewFromFloat(response.Usage.Cost)
 
-	if err := v.usage.SaveUsage(logger, userID, chatID, cost, tokens); err != nil {
+	if err := v.usage.SaveUsage(logger, user.ID, chatID, cost, tokens); err != nil {
 		logger.E("Error saving usage", tracing.InnerError, err)
 	}
 
 	logger.I("vision completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
 
-	return response.Choices[0].Message.Content.Text, nil
+	responseText := response.Choices[0].Message.Content.Text
+	
+	if limitWarning != "" {
+		responseText += limitWarning
+	}
+
+	return responseText, nil
 }

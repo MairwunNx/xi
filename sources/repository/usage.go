@@ -295,4 +295,60 @@ func (x *UsageRepository) GetUserAverageDailyCost(logger *tracing.Logger, user *
 	avgDailyCost := totalCost.Div(decimal.NewFromFloat(daysSince))
 	
 	return avgDailyCost, nil
+}
+
+func (x *UsageRepository) GetUserDailyCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Where(query.Usage.CreatedAt.Gte(startOfDay)).
+		Select(query.Usage.Cost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user daily cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetUserMonthlyCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Where(query.Usage.CreatedAt.Gte(startOfMonth)).
+		Select(query.Usage.Cost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user monthly cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
 } 

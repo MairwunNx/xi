@@ -72,7 +72,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 
 	persona := msg.From.FirstName + " " + msg.From.LastName
 	user := x.users.MustGetUserByEid(log, msg.From.ID)
-	response, err := x.vision.Visionify(log, iurl, user.ID, msg.Chat.ID, req, persona)
+	response, err := x.vision.Visionify(log, iurl, user, msg.Chat.ID, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
 		return

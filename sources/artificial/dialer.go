@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
+	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -23,10 +25,11 @@ type Dialer struct {
 	messages *repository.MessagesRepository
 	pins     *repository.PinsRepository
 	usage    *repository.UsageRepository
+	limiter *SpendingLimiter
 }
 
-func NewDialer(config *AIConfig, ai *openrouter.Client, modes *repository.ModesRepository, users *repository.UsersRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository) *Dialer {
-	return &Dialer{ai: ai, config: config, modes: modes, users: users, messages: messages, pins: pins, usage: usage}
+func NewDialer(config *AIConfig, ai *openrouter.Client, modes *repository.ModesRepository, users *repository.UsersRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, limiter *SpendingLimiter) *Dialer {
+	return &Dialer{ai: ai, config: config, modes: modes, users: users, messages: messages, pins: pins, usage: usage, limiter: limiter}
 }
 
 func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
@@ -48,6 +51,26 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	if err != nil {
 		log.E("Failed to get user", tracing.InnerError, err)
 		return "", err
+	}
+
+	limitErr := x.limiter.CheckSpendingLimits(log, user)
+	modelToUse := x.config.DialerPrimaryModel
+	fallbackModels := x.config.DialerFallbackModels
+	var limitWarning string
+	
+	if limitErr != nil {
+		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
+			log.W("Spending limit exceeded, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
+			
+			modelToUse = x.config.LimitExceededModel
+			fallbackModels = x.config.LimitExceededFallbackModels
+			
+			limitTypeText := texting.MsgSpendingLimitExceededDaily
+			if spendingErr.LimitType == LimitTypeMonthly {
+				limitTypeText = texting.MsgSpendingLimitExceededMonthly
+			}
+			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededDialer, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
+		}
 	}
 
 	req = UserReq(persona, req)
@@ -89,8 +112,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	})
 
 	request := openrouter.ChatCompletionRequest{
-		Model:     x.config.DialerPrimaryModel,
-		Models:    x.config.DialerFallbackModels,
+		Model:     modelToUse,
+		Models:    fallbackModels,
 		Messages:  messages,
 		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(x.config.DialerReasoningEffort)},
 		Usage:     &openrouter.IncludeUsage{Include: true},
@@ -148,6 +171,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
+	}
+
+	if limitWarning != "" {
+		responseText += limitWarning
 	}
 
 	return responseText, nil
