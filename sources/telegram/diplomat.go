@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"strings"
+	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
@@ -37,7 +38,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 						if err != nil {
 							logger.E("Failed to get donations", tracing.InnerError, err)
 						} else {
-							if grade != repository.UserGradeGold && *user.Username != "mairwunnx" {
+							if grade != platform.GradeGold && *user.Username != "mairwunnx" {
 								chattable.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
 									tgbotapi.NewInlineKeyboardRow(
 										tgbotapi.NewInlineKeyboardButtonURL("Поддержать проект ❤️‍🔥", "https://www.tbank.ru/cf/3uoCqIOiT8V"),
