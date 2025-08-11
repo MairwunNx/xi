@@ -22,8 +22,6 @@ type (
 		ID           uuid.UUID       `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
 		ChatID       int64           `gorm:"not null" json:"chat_id"`
 		MessageTime  time.Time       `gorm:"default:CURRENT_TIMESTAMP" json:"message_time"`
-		MessageText  EncryptedText   `gorm:"type:bytea;not null" json:"message_text"`
-		IsAggressive bool            `gorm:"not null" json:"is_aggressive"`
 		IsXiResponse bool            `gorm:"not null" json:"is_xi_response"`
 		IsRemoved    bool            `gorm:"not null;default:false" json:"is_removed"`
 		UserID       *uuid.UUID      `gorm:"type:uuid" json:"user_id"`
