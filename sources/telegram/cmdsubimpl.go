@@ -9,7 +9,6 @@ import (
 	"os"
 	"slices"
 	"strings"
-	"time"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -45,9 +44,9 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 	x.diplomat.Reply(log, msg, texting.Xiify(response))
 }
 
-func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Message) {
+func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.diplomat.SendTyping(log, msg.Chat.ID)
-	
+
 	photo := msg.Photo[len(msg.Photo)-1]
 
 	fileConfig := tgbotapi.FileConfig{FileID: photo.FileID}
@@ -71,7 +70,6 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName
-	user := x.users.MustGetUserByEid(log, msg.From.ID)
 	response, err := x.vision.Visionify(log, iurl, user, msg.Chat.ID, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
@@ -81,9 +79,9 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, msg *tgbotapi.Mess
 	x.diplomat.Reply(log, msg, texting.Xiify(response))
 }
 
-func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
+func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
 	x.diplomat.SendTyping(log, msg.Chat.ID)
-	
+
 	var fileID string
 	var fileExt string
 
@@ -125,7 +123,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, msg *tgbotapi.Mess
 	defer tempFile.Close()
 
 	userPrompt := strings.TrimSpace(msg.CommandArguments())
-	transcriptedText, err := x.whisper.Whisperify(log, tempFile)
+	transcriptedText, err := x.whisper.Whisperify(log, tempFile, user)
 	if err != nil {
 		log.E("Error transcribing audio", tracing.InnerError, err)
 		x.diplomat.Reply(log, msg, texting.MsgAudioError)
@@ -164,7 +162,7 @@ func (x *TelegramHandler) downloadAudioFile(log *tracing.Logger, fileURL string,
 	}
 
 	tempFile.Seek(0, 0)
-	
+
 	log.I("Audio file downloaded", "file_path", tempFile.Name(), "file_size", resp.ContentLength)
 	return tempFile, nil
 }
@@ -198,7 +196,7 @@ func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.Use
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorAdd)
 		return
 	}
-	
+
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeAdded, mode.Name, mode.Type))
 }
 
@@ -208,7 +206,7 @@ func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Mes
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorGettingList)
 		return
 	}
-	
+
 	if len(modes) == 0 {
 		x.diplomat.Reply(log, msg, texting.MsgModeNoModesAvailable)
 		return
@@ -228,7 +226,7 @@ func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Mes
 			message += fmt.Sprintf(texting.MsgModeListItem, mode.Name, mode.Type)
 		}
 	}
-	
+
 	x.diplomat.Reply(log, msg, message)
 }
 
@@ -237,14 +235,14 @@ func (x *TelegramHandler) ModeCommandDisable(log *tracing.Logger, msg *tgbotapi.
 	if mode == nil {
 		return
 	}
-	
+
 	mode.IsEnabled = platform.BoolPtr(false)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorDisable)
 		return
 	}
-	
+
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeDisabled, mode.Name, mode.Type))
 }
 
@@ -253,14 +251,14 @@ func (x *TelegramHandler) ModeCommandEnable(log *tracing.Logger, msg *tgbotapi.M
 	if mode == nil {
 		return
 	}
-	
+
 	mode.IsEnabled = platform.BoolPtr(true)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorEnable)
 		return
 	}
-	
+
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeEnabled, mode.Name, mode.Type))
 }
 
@@ -301,7 +299,7 @@ func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Mes
 		x.diplomat.Reply(log, msg, texting.MsgModeErrorEdit)
 		return
 	}
-	
+
 	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeEdited, mode.Name, mode.Type))
 }
 
@@ -608,64 +606,28 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 	}
 
 	response := texting.MsgStatsTitle +
-		fmt.Sprintf(texting.MsgStatsGeneral, 
-			texting.Numberify(totalQuestions), 
+		fmt.Sprintf(texting.MsgStatsGeneral,
+			texting.Numberify(totalQuestions),
 			texting.Numberify(chatQuestions),
 			texting.CurrencifyDecimal(totalCost),
 			texting.CurrencifyDecimal(totalCostLastMonth),
 			texting.CurrencifyDecimal(avgDailyCost),
 			texting.Numberify(totalTokens),
 			texting.Numberify(totalTokensLastMonth)) +
-		fmt.Sprintf(texting.MsgStatsPersonal, 
-			texting.Numberify(userQuestions), 
+		fmt.Sprintf(texting.MsgStatsPersonal,
+			texting.Numberify(userQuestions),
 			texting.Numberify(userChatQuestions),
 			texting.CurrencifyDecimal(userCost),
 			texting.CurrencifyDecimal(userCostLastMonth),
 			texting.CurrencifyDecimal(userAvgDailyCost),
 			texting.Numberify(userTokens),
 			texting.Numberify(userTokensLastMonth)) +
-		fmt.Sprintf(texting.MsgStatsUsers, 
-			texting.Numberify(totalUsers), 
+		fmt.Sprintf(texting.MsgStatsUsers,
+			texting.Numberify(totalUsers),
 			texting.Numberify(totalChats))
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
-
-// =========================  /context command handlers  =========================
-
-func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, msg *tgbotapi.Message, chatID int64) {
-	err := x.messages.MarkChatMessagesAsRemoved(log, chatID, time.Now())
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorRefresh))
-		return
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
-}
-
-func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	user.IsStackEnabled = platform.BoolPtr(false)
-	_, err := x.users.UpdateUser(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorDisable))
-		return
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextDisabled))
-}
-
-func (x *TelegramHandler) ContextCommandEnable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	user.IsStackEnabled = platform.BoolPtr(true)
-	_, err := x.users.UpdateUser(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextErrorEnable))
-		return
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextEnabled))
-}
-
-// =========================  /wtf command handlers  =========================
 
 // =========================  /pinned command handlers  =========================
 
