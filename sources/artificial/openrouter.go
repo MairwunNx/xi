@@ -2,7 +2,7 @@ package artificial
 
 import (
 	"net/http"
-	"ximanager/sources/repository"
+	"ximanager/sources/platform"
 
 	openrouter "github.com/revrost/go-openrouter"
 )
@@ -16,13 +16,13 @@ func NewOpenRouterClient(config *AIConfig, client *http.Client) *openrouter.Clie
 	return openrouter.NewClientWithConfig(*clientConfig)
 }
 
-func OpenRouterMessageStackFrom(pairs []repository.MessagePair) []openrouter.ChatCompletionMessage {
+func OpenRouterMessageStackFrom(pairs []platform.RedisMessage) []openrouter.ChatCompletionMessage {
 	var messages []openrouter.ChatCompletionMessage
 
 	for i := len(pairs) - 1; i >= 0; i-- {
 		pair := pairs[i]
 
-		uc := string(pair.UserMessage.MessageText)
+		uc := pair.Content
 		if uc != "" {
 			messages = append(messages, openrouter.ChatCompletionMessage{
 				Role:    openrouter.ChatMessageRoleUser,
@@ -30,8 +30,8 @@ func OpenRouterMessageStackFrom(pairs []repository.MessagePair) []openrouter.Cha
 			})
 		}
 
-		if pair.XiResponse != nil {
-			xc := string(pair.XiResponse.MessageText)
+		if pair.Role == platform.MessageRoleAssistant {
+			xc := pair.Content
 			if xc != "" {
 				messages = append(messages, openrouter.ChatCompletionMessage{
 					Role:    openrouter.ChatMessageRoleAssistant,
