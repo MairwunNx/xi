@@ -138,6 +138,31 @@ func (x *UsageRepository) GetUserCostLastMonth(logger *tracing.Logger, user *ent
 	return *totalCost, nil
 }
 
+func (x *UsageRepository) GetUserCostSince(logger *tracing.Logger, user *entities.User, since time.Time) (decimal.Decimal, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Where(query.Usage.CreatedAt.Gte(since)).
+		Select(query.Usage.Cost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user cost since", "since", since, tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
 func (x *UsageRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
