@@ -23,6 +23,27 @@ type AIConfig struct {
 	LimitExceededModel string
 	LimitExceededFallbackModels []string
 	SpendingLimits SpendingLimits
+	GradeLimits    map[platform.UserGrade]GradeLimits
+}
+
+type GradeLimits struct {
+	Context ContextLimits
+	Usage   UsageLimits
+}
+
+type ContextLimits struct {
+	TTL         int
+	MaxMessages int
+	MaxTokens   int
+}
+
+type UsageLimits struct {
+	VisionDaily   int
+	VisionMonthly int
+	DialerDaily   int
+	DialerMonthly int
+	WhisperDaily  int
+	WhisperMonthly int
 }
 
 type SpendingLimits struct {
@@ -58,6 +79,53 @@ func NewAIConfig() *AIConfig {
 			SilverMonthlyLimit: platform.GetDecimal("SPENDINGS_SILVER_MONTHLY_LIMIT", "15.0"),
 			GoldDailyLimit:     platform.GetDecimal("SPENDINGS_GOLD_DAILY_LIMIT", "5.0"),
 			GoldMonthlyLimit:   platform.GetDecimal("SPENDINGS_GOLD_MONTHLY_LIMIT", "26.0"),
+		},
+		GradeLimits: map[platform.UserGrade]GradeLimits{
+			platform.GradeBronze: {
+				Context: ContextLimits{
+					TTL:         platform.GetEnvInt("BRONZE_CONTEXT_TTL_SECONDS", 1800),
+					MaxMessages: platform.GetEnvInt("BRONZE_CONTEXT_MAX_MESSAGES", 25),
+					MaxTokens:   platform.GetEnvInt("BRONZE_CONTEXT_MAX_TOKENS", 40000),
+				},
+				Usage: UsageLimits{
+					VisionDaily:   platform.GetEnvInt("BRONZE_USAGE_VISION_DAILY", 3),
+					VisionMonthly: platform.GetEnvInt("BRONZE_USAGE_VISION_MONTHLY", 20),
+					DialerDaily:   platform.GetEnvInt("BRONZE_USAGE_DIALER_DAILY", 40),
+					DialerMonthly: platform.GetEnvInt("BRONZE_USAGE_DIALER_MONTHLY", 300),
+					WhisperDaily:  platform.GetEnvInt("BRONZE_USAGE_WHISPER_DAILY", 15),
+					WhisperMonthly: platform.GetEnvInt("BRONZE_USAGE_WHISPER_MONTHLY", 70),
+				},
+			},
+			platform.GradeSilver: {
+				Context: ContextLimits{
+					TTL:         platform.GetEnvInt("SILVER_CONTEXT_TTL_SECONDS", 7200),
+					MaxMessages: platform.GetEnvInt("SILVER_CONTEXT_MAX_MESSAGES", 40),
+					MaxTokens:   platform.GetEnvInt("SILVER_CONTEXT_MAX_TOKENS", 70000),
+				},
+				Usage: UsageLimits{
+					VisionDaily:   platform.GetEnvInt("SILVER_USAGE_VISION_DAILY", 7),
+					VisionMonthly: platform.GetEnvInt("SILVER_USAGE_VISION_MONTHLY", 35),
+					DialerDaily:   platform.GetEnvInt("SILVER_USAGE_DIALER_DAILY", 150),
+					DialerMonthly: platform.GetEnvInt("SILVER_USAGE_DIALER_MONTHLY", 600),
+					WhisperDaily:  platform.GetEnvInt("SILVER_USAGE_WHISPER_DAILY", 30),
+					WhisperMonthly: platform.GetEnvInt("SILVER_USAGE_WHISPER_MONTHLY", 170),
+				},
+			},
+			platform.GradeGold: {
+				Context: ContextLimits{
+					TTL:         platform.GetEnvInt("GOLD_CONTEXT_TTL_SECONDS", 21600),
+					MaxMessages: platform.GetEnvInt("GOLD_CONTEXT_MAX_MESSAGES", 60),
+					MaxTokens:   platform.GetEnvInt("GOLD_CONTEXT_MAX_TOKENS", 160000),
+				},
+				Usage: UsageLimits{
+					VisionDaily:   platform.GetEnvInt("GOLD_USAGE_VISION_DAILY", 20),
+					VisionMonthly: platform.GetEnvInt("GOLD_USAGE_VISION_MONTHLY", 100),
+					DialerDaily:   platform.GetEnvInt("GOLD_USAGE_DIALER_DAILY", 300),
+					DialerMonthly: platform.GetEnvInt("GOLD_USAGE_DIALER_MONTHLY", 1500),
+					WhisperDaily:  platform.GetEnvInt("GOLD_USAGE_WHISPER_DAILY", 140),
+					WhisperMonthly: platform.GetEnvInt("GOLD_USAGE_WHISPER_MONTHLY", 300),
+				},
+			},
 		},
 	}
 }
