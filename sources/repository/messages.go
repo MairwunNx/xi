@@ -33,7 +33,6 @@ func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.M
 
 	message := &entities.Message{
 		ChatID:       msg.Chat.ID,
-		IsAggressive: false,
 		IsXiResponse: isXiResponse,
 		UserID:       &user.ID,
 	}

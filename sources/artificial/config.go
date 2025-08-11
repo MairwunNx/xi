@@ -62,11 +62,11 @@ func NewAIConfig() *AIConfig {
 
 		WhisperModel: platform.Get("WHISPER_MODEL", openai.Whisper1),
 
-		DialerPrimaryModel: platform.Get("DIALER_PRIMARY_MODEL", "openai/gpt-4.1"),
+		DialerPrimaryModel: platform.Get("DIALER_PRIMARY_MODEL", "openai/o3-pro"),
 		DialerFallbackModels: platform.GetAsSlice("DIALER_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-sonnet-4", "x-ai/grok-3"}),
 		DialerReasoningEffort: platform.Get("DIALER_REASONING_EFFORT", "medium"),
 
-		VisionPrimaryModel: platform.Get("VISION_PRIMARY_MODEL", "openai/gpt-4o"),
+		VisionPrimaryModel: platform.Get("VISION_PRIMARY_MODEL", "openai/o3-pro"),
 		VisionFallbackModels: platform.GetAsSlice("VISION_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet"}),
 
 		LimitExceededModel: platform.Get("SPENDINGS_LIMIT_EXCEEDED_MODEL", "openai/gpt-4o-mini"),
