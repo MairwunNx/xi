@@ -18,7 +18,7 @@ func (x *TelegramHandler) HandleXiCommand(log *tracing.Logger, user *entities.Us
 	}
 
 	if msg.Photo != nil && len(msg.Photo) > 0 {
-		x.XiCommandPhoto(log, msg)
+		x.XiCommandPhoto(log, user, msg)
 		return
 	}
 
@@ -148,38 +148,6 @@ func (x *TelegramHandler) HandleThisCommand(log *tracing.Logger, user *entities.
 
 func (x *TelegramHandler) HandleStatsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.StatsCommand(log, user, msg)
-}
-
-func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	/*if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextNoAccess))
-		return
-	}*/
-
-	var cmd ContextCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
-		return
-	}
-
-	switch ctx.Command() {
-	case "refresh", "refresh <chatid>":
-		var chatID int64
-		if cmd.Refresh.ChatID != nil {
-			chatID = int64(*cmd.Refresh.ChatID)
-		} else {
-			chatID = msg.Chat.ID
-		}
-		x.ContextCommandRefresh(log, msg, chatID)
-	case "disable":
-		x.ContextCommandDisable(log, user, msg)
-	case "enable":
-		x.ContextCommandEnable(log, user, msg)
-	default:
-		log.W("Unknown context subcommand", tracing.InternalCommand, ctx.Command())
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
-	}
 }
 
 func (x *TelegramHandler) HandleRestartCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
