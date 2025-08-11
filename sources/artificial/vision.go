@@ -68,8 +68,14 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 		return texting.MsgMonthlyLimitExceeded, nil
 	}
 
-	modelToUse := v.config.VisionPrimaryModel
-	fallbackModels := v.config.VisionFallbackModels
+	gradeLimits, ok := v.config.GradeLimits[userGrade]
+	if !ok {
+		logger.W("No grade limits config for user grade, using bronze as default", "user_grade", userGrade)
+		gradeLimits = v.config.GradeLimits[platform.GradeBronze]
+	}
+
+	modelToUse := gradeLimits.VisionPrimaryModel
+	fallbackModels := gradeLimits.VisionFallbackModels
 	var limitWarning string
 
 	if limitErr := v.spendingLimiter.CheckSpendingLimits(logger, user); limitErr != nil {

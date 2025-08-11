@@ -99,8 +99,14 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return texting.MsgMonthlyLimitExceeded, nil
 	}
 
-	modelToUse := x.config.DialerPrimaryModel
-	fallbackModels := x.config.DialerFallbackModels
+	gradeLimits, ok := x.config.GradeLimits[userGrade]
+	if !ok {
+		log.W("No grade limits config for user grade, using bronze as default", "user_grade", userGrade)
+		gradeLimits = x.config.GradeLimits[platform.GradeBronze]
+	}
+
+	modelToUse := gradeLimits.DialerPrimaryModel
+	fallbackModels := gradeLimits.DialerFallbackModels
 	var limitWarning string
 
 	if limitErr := x.spendingLimiter.CheckSpendingLimits(log, user); limitErr != nil {
@@ -173,7 +179,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		Model:     modelToUse,
 		Models:    fallbackModels,
 		Messages:  messages,
-		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(x.config.DialerReasoningEffort)},
+		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(gradeLimits.DialerReasoningEffort)},
 		Usage:     &openrouter.IncludeUsage{Include: true},
 		Provider: &openrouter.ChatProvider{
 			DataCollection: openrouter.DataCollectionDeny,

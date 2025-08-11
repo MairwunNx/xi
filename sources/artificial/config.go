@@ -9,26 +9,24 @@ import (
 
 type AIConfig struct {
 	OpenRouterToken string
-	OpenAIToken string
+	OpenAIToken     string
 
 	WhisperModel string
 
-	DialerPrimaryModel string
-	DialerFallbackModels []string
-	DialerReasoningEffort string
-
-	VisionPrimaryModel string
-	VisionFallbackModels []string
-
-	LimitExceededModel string
+	LimitExceededModel          string
 	LimitExceededFallbackModels []string
-	SpendingLimits SpendingLimits
-	GradeLimits    map[platform.UserGrade]GradeLimits
+	SpendingLimits              SpendingLimits
+	GradeLimits                 map[platform.UserGrade]GradeLimits
 }
 
 type GradeLimits struct {
-	Context ContextLimits
-	Usage   UsageLimits
+	DialerPrimaryModel    string
+	DialerFallbackModels  []string
+	DialerReasoningEffort string
+	VisionPrimaryModel    string
+	VisionFallbackModels  []string
+	Context               ContextLimits
+	Usage                 UsageLimits
 }
 
 type ContextLimits struct {
@@ -58,18 +56,11 @@ type SpendingLimits struct {
 func NewAIConfig() *AIConfig {
 	return &AIConfig{
 		OpenRouterToken: platform.Get("OPENROUTER_API_KEY", ""),
-		OpenAIToken: platform.Get("OPENAI_API_KEY", ""),
+		OpenAIToken:     platform.Get("OPENAI_API_KEY", ""),
 
 		WhisperModel: platform.Get("WHISPER_MODEL", openai.Whisper1),
 
-		DialerPrimaryModel: platform.Get("DIALER_PRIMARY_MODEL", "openai/o3-pro"),
-		DialerFallbackModels: platform.GetAsSlice("DIALER_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-sonnet-4", "x-ai/grok-3"}),
-		DialerReasoningEffort: platform.Get("DIALER_REASONING_EFFORT", "medium"),
-
-		VisionPrimaryModel: platform.Get("VISION_PRIMARY_MODEL", "openai/o3-pro"),
-		VisionFallbackModels: platform.GetAsSlice("VISION_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet"}),
-
-		LimitExceededModel: platform.Get("SPENDINGS_LIMIT_EXCEEDED_MODEL", "openai/gpt-4o-mini"),
+		LimitExceededModel:          platform.Get("SPENDINGS_LIMIT_EXCEEDED_MODEL", "openai/gpt-4o-mini"),
 		LimitExceededFallbackModels: platform.GetAsSlice("SPENDINGS_LIMIT_EXCEEDED_FALLBACK_MODELS", []string{"deepseek/deepseek-chat"}),
 
 		SpendingLimits: SpendingLimits{
@@ -82,6 +73,11 @@ func NewAIConfig() *AIConfig {
 		},
 		GradeLimits: map[platform.UserGrade]GradeLimits{
 			platform.GradeBronze: {
+				DialerPrimaryModel:    platform.Get("BRONZE_DIALER_PRIMARY_MODEL", "anthropic/claude-3.5-sonnet"),
+				DialerFallbackModels:  platform.GetAsSlice("BRONZE_DIALER_FALLBACK_MODELS", []string{"openai/gpt-4.1", "google/gemini-2.5-flash"}),
+				DialerReasoningEffort: platform.Get("BRONZE_DIALER_REASONING_EFFORT", "medium"),
+				VisionPrimaryModel:    platform.Get("BRONZE_VISION_PRIMARY_MODEL", "openai/chatgpt-4o-latest"),
+				VisionFallbackModels:  platform.GetAsSlice("BRONZE_VISION_FALLBACK_MODELS", []string{}),
 				Context: ContextLimits{
 					TTL:         platform.GetAsInt("BRONZE_CONTEXT_TTL_SECONDS", 1800),
 					MaxMessages: platform.GetAsInt("BRONZE_CONTEXT_MAX_MESSAGES", 25),
@@ -97,6 +93,11 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeSilver: {
+				DialerPrimaryModel:    platform.Get("SILVER_DIALER_PRIMARY_MODEL", "anthropic/claude-sonnet-4"),
+				DialerFallbackModels:  platform.GetAsSlice("SILVER_DIALER_FALLBACK_MODELS", []string{"x-ai/grok-3"}),
+				DialerReasoningEffort: platform.Get("SILVER_DIALER_REASONING_EFFORT", "medium"),
+				VisionPrimaryModel:    platform.Get("SILVER_VISION_PRIMARY_MODEL", "openai/gpt-4.1"),
+				VisionFallbackModels:  platform.GetAsSlice("SILVER_VISION_FALLBACK_MODELS", []string{}),
 				Context: ContextLimits{
 					TTL:         platform.GetAsInt("SILVER_CONTEXT_TTL_SECONDS", 7200),
 					MaxMessages: platform.GetAsInt("SILVER_CONTEXT_MAX_MESSAGES", 40),
@@ -112,6 +113,11 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeGold: {
+				DialerPrimaryModel:    platform.Get("GOLD_DIALER_PRIMARY_MODEL", "anthropic/claude-opus-4.1"),
+				DialerFallbackModels:  platform.GetAsSlice("GOLD_DIALER_FALLBACK_MODELS", []string{"google/gemini-2.5-pro", "x-ai/grok-4"}),
+				DialerReasoningEffort: platform.Get("GOLD_DIALER_REASONING_EFFORT", "high"),
+				VisionPrimaryModel:    platform.Get("GOLD_VISION_PRIMARY_MODEL", "openai/o1"),
+				VisionFallbackModels:  platform.GetAsSlice("GOLD_VISION_FALLBACK_MODELS", []string{}),
 				Context: ContextLimits{
 					TTL:         platform.GetAsInt("GOLD_CONTEXT_TTL_SECONDS", 21600),
 					MaxMessages: platform.GetAsInt("GOLD_CONTEXT_MAX_MESSAGES", 60),
