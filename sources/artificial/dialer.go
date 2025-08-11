@@ -18,18 +18,45 @@ import (
 )
 
 type Dialer struct {
-	ai       *openrouter.Client
-	config   *AIConfig
-	modes    *repository.ModesRepository
-	users    *repository.UsersRepository
-	messages *repository.MessagesRepository
-	pins     *repository.PinsRepository
-	usage    *repository.UsageRepository
-	limiter *SpendingLimiter
+	ai             *openrouter.Client
+	config         *AIConfig
+	modes          *repository.ModesRepository
+	users          *repository.UsersRepository
+	pins           *repository.PinsRepository
+	usage          *repository.UsageRepository
+	donations      *repository.DonationsRepository
+	messages       *repository.MessagesRepository
+	contextManager *ContextManager
+	usageLimiter   *UsageLimiter
+	spendingLimiter *SpendingLimiter
 }
 
-func NewDialer(config *AIConfig, ai *openrouter.Client, modes *repository.ModesRepository, users *repository.UsersRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, limiter *SpendingLimiter) *Dialer {
-	return &Dialer{ai: ai, config: config, modes: modes, users: users, messages: messages, pins: pins, usage: usage, limiter: limiter}
+func NewDialer(
+	config *AIConfig,
+	ai *openrouter.Client,
+	modes *repository.ModesRepository,
+	users *repository.UsersRepository,
+	pins *repository.PinsRepository,
+	usage *repository.UsageRepository,
+	donations *repository.DonationsRepository,
+	messages *repository.MessagesRepository,
+	contextManager *ContextManager,
+	usageLimiter *UsageLimiter,
+	spendingLimiter *SpendingLimiter,
+) *Dialer {
+	return &Dialer{
+		ai:             ai,
+		config:         config,
+		modes:          modes,
+		users:          users,
+		pins:           pins,
+		usage:          usage,
+		donations:      donations,
+		messages:       messages,
+		contextManager: contextManager,
+		usageLimiter:   usageLimiter,
+		spendingLimiter: spendingLimiter,
+	}
 }
 
 func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
@@ -53,18 +80,36 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return "", err
 	}
 
-	limitErr := x.limiter.CheckSpendingLimits(log, user)
+	userGrade, err := x.donations.GetUserGrade(log, user)
+	if err != nil {
+		log.W("Failed to get user grade, using bronze as default", tracing.InnerError, err)
+		userGrade = platform.GradeBronze
+	}
+
+	limitResult, err := x.usageLimiter.checkAndIncrement(log, user.UserID, userGrade, UsageTypeDialer)
+	if err != nil {
+		log.E("Failed to check usage limits", tracing.InnerError, err)
+		return "", err
+	}
+
+	if limitResult.Exceeded {
+		if limitResult.IsDaily {
+			return texting.MsgDailyLimitExceeded, nil
+		}
+		return texting.MsgMonthlyLimitExceeded, nil
+	}
+
 	modelToUse := x.config.DialerPrimaryModel
 	fallbackModels := x.config.DialerFallbackModels
 	var limitWarning string
-	
-	if limitErr != nil {
+
+	if limitErr := x.spendingLimiter.CheckSpendingLimits(log, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			log.W("Spending limit exceeded, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
-			
+
 			modelToUse = x.config.LimitExceededModel
 			fallbackModels = x.config.LimitExceededFallbackModels
-			
+
 			limitTypeText := texting.MsgSpendingLimitExceededDaily
 			if spendingErr.LimitType == LimitTypeMonthly {
 				limitTypeText = texting.MsgSpendingLimitExceededMonthly
@@ -76,12 +121,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	req = UserReq(persona, req)
 	prompt := mode.Prompt
 
-	history := []repository.MessagePair{}
+	var history []platform.RedisMessage
 	if stackful {
-		history, err = x.messages.GetMessagePairs(log, user, msg.Chat.ID)
+		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
 		if err != nil {
 			log.E("Failed to get message pairs", tracing.InnerError, err)
-			history = []repository.MessagePair{}
+			history = []platform.RedisMessage{}
 		}
 	}
 
@@ -102,8 +147,21 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	if len(history) > 0 {
-		historyMessages := OpenRouterMessageStackFrom(history)
-		messages = append(messages, historyMessages...)
+		for _, h := range history {
+			var role string
+			switch h.Role {
+			case platform.MessageRoleUser:
+				role = openrouter.ChatMessageRoleUser
+			case platform.MessageRoleAssistant:
+				role = openrouter.ChatMessageRoleAssistant
+			default:
+				continue
+			}
+			messages = append(messages, openrouter.ChatCompletionMessage{
+				Role:    role,
+				Content: openrouter.Content{Text: h.Content},
+			})
+		}
 	}
 
 	messages = append(messages, openrouter.ChatCompletionMessage{
@@ -147,6 +205,9 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
+			if e.Code == 402 {
+				return texting.MsgInsufficientCredits, nil
+			}
 			log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 			return "", err
 		default:
@@ -162,16 +223,28 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	responseText := response.Choices[0].Message.Content.Text
 
-	if err := x.messages.SaveMessage(log, msg, req, false); err != nil {
+	if err := x.messages.SaveMessage(log, msg, false); err != nil {
 		log.E("Error saving user message", tracing.InnerError, err)
 	}
-	if err := x.messages.SaveMessage(log, msg, responseText, true); err != nil {
+	if err := x.messages.SaveMessage(log, msg, true); err != nil {
 		log.E("Error saving Xi response", tracing.InnerError, err)
+	}
+
+	userMessage := platform.RedisMessage{Role: platform.MessageRoleUser, Content: req}
+	if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, userMessage); err != nil {
+		log.E("Error saving user message to context", tracing.InnerError, err)
+	}
+
+	assistantMessage := platform.RedisMessage{Role: platform.MessageRoleAssistant, Content: responseText}
+	if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, assistantMessage); err != nil {
+		log.E("Error saving assistant message to context", tracing.InnerError, err)
 	}
 
 	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
 	}
+
+	x.spendingLimiter.AddSpend(log, user, cost)
 
 	if limitWarning != "" {
 		responseText += limitWarning
