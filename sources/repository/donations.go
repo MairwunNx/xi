@@ -18,17 +18,9 @@ func NewDonationsRepository() *DonationsRepository {
 	return &DonationsRepository{}
 }
 
-type UserGrade = string
-
-const (
-	UserGradeBronze UserGrade = "bronze"
-	UserGradeSilver UserGrade = "silver"
-	UserGradeGold UserGrade = "gold"
-)
-
-func (x *DonationsRepository) GetUserGrade(logger *tracing.Logger, user *entities.User) (UserGrade, error) {
+func (x *DonationsRepository) GetUserGrade(logger *tracing.Logger, user *entities.User) (platform.UserGrade, error) {
 	if strings.HasSuffix(*user.Username, "ximanager") {
-		return UserGradeGold, nil
+		return platform.GradeSilver, nil
 	}
 
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
@@ -39,22 +31,22 @@ func (x *DonationsRepository) GetUserGrade(logger *tracing.Logger, user *entitie
 	donations, err := q.Donation.Where(query.Donation.User.Eq(user.ID)).Order(query.Donation.CreatedAt.Desc()).Find()
 	if err != nil {
 		logger.E("Failed to get donations", tracing.InnerError, err)
-		logger.I("User grade fallback inferred", "internal_user_grade", UserGradeBronze)
-		return UserGradeBronze, err
+		logger.I("User grade fallback inferred", "internal_user_grade", platform.GradeBronze)
+		return platform.GradeBronze, err
 	}
 
 	if len(donations) == 0 {
-		logger.I("User grade inferred", "internal_user_grade", UserGradeBronze)
-		return UserGradeBronze, nil
+		logger.I("User grade inferred", "internal_user_grade", platform.GradeBronze)
+		return platform.GradeBronze, nil
 	}
 
 	if donations[0].CreatedAt.After(time.Now().AddDate(0, 0, -30)) {
-		logger.I("User grade inferred", "internal_user_grade", UserGradeGold)
-		return UserGradeGold, nil
+		logger.I("User grade inferred", "internal_user_grade", platform.GradeGold)
+		return platform.GradeGold, nil
 	}
 
-	logger.I("User grade inferred", "internal_user_grade", UserGradeSilver)
-	return UserGradeSilver, nil
+	logger.I("User grade inferred", "internal_user_grade", platform.GradeSilver)
+	return platform.GradeSilver, nil
 }
 
 func (x *DonationsRepository) GetDonationsByUser(logger *tracing.Logger, user *entities.User) ([]*entities.Donation, error) {
