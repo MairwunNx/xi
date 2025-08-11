@@ -16,33 +16,69 @@ import (
 )
 
 type Vision struct {
-	ai     *openrouter.Client
-	config *AIConfig
-	usage  *repository.UsageRepository
-	limiter *SpendingLimiter
-	users  *repository.UsersRepository
+	ai              *openrouter.Client
+	config          *AIConfig
+	usage           *repository.UsageRepository
+	usageLimiter    *UsageLimiter
+	users           *repository.UsersRepository
+	donations       *repository.DonationsRepository
+	spendingLimiter *SpendingLimiter
 }
 
-func NewVision(config *AIConfig, ai *openrouter.Client, usage *repository.UsageRepository, limiter *SpendingLimiter, users *repository.UsersRepository) *Vision {
-	return &Vision{ai: ai, config: config, usage: usage, limiter: limiter, users: users}
+func NewVision(
+	config *AIConfig,
+	ai *openrouter.Client,
+	usage *repository.UsageRepository,
+	usageLimiter *UsageLimiter,
+	users *repository.UsersRepository,
+	donations *repository.DonationsRepository,
+	spendingLimiter *SpendingLimiter,
+) *Vision {
+	return &Vision{
+		ai:              ai,
+		config:          config,
+		usage:           usage,
+		usageLimiter:    usageLimiter,
+		users:           users,
+		donations:       donations,
+		spendingLimiter: spendingLimiter,
+	}
 }
 
 func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.User, chatID int64, req string, persona string) (string, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	limitErr := v.limiter.CheckSpendingLimits(logger, user)
+	userGrade, err := v.donations.GetUserGrade(logger, user)
+	if err != nil {
+		logger.W("Failed to get user grade, using bronze as default", tracing.InnerError, err)
+		userGrade = platform.GradeBronze
+	}
+
+	limitResult, err := v.usageLimiter.checkAndIncrement(logger, user.UserID, userGrade, UsageTypeVision)
+	if err != nil {
+		logger.E("Failed to check usage limits", tracing.InnerError, err)
+		return "", err
+	}
+
+	if limitResult.Exceeded {
+		if limitResult.IsDaily {
+			return texting.MsgDailyLimitExceeded, nil
+		}
+		return texting.MsgMonthlyLimitExceeded, nil
+	}
+
 	modelToUse := v.config.VisionPrimaryModel
 	fallbackModels := v.config.VisionFallbackModels
 	var limitWarning string
-	
-	if limitErr != nil {
+
+	if limitErr := v.spendingLimiter.CheckSpendingLimits(logger, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			logger.W("Spending limit exceeded for vision, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
-			
+
 			modelToUse = v.config.LimitExceededModel
 			fallbackModels = v.config.LimitExceededFallbackModels
-			
+
 			limitTypeText := texting.MsgSpendingLimitExceededDaily
 			if spendingErr.LimitType == LimitTypeMonthly {
 				limitTypeText = texting.MsgSpendingLimitExceededMonthly
@@ -88,6 +124,9 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
+			if e.Code == 402 {
+				return texting.MsgInsufficientCredits, nil
+			}
 			logger.E("OpenRouter API error in vision", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 			return "", err
 		default:
@@ -103,13 +142,15 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 		logger.E("Error saving usage", tracing.InnerError, err)
 	}
 
-	logger.I("vision completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
+	v.spendingLimiter.AddSpend(logger, user, cost)
 
 	responseText := response.Choices[0].Message.Content.Text
-	
+
 	if limitWarning != "" {
 		responseText += limitWarning
 	}
+
+	logger.I("vision completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
 
 	return responseText, nil
 }
