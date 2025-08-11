@@ -1,0 +1,121 @@
+package artificial
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+	"ximanager/sources/platform"
+	"ximanager/sources/repository"
+	"ximanager/sources/tracing"
+
+	"github.com/pkoukk/tiktoken-go"
+	"github.com/redis/go-redis/v9"
+)
+
+type ContextManager struct {
+	redis     *redis.Client
+	config    *AIConfig
+	donations *repository.DonationsRepository
+	tokenizer *tiktoken.Tiktoken
+}
+
+func NewContextManager(
+	redis *redis.Client,
+	config *AIConfig,
+	donations *repository.DonationsRepository,
+) (*ContextManager, error) {
+	tokenizer, err := tiktoken.GetEncoding("cl100k_base")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tokenizer encoding: %w", err)
+	}
+	return &ContextManager{
+		redis:     redis,
+		config:    config,
+		donations: donations,
+		tokenizer: tokenizer,
+	}, nil
+}
+
+func (x *ContextManager) getContextLimits(grade platform.UserGrade) ContextLimits {
+	if limits, ok := x.config.GradeLimits[grade]; ok {
+		return limits.Context
+	}
+	return x.config.GradeLimits[platform.GradeBronze].Context
+}
+
+func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
+	return fmt.Sprintf("chat_history:%d", chatID)
+}
+
+func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, error) {
+	limits := x.getContextLimits(userGrade)
+	key := x.getChatHistoryKey(chatID)
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	messageStrings, err := x.redis.LRange(ctx, key, 0, int64(limits.MaxMessages-1)).Result()
+	if err != nil {
+		logger.E("Failed to fetch chat history from Redis", "key", key, tracing.InnerError, err)
+		return nil, err
+	}
+
+	var messages []platform.RedisMessage
+	var totalTokens int
+
+	for _, msgStr := range messageStrings {
+		var msg platform.RedisMessage
+		if err := json.Unmarshal([]byte(msgStr), &msg); err != nil {
+			logger.W("Failed to parse message from Redis, skipping", "message", msgStr, tracing.InnerError, err)
+			continue
+		}
+
+		msgTokens := len(x.tokenizer.Encode(msg.Content, nil, nil))
+		if totalTokens+msgTokens > limits.MaxTokens {
+			logger.I("Token limit exceeded, truncating chat history", "total_tokens", totalTokens, "max_tokens", limits.MaxTokens)
+			break
+		}
+
+		messages = append(messages, msg)
+		totalTokens += msgTokens
+	}
+
+	// Reverse messages to get correct chronological order (LPUSH stores them in reverse)
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, nil
+}
+
+func (x *ContextManager) Store(
+	logger *tracing.Logger,
+	chatID platform.ChatID,
+	userGrade platform.UserGrade,
+	message platform.RedisMessage,
+) error {
+	limits := x.getContextLimits(userGrade)
+	key := x.getChatHistoryKey(chatID)
+
+	messageStr, err := json.Marshal(message)
+	if err != nil {
+		logger.E("Failed to marshal message for Redis", tracing.InnerError, err)
+		return err
+	}
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	pipe := x.redis.TxPipeline()
+	pipe.LPush(ctx, key, messageStr)
+	pipe.LTrim(ctx, key, 0, int64(limits.MaxMessages-1))
+	pipe.Expire(ctx, key, time.Duration(limits.TTL)*time.Second)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		logger.E("Failed to store message in Redis", "key", key, tracing.InnerError, err)
+		return err
+	}
+
+	return nil
+}
