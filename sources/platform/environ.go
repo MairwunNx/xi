@@ -42,10 +42,6 @@ func GetAsSlice(key string, defaultValue []string) []string {
 	return defaultValue
 }
 
-func GetEnvInt(key string, defaultValue int) int {
-	return GetAsInt(key, defaultValue)
-}
-
 func GetAsDuration(key, defaultValue string) time.Duration {
 	if valueStr := os.Getenv(key); valueStr != "" {
 		if value, err := time.ParseDuration(valueStr); err == nil {
