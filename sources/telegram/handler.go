@@ -80,7 +80,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 	if msg.ReplyToMessage != nil && msg.IsCommand() && msg.Command() == "xi" {
 		replyMsg := msg.ReplyToMessage
 		if replyMsg.Voice != nil || replyMsg.VideoNote != nil || replyMsg.Audio != nil || replyMsg.Video != nil {
-			x.XiCommandAudio(log.With(tracing.CommandIssued, "xi/audio"), msg, replyMsg)
+			x.XiCommandAudio(log.With(tracing.CommandIssued, "xi/audio"), user, msg, replyMsg)
 			return nil
 		}
 	}
@@ -105,8 +105,6 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleThisCommand(log, user, msg)
 		case "stats":
 			x.HandleStatsCommand(log, user, msg)
-		case "context":
-			x.HandleContextCommand(log, user, msg)
 		case "pinned":
 			x.HandlePinnedCommand(log, user, msg)
 		case "restart":
