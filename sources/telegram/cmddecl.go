@@ -75,18 +75,6 @@ type DonationsCmd struct {
 	} `cmd:"" help:"List all donations"`
 }
 
-type ContextCmd struct {
-	Refresh struct {
-		ChatID *ChatID `arg:"" name:"chat_id" help:"Chat ID to refresh context (use ~ for negative IDs). Optional - defaults to current chat" optional:""`
-	} `cmd:"" help:"Refresh chat context by marking all messages as removed"`
-
-	Disable struct {
-	} `cmd:"" help:"Disable context usage for current user"`
-
-	Enable struct {
-	} `cmd:"" help:"Enable context usage for current user"`
-}
-
 type PinnedCmd struct {
 	Add struct {
 		Message string `arg:"" help:"Message to pin (max 1024 characters)"`
