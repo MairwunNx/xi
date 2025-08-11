@@ -1,12 +1,15 @@
 package artificial
 
 import (
+	"context"
 	"fmt"
+	"time"
 	"ximanager/sources/persistence/entities"
+	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
 
-	"github.com/dustin/go-humanize"
+	"github.com/redis/go-redis/v9"
 	"github.com/shopspring/decimal"
 )
 
@@ -18,100 +21,159 @@ const (
 )
 
 type SpendingLimitExceededError struct {
-	UserGrade    string
-	LimitType    LimitType
-	LimitAmount  string
-	CurrentSpend string
+	UserGrade      platform.UserGrade
+	LimitType      LimitType
+	LimitAmount    decimal.Decimal
+	CurrentSpend   decimal.Decimal
 }
 
 func (e *SpendingLimitExceededError) Error() string {
-	return fmt.Sprintf("Spending limit exceeded: %s %s, current spend: %s, limit: %s", e.LimitType, e.UserGrade, e.CurrentSpend, e.LimitAmount)
-}
-
-func IsSpendingLimitExceeded(err error) bool {
-	_, ok := err.(*SpendingLimitExceededError)
-	return ok
+	return fmt.Sprintf("spending limit exceeded for %s user: %s limit is %s, but current spend is %s",
+		e.UserGrade, e.LimitType, e.LimitAmount.String(), e.CurrentSpend.String())
 }
 
 type SpendingLimiter struct {
+	redis     *redis.Client
 	config    *AIConfig
-	donations *repository.DonationsRepository
 	usage     *repository.UsageRepository
+	donations *repository.DonationsRepository
 }
 
-func NewSpendingLimiter(config *AIConfig, donations *repository.DonationsRepository, usage *repository.UsageRepository) *SpendingLimiter {
+func NewSpendingLimiter(
+	redis *redis.Client,
+	config *AIConfig,
+	usage *repository.UsageRepository,
+	donations *repository.DonationsRepository,
+) *SpendingLimiter {
 	return &SpendingLimiter{
+		redis:     redis,
 		config:    config,
-		donations: donations,
 		usage:     usage,
+		donations: donations,
 	}
 }
 
-func (s *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *entities.User) error {
-	userGrade, err := s.donations.GetUserGrade(logger, user)
+func (x *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *entities.User) error {
+	userGrade, err := x.donations.GetUserGrade(logger, user)
 	if err != nil {
-		logger.E("Failed to get user grade, defaulting to bronze", tracing.InnerError, err)
-		userGrade = repository.UserGradeBronze
+		logger.W("Failed to get user grade, using bronze as default", tracing.InnerError, err)
+		userGrade = platform.GradeBronze
 	}
 
-	dailyLimit, monthlyLimit := s.getLimitsForGrade(userGrade)
+	limits := x.config.SpendingLimits
+	var dailyLimit, monthlyLimit decimal.Decimal
 
-	dailySpent, err := s.usage.GetUserDailyCost(logger, user)
-	if err != nil {
-		logger.E("Failed to get user daily cost", tracing.InnerError, err)
-		return nil
+	switch userGrade {
+	case platform.GradeBronze:
+		dailyLimit = limits.BronzeDailyLimit
+		monthlyLimit = limits.BronzeMonthlyLimit
+	case platform.GradeSilver:
+		dailyLimit = limits.SilverDailyLimit
+		monthlyLimit = limits.SilverMonthlyLimit
+	case platform.GradeGold:
+		dailyLimit = limits.GoldDailyLimit
+		monthlyLimit = limits.GoldMonthlyLimit
 	}
 
-	if dailySpent.GreaterThanOrEqual(dailyLimit) {
+	dailySpend, err := x.getSpend(logger, user, "daily")
+	if err != nil {
+		return err
+	}
+	if dailySpend.GreaterThan(dailyLimit) {
 		return &SpendingLimitExceededError{
-			UserGrade:    s.getGradeDisplayName(userGrade),
+			UserGrade:    userGrade,
 			LimitType:    LimitTypeDaily,
-			LimitAmount:  "$" + humanize.Comma(dailyLimit.IntPart()),
-			CurrentSpend: "$" + humanize.Comma(dailySpent.IntPart()),
+			LimitAmount:  dailyLimit,
+			CurrentSpend: dailySpend,
 		}
 	}
 
-	monthlySpent, err := s.usage.GetUserMonthlyCost(logger, user)
+	monthlySpend, err := x.getSpend(logger, user, "monthly")
 	if err != nil {
-		logger.E("Failed to get user monthly cost", tracing.InnerError, err)
-		return nil
+		return err
 	}
-
-	if monthlySpent.GreaterThanOrEqual(monthlyLimit) {
+	if monthlySpend.GreaterThan(monthlyLimit) {
 		return &SpendingLimitExceededError{
-			UserGrade:    s.getGradeDisplayName(userGrade),
+			UserGrade:    userGrade,
 			LimitType:    LimitTypeMonthly,
-			LimitAmount:  "$" + humanize.Comma(monthlyLimit.IntPart()),
-			CurrentSpend: "$" + humanize.Comma(monthlySpent.IntPart()),
+			LimitAmount:  monthlyLimit,
+			CurrentSpend: monthlySpend,
 		}
 	}
 
-	logger.I("Spending limits check passed", "user_grade", userGrade, "daily_spent", dailySpent.String(), "daily_limit", dailyLimit.String(), "monthly_spent", monthlySpent.String(), "monthly_limit", monthlyLimit.String())
 	return nil
 }
 
-func (s *SpendingLimiter) getLimitsForGrade(grade repository.UserGrade) (daily, monthly decimal.Decimal) {
-	switch grade {
-	case repository.UserGradeBronze:
-		return s.config.SpendingLimits.BronzeDailyLimit, s.config.SpendingLimits.BronzeMonthlyLimit
-	case repository.UserGradeSilver:
-		return s.config.SpendingLimits.SilverDailyLimit, s.config.SpendingLimits.SilverMonthlyLimit
-	case repository.UserGradeGold:
-		return s.config.SpendingLimits.GoldDailyLimit, s.config.SpendingLimits.GoldMonthlyLimit
-	default:
-		return s.config.SpendingLimits.BronzeDailyLimit, s.config.SpendingLimits.BronzeMonthlyLimit
+func (x *SpendingLimiter) getSpend(logger *tracing.Logger, user *entities.User, period string) (decimal.Decimal, error) {
+	ctx := context.Background()
+	key := x.getSpendKey(user.ID.String(), period)
+
+	// Try to get from Redis first
+	cachedSpend, err := x.redis.Get(ctx, key).Result()
+	if err == nil {
+		spend, _ := decimal.NewFromString(cachedSpend)
+		return spend, nil
 	}
+
+	// If not in Redis, get from DB
+	var spend decimal.Decimal
+	var dbErr error
+	now := time.Now()
+
+	switch period {
+	case "daily":
+		startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		spend, dbErr = x.usage.GetUserCostSince(logger, user, startOfDay)
+	case "monthly":
+		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		spend, dbErr = x.usage.GetUserCostSince(logger, user, startOfMonth)
+	default:
+		return decimal.Zero, fmt.Errorf("invalid period: %s", period)
+	}
+
+	if dbErr != nil {
+		logger.E("Failed to get user spend from DB", "period", period, tracing.InnerError, dbErr)
+		return decimal.Zero, dbErr
+	}
+
+	// Cache in Redis
+	ttl := 24 * time.Hour
+	if period == "monthly" {
+		ttl = 31 * 24 * time.Hour
+	}
+	err = x.redis.Set(ctx, key, spend.String(), ttl).Err()
+	if err != nil {
+		logger.W("Failed to cache spend in Redis", "key", key, tracing.InnerError, err)
+	}
+
+	return spend, nil
 }
 
-func (s *SpendingLimiter) getGradeDisplayName(grade repository.UserGrade) string {
-	switch grade {
-	case repository.UserGradeBronze:
-		return "бронзовый"
-	case repository.UserGradeSilver:
-		return "серебряный"
-	case repository.UserGradeGold:
-		return "золотой"
-	default:
-		return "базовый"
+func (x *SpendingLimiter) IncrementSpend(logger *tracing.Logger, userID string, amount decimal.Decimal) {
+	ctx := context.Background()
+	dailyKey := x.getSpendKey(userID, "daily")
+	monthlyKey := x.getSpendKey(userID, "monthly")
+
+	pipe := x.redis.TxPipeline()
+	pipe.IncrByFloat(ctx, dailyKey, amount.InexactFloat64())
+	pipe.IncrByFloat(ctx, monthlyKey, amount.InexactFloat64())
+	pipe.Exec(ctx)
+}
+
+func (x *SpendingLimiter) getSpendKey(userID string, period string) string {
+	now := time.Now()
+	var timePart string
+	switch period {
+	case "daily":
+		timePart = now.Format("2006-01-02")
+	case "monthly":
+		timePart = now.Format("2006-01")
 	}
-} 
+	return fmt.Sprintf("spend:%s:%s:%s", period, userID, timePart)
+}
+
+func (x *SpendingLimiter) AddSpend(logger *tracing.Logger, user *entities.User, cost decimal.Decimal) {
+	go func() {
+		x.IncrementSpend(logger, user.ID.String(), cost)
+	}()
+}
