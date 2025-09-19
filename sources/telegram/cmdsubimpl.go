@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"slices"
+	"sort"
 	"strings"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
@@ -16,6 +17,8 @@ import (
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 // =========================  /xi command handlers  =========================
@@ -482,25 +485,74 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 		return
 	}
 
-	var builder strings.Builder
-	builder.WriteString(texting.MsgDonationsListHeader)
+	userDonations := make(map[uuid.UUID]decimal.Decimal)
+	usersMap := make(map[uuid.UUID]entities.User)
 
 	for _, donation := range donations {
 		if donation.Sum.IsZero() {
 			continue
 		}
+		userDonations[donation.User] = userDonations[donation.User].Add(donation.Sum)
+		if _, ok := usersMap[donation.User]; !ok {
+			usersMap[donation.User] = donation.UserEntity
+		}
+	}
 
+	type userDonation struct {
+		User  entities.User
+		Total decimal.Decimal
+	}
+
+	var sortedDonations []userDonation
+	for userID, total := range userDonations {
+		sortedDonations = append(sortedDonations, userDonation{
+			User:  usersMap[userID],
+			Total: total,
+		})
+	}
+
+	sort.Slice(sortedDonations, func(i, j int) bool {
+		return sortedDonations[i].Total.GreaterThan(sortedDonations[j].Total)
+	})
+
+	var builder strings.Builder
+	builder.WriteString(texting.MsgDonationsListHeader)
+
+	if len(sortedDonations) > 0 {
+		builder.WriteString(texting.MsgDonationsListTopHeader)
+	}
+
+	for i, ud := range sortedDonations {
 		username := "Мертвая душа"
-		if donation.UserEntity.Username != nil {
-			username = "@" + *donation.UserEntity.Username
+		if ud.User.Username != nil {
+			username = "@" + *ud.User.Username
 		}
 
-		builder.WriteString(fmt.Sprintf(
-			texting.MsgDonationsListItem,
-			username,
-			texting.Decimalify(donation.Sum),
-			donation.CreatedAt.Format("02.01.2006"),
-		))
+		if i < 3 {
+			var format string
+			switch i {
+			case 0:
+				format = texting.MsgDonationsListTop1Item
+			case 1:
+				format = texting.MsgDonationsListTop2Item
+			case 2:
+				format = texting.MsgDonationsListTop3Item
+			}
+			builder.WriteString(fmt.Sprintf(
+				format,
+				username,
+				texting.Decimalify(ud.Total),
+			))
+		} else {
+			if i == 3 {
+				builder.WriteString(texting.MsgDonationsListOthersHeader)
+			}
+			builder.WriteString(fmt.Sprintf(
+				texting.MsgDonationsListItem,
+				username,
+				texting.Decimalify(ud.Total),
+			))
+		}
 	}
 
 	x.diplomat.Reply(log, msg, builder.String())

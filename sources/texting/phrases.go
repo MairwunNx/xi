@@ -81,7 +81,12 @@ const (
 	MsgDonationsErrorList      = "💢 Ошибка при получении списка донатов."
 	MsgDonationsNoDonations    = "🤷‍♂️ Еще никто не поддержал Великого Xi."
 	MsgDonationsListHeader     = "📜 **Список благодетелей Великого Xi:**\n\n"
-	MsgDonationsListItem       = "❤️‍🔥 **%s** поддержал на **%s** рублей, **%s**\n"
+	MsgDonationsListTopHeader  = "🏆 **Топ 3 щедрейших подданных:**\n"
+	MsgDonationsListTop1Item   = "👑 **%s** — %s ₽\n"
+	MsgDonationsListTop2Item   = "💎 **%s** — %s ₽\n"
+	MsgDonationsListTop3Item   = "💠 **%s** — %s ₽\n"
+	MsgDonationsListOthersHeader = "\n📜 **Остальные благодетели:**\n"
+	MsgDonationsListItem       = "❤️‍🔥 **%s** — %s ₽\n"
 
 	MsgPinnedAdded             = "📌 Указание успешно закреплено!"
 	MsgPinnedRemoved           = "✅ Указание успешно удалено из закрепленных."
