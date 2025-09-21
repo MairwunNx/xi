@@ -19,22 +19,30 @@ permissions:
   contents: read
   packages: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   ORG: mairwunnx
   FLYWAY_IMAGE: xi-flyway
   XIM_IMAGE: ximanager
+  PLATFORMS: linux/amd64
 
 jobs:
-  build:
+  changes:
+    name: Detect changes
     runs-on: ubuntu-latest
-
+    outputs:
+      flyway: ${{ steps.filter.outputs.flyway }}
+      ximanager: ${{ steps.filter.outputs.ximanager }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect changes
-        id: changes
+      - name: Paths filter
+        id: filter
         uses: dorny/paths-filter@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -51,11 +59,17 @@ jobs:
               - 'markdownify.c'
               - 'markdownify.h'
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+  build-flyway:
+    name: Build & push (Flyway)
+    needs: changes
+    if: needs.changes.outputs.flyway == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -64,40 +78,53 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # -------- FLYWAY --------
       - name: Meta (flyway)
-        id: meta_flyway
-        if: steps.changes.outputs.flyway == 'true'
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
-            # если пушите релизы с git-тегами vX.Y.Z — добавит семвер-теги автоматически
+            type=ref,event=branch
             type=semver,pattern={{version}}
 
       - name: Build & Push (flyway)
-        if: steps.changes.outputs.flyway == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.flyway
           push: true
-          platforms: linux/amd64
-          tags: ${{ steps.meta_flyway.outputs.tags }}
-          labels: ${{ steps.meta_flyway.outputs.labels }}
+          platforms: ${{ env.PLATFORMS }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  build-ximanager:
+    name: Build & push (ximanager)
+    needs: changes
+    if: needs.changes.outputs.ximanager == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Meta (ximanager)
-        id: meta_xi
-        if: steps.changes.outputs.ximanager == 'true'
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}
           tags: |
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
@@ -105,14 +132,13 @@ jobs:
             type=semver,pattern={{version}}
 
       - name: Build & Push (ximanager)
-        if: steps.changes.outputs.ximanager == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
           push: true
-          platforms: linux/amd64
-          tags: ${{ steps.meta_xi.outputs.tags }}
-          labels: ${{ steps.meta_xi.outputs.labels }}
+          platforms: ${{ env.PLATFORMS }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
