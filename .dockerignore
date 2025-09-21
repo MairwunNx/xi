@@ -52,9 +52,6 @@ Dockerfile*
 *.editorconfig
 *.gitattributes
 
-migrations/
-configurations/
-
 *.md
 CHANGELOG*
 CONTRIBUTING*
