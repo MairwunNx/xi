@@ -56,6 +56,18 @@
 
 ## Установка
 
+### Наибыстрейший запуск с Docker Compose
+
+1. Потребуется задекларировать Xi Manager как сервис используя готовый образ:
+
+```yaml
+services:
+  ximanager:
+    image: ghcr.io/mairwunnx/ximanager:latest
+```
+
+2. Запустить сервис предварительно скормив ему переменные окружения.
+
 ### Быстрый старт с Docker Compose
 
 1. Клонируйте репозиторий:
@@ -98,18 +110,6 @@ go run sources/persistence/gormgen/zygote.go
 # Сборка Docker образа
 docker build -t xi-manager .
 ```
-
-### Наибыстрейший запуск с Docker Compose
-
-1. Потребуется задекларировать Xi Manager как сервис используя готовый образ:
-
-```yaml
-services:
-  ximanager:
-    image: ghcr.io/mairwunnx/ximanager:latest
-```
-
-2. Запустить сервис предварительно скормив ему переменные окружения.
 
 ## Стек
 
