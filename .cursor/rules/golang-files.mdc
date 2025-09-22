@@ -1,0 +1,68 @@
+---
+globs: *.go
+---
+
+# Golang Files (.go) Rules
+
+## Language Version & Features
+- Use Go 1.23+ features
+- Leverage modern Go capabilities:
+  - Generics for type-safe code
+  - Context package for request lifecycle
+  - Error wrapping with fmt.Errorf
+  - Structured logging with slog
+  - Embedded interfaces and structs
+  - Range over functions (Go 1.23)
+
+## Code Style
+- Use **tabs** for indentation (Go standard)
+- Use `gofmt` and `goimports` for formatting
+- Follow standard Go naming conventions:
+  - PascalCase for exported identifiers
+  - camelCase for unexported identifiers
+  - ALL_CAPS for constants
+- Prefer short variable names in small scopes
+
+## Project Architecture
+- Follow Uber-Fx dependency injection patterns
+- Use modules for organizing functionality
+- Implement structured logging with `slog`
+- Use GORM for database operations
+- Redis for caching and session management
+
+## Package Organization
+- Package names: single word, lowercase
+- Group related functionality in packages
+- Main packages: `artificial`, `external`, `network`, `persistence`, `repository`, `telegram`, `texting`, `throttler`, `platform`, `tracing`
+
+## Error Handling
+- Always handle errors explicitly
+- Use error wrapping: `fmt.Errorf("operation failed: %w", err)`
+- Create custom error types when needed
+- Log errors with appropriate context using slog
+
+## Logging Standards
+- Use structured logging with `slog` library only
+- Include relevant context in log messages
+- Use appropriate log levels: Debug, Info, Warn, Error
+- Example: `slog.Info("processing message", "user_id", userID, "message_type", msgType)`
+
+## Database Operations
+- Use GORM for ORM operations
+- Follow repository pattern for data access
+- Use transactions for multi-table operations
+- Implement soft deletes where appropriate
+
+## Concurrency
+- Use context.Context for cancellation and timeouts
+- Implement proper goroutine lifecycle management
+- Use channels for communication between goroutines
+- Avoid shared state, prefer message passing
+
+## Best Practices
+- Prefer composition over inheritance
+- Use interfaces for abstraction
+- Keep functions small and focused
+- Return early from functions to reduce nesting
+- Use meaningful variable and function names
+- Avoid global variables, use dependency injection
