@@ -99,6 +99,18 @@ go run sources/persistence/gormgen/zygote.go
 docker build -t xi-manager .
 ```
 
+### Наибыстрейший запуск с Docker Compose
+
+1. Потребуется задекларировать Xi Manager как сервис используя готовый образ:
+
+```yaml
+services:
+  ximanager:
+    image: ghcr.io/mairwunnx/ximanager:latest
+```
+
+2. Запустить сервис предварительно скормив ему переменные окружения.
+
 ## Стек
 
 - **Go 1.23** — основной язык разработки с модульной архитектурой
