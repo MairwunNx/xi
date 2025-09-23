@@ -4,16 +4,16 @@ globs: .github/workflows/*.yml,.github/workflows/*.yaml
 
 # GitHub Workflows Rules
 
-## Основные принципы
-- Декларативность: минимизируйте сложную логику в bash, используйте готовые экшены и переиспользуемые workflow.
-- Производительность: кэширование, матрицы, параллелизм, точные триггеры, короткие checkout’ы.
-- Безопасность: наименьшие привилегии, pin экшенов по SHA, секреты только через `secrets`, защищённые среды.
-- Надёжность: `fail-fast`, лимиты времени, ретраи критичных шагов, детерминированность сборок.
+## Core Principles
+- **Declarative**: minimize complex bash logic; use official actions and reusable workflows where possible.  
+- **Performance**: apply caching, matrix builds, parallel jobs, precise triggers, and shallow checkouts.  
+- **Security**: follow least privilege, pin actions by SHA, use `secrets` only, and rely on protected environments.  
+- **Reliability**: enable `fail-fast`, set timeouts, retry critical steps, and ensure deterministic builds.  
 
 ---
 
-## Именование и структура
-- **Имена файлов/воркфлоу**: осознанные и стабильные, `name` отражает назначение.
-- **Один воркфлоу — одна цель**: сборка, тесты, релиз, линт — разделяйте.
-- **Локальная логика → composite actions** (`.github/actions/...`) или **reusable workflows**.
-- Общие константы/стратегии — в `workflow_call` с входными параметрами.
+## Naming and Structure
+- **Workflow and file names**: clear, consistent, and stable — `name` must reflect the purpose.  
+- **One workflow = one goal**: separate build, test, release, and lint workflows.  
+- **Local logic → composite actions** (`.github/actions/...`) or **reusable workflows**.  
+- **Shared constants/strategies**: move into `workflow_call` with input parameters.  
