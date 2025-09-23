@@ -1,5 +1,5 @@
 ---
-globs: docker-compose*.yaml, docker-compose*.yml
+globs: docker-compose*.yaml,docker-compose*.yml
 ---
 
 # Docker Compose Rules
