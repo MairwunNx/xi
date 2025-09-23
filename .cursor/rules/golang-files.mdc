@@ -2,67 +2,60 @@
 globs: *.go
 ---
 
-# Golang Files (.go) Rules
+# Go Files (.go) Rules
 
 ## Language Version & Features
-- Use Go 1.23+ features
-- Leverage modern Go capabilities:
-  - Generics for type-safe code
-  - Context package for request lifecycle
-  - Error wrapping with fmt.Errorf
-  - Structured logging with slog
-  - Embedded interfaces and structs
-  - Range over functions (Go 1.23)
+- Target **Go 1.25+** (or latest stable release).
+- Use modern Go features where appropriate:
+  - Generics for type safety.
+  - `context` for request lifecycle and cancellation.
+  - Error wrapping with `%w` (`fmt.Errorf`).
+  - Structured logging (e.g., `slog` or another unified logger).
+  - Embedding for code reuse.
+  - Range-over-function (Go 1.25+).
 
 ## Code Style
-- Use **tabs** for indentation (Go standard)
-- Use `gofmt` and `goimports` for formatting
-- Follow standard Go naming conventions:
-  - PascalCase for exported identifiers
-  - camelCase for unexported identifiers
-  - ALL_CAPS for constants
-- Prefer short variable names in small scopes
-
-## Project Architecture
-- Follow Uber-Fx dependency injection patterns
-- Use modules for organizing functionality
-- Implement structured logging with `slog`
-- Use GORM for database operations
-- Redis for caching and session management
+- Use **tabs** for indentation (Go standard).
+- Always run `gofmt` and `goimports` before commit.
+- Naming conventions:
+  - **Exported identifiers**: PascalCase.
+  - **Unexported identifiers**: camelCase.
+  - **Constants**: ALL_CAPS or PascalCase (project-wide consistency).
+- Prefer short variable names in tight/local scopes (`i`, `n`, `err`).
 
 ## Package Organization
-- Package names: single word, lowercase
-- Group related functionality in packages
-- Main packages: `artificial`, `external`, `network`, `persistence`, `repository`, `telegram`, `texting`, `throttler`, `platform`, `tracing`
+- Package names: short, lowercase, no underscores or plurals.
+- Group related functionality logically; avoid large "god packages".
+- Keep `main` package minimal — delegate logic to internal packages.
 
 ## Error Handling
-- Always handle errors explicitly
-- Use error wrapping: `fmt.Errorf("operation failed: %w", err)`
-- Create custom error types when needed
-- Log errors with appropriate context using slog
+- Always handle returned errors explicitly.
+- Wrap errors with context:  
+  `fmt.Errorf("reading config: %w", err)`
+- Define custom error types where domain-specific.
+- Avoid panics in normal control flow.
 
-## Logging Standards
-- Use structured logging with `slog` library only
-- Include relevant context in log messages
-- Use appropriate log levels: Debug, Info, Warn, Error
-- Example: `slog.Info("processing message", "user_id", userID, "message_type", msgType)`
-
-## Database Operations
-- Use GORM for ORM operations
-- Follow repository pattern for data access
-- Use transactions for multi-table operations
-- Implement soft deletes where appropriate
+## Logging
+- Use **structured logging** consistently.
+- Always include relevant context (IDs, keys, parameters).
+- Apply proper levels: Debug, Info, Warn, Error.
+- Logging libraries should be pinned and unified across the project.
 
 ## Concurrency
-- Use context.Context for cancellation and timeouts
-- Implement proper goroutine lifecycle management
-- Use channels for communication between goroutines
-- Avoid shared state, prefer message passing
+- Always use `context.Context` for timeouts and cancellation.
+- Manage goroutine lifecycles explicitly; avoid leaks.
+- Prefer channels or message passing to shared mutable state.
+- Use `sync` primitives only when truly required.
 
 ## Best Practices
-- Prefer composition over inheritance
-- Use interfaces for abstraction
-- Keep functions small and focused
-- Return early from functions to reduce nesting
-- Use meaningful variable and function names
-- Avoid global variables, use dependency injection
+- Prefer **composition over inheritance**.
+- Use **interfaces** to abstract behavior, not just for testing.
+- Keep functions small and cohesive.
+- Return early to reduce nesting.
+- Avoid global state; prefer dependency injection or constructors.
+- Document exported symbols with comments starting with the identifier name.
+
+## Database / External Resources
+- Encapsulate data access behind clear interfaces (e.g., repository pattern).
+- Use transactions for multi-step operations where consistency is required.
+- Clean up connections and resources (`defer close(...)`).
