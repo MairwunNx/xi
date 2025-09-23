@@ -5,86 +5,71 @@ globs: *.md
 # Markdown Files (.md) Rules
 
 ## Language & Style
-- Use **русский язык** как основной язык для документации
-- Пишите ясную, лаконичную документацию
-- Сосредотачивайтесь на практической информации и примерах
-- Используйте формальный стиль изложения
+- Use **relaxed Russian** as primary language
+- Write clear, concise documentation
+- Focus on practical information and examples
 
 ## Formatting Guidelines
 
 ### Text Emphasis
-- Используйте **жирный текст** для важных концепций и выделения
-- Используйте *курсив для уточнений в скобках*
-- Используйте `обратные кавычки` для:
-  - Имен файлов и путей
-  - Терминов, связанных с кодом
-  - Фиксированных соглашений об именовании
-  - API эндпоинтов
-  - Значений конфигурации
+- Use **bold** for important concepts and emphasis
+- Use *italics for clarifications in parentheses*
+- Use `backticks` for:
+  - File names and paths
+  - Code-related terms
+  - Fixed naming conventions
+  - API endpoints
+  - Configuration values
 
 ### Structure
-- Используйте заголовки (`#`, `##`, `###`) для семантической организации
-- Используйте горизонтальные разделители (`---`) для разделения основных разделов
-- Создавайте логическую иерархию информации
+- Use headings (`#`, `##`, `###`) for semantic organization
+- Use horizontal separators (`---`) to divide major sections
+- Create logical information hierarchy
 
 ### Code Blocks
-- Используйте огражденные блоки кода с указанием языка:
-```go
-// Пример Go кода
-type TelegramBot struct {
-    API *tgbotapi.BotAPI
+- Use fenced code blocks with language specification:
+```kotlin
+// Example Kotlin code
+class PaymentGateway {
+  fun processPayment() = TODO()
 }
 ```
 
 ### Visual Enhancement
-- Используйте эмодзи для снижения когнитивной нагрузки и улучшения читаемости
-- Применяйте последовательные маркеры и нумерацию
-- Включайте таблицы для сравнения структурированных данных
+- Use emojis to reduce cognitive load and improve readability
+- Employ consistent bullet points and numbering
+- Include tables for structured data comparison
 
 ## Content Organization
 
 ### Headers Structure
 ```markdown
-# Основной заголовок 🤖
-Краткий вводный абзац.
+# Main Title <emoji>
+Brief introduction paragraph.
 
-## Заголовок раздела 📋
-Содержимое с практическими примерами.
+## Section Title <emoji>
+Content with practical examples.
 
-### Подраздел ⚙️
-Детальные заметки по реализации.
+### Subsection <emoji>
+Detailed implementation notes.
 ```
 
 ### Lists & Examples
-- Используйте маркированные списки для перечисления функций
-- Нумеруйте шаги в процедурах
-- Включайте примеры кода для технических концепций
-- Ссылайтесь на связанные файлы, используя `[filename.ext](mdc:path/to/file)`
+- Use bullet points for feature lists
+- Number steps in procedures
+- Include code examples for technical concepts
+- Reference related files using `[filename.ext](mdc:path/to/file)`
 
 ### Documentation Patterns
-- Начинайте с обзора и назначения
-- Включайте предварительные условия и требования
-- Предоставляйте пошаговые инструкции
-- Добавляйте разделы по устранению неполадок, когда это актуально
-- Включайте ссылки на связанную документацию
-
-## Project-Specific Guidelines
-
-### Xi Manager Context
-- Документируйте интеграции с AI провайдерами (OpenAI, DeepSeek, Anthropic, xAI, OpenRouter)
-- Описывайте конфигурацию Telegram Bot API
-- Объясняйте архитектуру на основе Uber-Fx
-- Документируйте схему базы данных и миграции
-
-### Technical References
-- Ссылайтесь на основные компоненты: `artificial`, `telegram`, `persistence`, `repository`
-- Документируйте использование Redis для кэширования
-- Описывайте структурированное логирование с помощью slog
-- Объясняйте паттерны GORM и генерацию DAO
+- Start with overview and purpose
+- Include prerequisites and requirements
+- Provide step-by-step instructions
+- Add troubleshooting sections when relevant
+- Include links to related documentation
 
 ## Best Practices
-- Держите абзацы короткими и сосредоточенными
-- Используйте активный залог вместо пассивного
-- Включайте практические примеры и случаи использования
-- Перекрестные ссылки на связанные файлы и концепции
-- Обновляйте документацию вместе с изменениями кода
+- Keep paragraphs short and focused
+- Use active voice over passive voice
+- Include practical examples and use cases
+- Cross-reference related files and concepts
+- Update documentation alongside code changes
