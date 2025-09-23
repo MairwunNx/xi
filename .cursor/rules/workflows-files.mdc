@@ -1,5 +1,5 @@
 ---
-globs: .github/workflows/*.yml, .github/workflows/*.yaml
+globs: .github/workflows/*.yml,.github/workflows/*.yaml
 ---
 
 # GitHub Workflows Rules
