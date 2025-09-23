@@ -1,5 +1,5 @@
 ---
-globs: *.sql, migrations/*.sql
+globs: *.sql,migrations/*.sql
 ---
 
 # SQL Files (.sql) Rules 🗃️
