@@ -1,5 +1,5 @@
 ---
-globs: Dockerfile, **/Dockerfile
+globs: Dockerfile,**/Dockerfile
 ---
 
 # Dockerfile Rules
