@@ -4,62 +4,50 @@ globs: *.sql,migrations/*.sql
 
 # SQL Files (.sql) Rules 🗃️
 
-## Основные принципы миграций
-- Миграции должны быть идемпотентными
-- Всегда используйте транзакции для сложных изменений
-- Миграции только вперед (forward-only)
-- Каждая миграция должна быть атомарной
+## Migration Principles
+- Migrations should be **idempotent** (safe to re-run).
+- Always use **transactions** for complex changes to ensure atomicity.
+- Follow a **forward-only** approach — no destructive rollbacks in production.
+- Each migration must be **small and focused** (one logical change per file).
 
-## Соглашения об именовании
+## Naming Conventions
 
-### Файлы миграций
-- Формат: `V{версия}__{описание}.sql`
-- Примеры:
-  - `V1__initial_schema.sql`
-  - `V2__add_soft_delete.sql`
-  - `V14__create_usage_table.sql`
+### Migration Files
+- Format: `V{version}__{description}.sql`
+- Examples:  
+  - `V1__initial_schema.sql`  
+  - `V2__add_soft_delete.sql`  
+  - `V14__create_usage_table.sql`  
 
-### Объекты базы данных
-- **Таблицы**: snake_case с префиксом `xi_` (например, `xi_users`, `xi_messages`)
-- **Столбцы**: snake_case (например, `user_id`, `created_at`, `is_active`)
-- **Индексы**: `idx_{table}_{columns}` (например, `idx_users_telegram_id`)
-- **Ограничения**: `fk_{table}_{column}` для внешних ключей
-- **Последовательности**: `seq_{table}_{column}`
+### Database Objects
+- **Tables**: `snake_case`, with optional project prefix if needed (e.g., `users`, `messages`).  
+- **Columns**: `snake_case` (e.g., `user_id`, `created_at`, `is_active`).  
+- **Indexes**: `idx_{table}_{columns}` (e.g., `idx_users_email`).  
+- **Constraints**: `fk_{table}_{column}` for foreign keys, `chk_{table}_{column}` for check constraints.  
+- **Sequences**: `seq_{table}_{column}`.  
 
-## Стиль SQL кода
+## SQL Style
 
-### Форматирование
-- Ключевые слова SQL в ВЕРХНЕМ РЕГИСТРЕ
-- Имена объектов в нижнем регистре
-- Отступы для улучшения читаемости
-- Одна команда на строку для сложных запросов
+### Formatting
+- SQL keywords in **UPPERCASE**.
+- Object names in **lowercase**.
+- Consistent indentation for readability.
+- For complex queries: one clause per line (`SELECT`, `FROM`, `WHERE`, `JOIN`, etc.).
 
-### Пример форматирования
-```sql
-CREATE TABLE xi_users (
-    id BIGSERIAL PRIMARY KEY,
-    telegram_id BIGINT NOT NULL UNIQUE,
-    username VARCHAR(255),
-);
+### General Practices
+- Explicitly list columns in `INSERT` and `SELECT` (avoid `SELECT *`).
+- Use clear, descriptive constraint names.
+- Prefer explicit `JOIN` syntax over implicit joins.
 
-CREATE INDEX idx_users_telegram_id ON xi_users(telegram_id);
-CREATE INDEX idx_users_active ON xi_users(is_active) WHERE is_active = TRUE;
-```
+## Performance
 
-## Специфика проекта Xi Manager
+### Indexing
+- Add indexes for frequently used `WHERE` conditions.
+- Use composite indexes when queries filter by multiple columns.
+- Consider partial or filtered indexes for queries with selective conditions.
+- Drop unused or redundant indexes to avoid overhead.
 
-### Таблицы проекта
-- **xi_users**: Пользователи Telegram
-- **xi_messages**: Сообщения и история чата
-- **xi_modes**: Режимы работы бота
-- **xi_selected_modes**: Выбранные пользователями режимы
-- **xi_donations**: Информация о донатах
-- **xi_pins**: Закрепленные сообщения
-- **xi_usage**: Статистика использования AI
-
-## Производительность
-
-### Индексы
-- Создавайте индексы для часто используемых WHERE условий
-- Используйте составные индексы для сложных запросов
-- Добавляйте частичные индексы для условных выборок
+### Query Design
+- Analyze queries with `EXPLAIN` before production rollout.
+- Avoid N+1 queries; prefer joins or batching.
+- Ensure indexes support `ORDER BY` and `GROUP BY` clauses when needed.
