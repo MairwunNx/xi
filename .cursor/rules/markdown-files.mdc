@@ -1,5 +1,5 @@
 ---
-globs: *.md
+globs: *.md,*.MD
 ---
 
 # Markdown Files (.md) Rules
