@@ -1,5 +1,5 @@
 ---
-globs: *.c, *.h
+globs: *.c,*.h
 ---
 
 # C Files (.c, .h) Rules 🔧
