@@ -24,22 +24,6 @@ globs: *.c, *.h
 - **Скобки**: K&R стиль или Allman стиль (единообразно в проекте)
 - **Длина строк**: Максимум 180 символов
 
-### Пример стиля K&R
-```c
-int process_message(const char *input, char *output, size_t output_size) {
-    if (input == NULL || output == NULL) {
-        return -1;
-    }
-    
-    // Обработка сообщения
-    for (size_t i = 0; i < strlen(input); i++) {
-        // логика обработки
-    }
-    
-    return 0;
-}
-```
-
 ## Структура заголовочных файлов (.h)
 
 ### Header Guards
