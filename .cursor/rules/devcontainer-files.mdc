@@ -1,0 +1,64 @@
+---
+globs: .devcontainer/devcontainer.json
+---
+
+# Dev Container Rules
+
+## Core Principles
+- Deterministic environment: pin versions of base images, features, and tools.
+- Security by default: least privilege, no embedded secrets.
+- Fast initialization: caching, prebuilds, minimal setup steps.
+- Portability: consistent behavior locally, in Codespaces, and in CI.
+
+## Base Image
+- Use official or trusted base images; pin by exact version or digest.
+- Prefer slim images and multi-stage builds for tools.
+- Consider target architectures (amd64/arm64); avoid floating platform selection.
+
+## User and Privileges
+- Run as a non-root user; avoid root unless absolutely necessary.
+- Align UID/GID with host to prevent volume permission issues.
+- Forbid privileged flags and unnecessary capabilities; never mount docker.sock into the dev container.
+
+## Editor Settings and Extensions
+- Define only the minimal required set of VS Code extensions; avoid bloat.
+- Pin extension versions for reproducibility.
+- Store editor settings under `customizations`; avoid unnecessary duplication.
+
+## Performance and Caching
+- Cache package managers and build artifacts in volumes; remove unnecessary files.
+- Minimize the number of postCreate/postStart commands; bake stable dependencies into the base image.
+- Use prebuilds to accelerate first run in the cloud.
+
+## Scripts and Hooks
+- Make postCreate/postStart/postAttach scripts idempotent and fast.
+- Avoid long network operations; use cache and condition checks.
+- Ensure scripts exit with explicit codes and log key steps.
+
+## Environment Variables and Config
+- Use `containerEnv` for container-scoped variables; never commit secrets to the repo.
+- Manage secrets via secret managers or local out-of-repo files/agents.
+- Keep unsafe values only as examples or placeholders.
+
+## Services and Dependencies
+- Use healthchecks and readiness checks for dependent services.
+
+## Docker Compose
+- Pin versions of compose files and images; avoid `latest`.
+- Do not bind private host paths; ensure cross-platform compatibility.
+
+## Plugins, runArgs, and Security
+- Limit additional runArgs to the bare minimum.
+- Enable an init process in the container for proper signal handling.
+- Disallow privileged mode, extra rights, and unsafe mounts.
+
+## Cross-Platform
+- Avoid hardcoded paths and platform-specific tools; stick to POSIX-compliant commands.
+- Account for filesystem differences (case sensitivity, permissions, line endings).
+
+## Anti-Patterns
+- Floating versions of images, features, or extensions.
+- Running as root without justification and granting wide privileges.
+- Long, unstable postCreate scripts with network downloads.
+- Dependence on host-specific paths or private tools.
+- Mounting docker.sock or enabling host network access unnecessarily.
