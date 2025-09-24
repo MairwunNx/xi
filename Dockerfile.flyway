@@ -1,4 +1,4 @@
-ARG FLYWAY_VERSION=11.11.1
+ARG FLYWAY_VERSION=11.13.1
 FROM flyway/flyway:${FLYWAY_VERSION}-alpine
 
 COPY ./migrations /flyway/sql
