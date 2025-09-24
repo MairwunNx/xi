@@ -51,7 +51,7 @@ Dockerfile*
 *.sh
 *.editorconfig
 *.gitattributes
-
+media.jpg
 *.md
 CHANGELOG*
 CONTRIBUTING*
@@ -61,3 +61,4 @@ MAINTAINERS*
 docs/
 examples/
 scripts/
+.cursor/
