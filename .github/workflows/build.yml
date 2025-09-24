@@ -1,9 +1,10 @@
-name: build-and-push
+name: 🚀 Build and Release
 
 on:
   push:
     branches: [ master ]
-    paths:
+    paths: 
+      - '.version'
       - 'Dockerfile.flyway'
       - 'Dockerfile'
       - 'migrations/**'
@@ -14,9 +15,22 @@ on:
       - 'sources/**'
       - 'markdownify.c'
       - 'markdownify.h'
+  pull_request:
+    branches: [ master ]
+    paths:
+      - 'Dockerfile'
+      - 'Dockerfile.flyway'
+      - 'migrations/**'
+      - '.github/workflows/build.yml'
+      - 'go.mod'
+      - 'go.sum'
+      - 'program.go'
+      - 'sources/**'
+      - 'markdownify.c'
+      - 'markdownify.h'
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 concurrency:
@@ -31,6 +45,46 @@ env:
   PLATFORMS: linux/amd64
 
 jobs:
+  version-check:
+    name: 🔍 Check Version Changes
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version-changed: ${{ steps.version-changed.outputs.changed }}
+      should-release: ${{ steps.should-release.outputs.release }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Get current version
+        id: version
+        run: |
+          VERSION=$(cat .version)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Current version: $VERSION"
+      - name: Check if version changed
+        id: version-changed
+        run: |
+          if git diff HEAD~1 HEAD --name-only | grep -q "^.version$"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "✅ Version file changed"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "❌ Version file not changed"
+          fi
+      - name: Should we release?
+        id: should-release
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" && "${{ steps.version-changed.outputs.changed }}" == "true" ]]; then
+            echo "release=true" >> $GITHUB_OUTPUT
+            echo "🚀 Will create release and push image"
+          else
+            echo "release=false" >> $GITHUB_OUTPUT
+            echo "⏭️ Skipping release (not master or version not changed)"
+          fi
+
   changes:
     name: Detect changes
     runs-on: ubuntu-latest
@@ -59,10 +113,48 @@ jobs:
               - 'markdownify.c'
               - 'markdownify.h'
 
-  build-flyway:
-    name: Build & push (Flyway)
+  pr-check:
+    name: 🧪 PR Build Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     needs: changes
-    if: needs.changes.outputs.flyway == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Flyway image (PR check)
+        if: needs.changes.outputs.flyway == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.flyway
+          platforms: ${{ env.PLATFORMS }}
+          push: false
+          tags: ${{ env.FLYWAY_IMAGE }}:pr-${{ github.event.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build Xi Manager image (PR check)
+        if: needs.changes.outputs.ximanager == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: false
+          tags: ${{ env.XIM_IMAGE }}:pr-${{ github.event.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build success
+        run: |
+          echo "✅ Docker образы успешно собраны для PR #${{ github.event.number }}"
+
+  build-flyway:
+    name: 🔨 Build & push (Flyway)
+    needs: [changes, version-check]
+    if: needs.changes.outputs.flyway == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,10 +176,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=true
+            type=raw,value=${{ needs.version-check.outputs.version }},enable=${{ needs.version-check.outputs.version-changed == 'true' }}
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
-            type=semver,pattern={{version}}
 
       - name: Build & Push (flyway)
         uses: docker/build-push-action@v6
@@ -102,9 +194,9 @@ jobs:
           cache-to: type=gha,mode=max
 
   build-ximanager:
-    name: Build & push (ximanager)
-    needs: changes
-    if: needs.changes.outputs.ximanager == 'true'
+    name: 🔨 Build & push (ximanager)
+    needs: [changes, version-check]
+    if: needs.changes.outputs.ximanager == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -126,10 +218,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}
           tags: |
-            type=raw,value=latest
+            type=raw,value=latest,enable=true
+            type=raw,value=${{ needs.version-check.outputs.version }},enable=${{ needs.version-check.outputs.version-changed == 'true' }}
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
-            type=semver,pattern={{version}}
 
       - name: Build & Push (ximanager)
         uses: docker/build-push-action@v6
@@ -142,3 +234,34 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    name: 📋 Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [version-check, build-flyway, build-ximanager]
+    if: needs.version-check.outputs.should-release == 'true' && (needs.build-flyway.result == 'success' || needs.build-flyway.result == 'skipped') && (needs.build-ximanager.result == 'success' || needs.build-ximanager.result == 'skipped')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.version-check.outputs.version }}
+          release_name: 🤖 Xi Manager v${{ needs.version-check.outputs.version }}
+          body: |
+            ## 🚀 Xi Manager v${{ needs.version-check.outputs.version }}
+            
+            ### 📦 Docker Images
+            ```bash
+            # Xi Manager
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}:${{ needs.version-check.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}:latest
+            
+            # Flyway Migrations
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}:${{ needs.version-check.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}:latest
+            ```
+          draft: false
+          prerelease: false
