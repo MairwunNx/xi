@@ -27,19 +27,22 @@
 ### Политики по тирам
 
 #### Gold Tier
-- **Модели**: anthropic/claude-opus-4.1, anthropic/claude-sonnet-4, google/gemini-2.5-pro, openai/gpt-5, openai/gpt-4.1
-- **Reasoning по умолчанию**: high  
+- **Модели**: anthropic/claude-opus-4.1, anthropic/claude-sonnet-4, google/gemini-2.5-pro, anthropic/claude-sonnet-3.7, openai/gpt-5, openai/gpt-4.1
+- **Reasoning по умолчанию**: high (fallback из переменной окружения)
 - **Приоритет**: максимальное качество
+- **Деградация**: может использовать модели Silver и Bronze тиров при необходимости
 
 #### Silver Tier  
-- **Модели**: google/gemini-2.5-pro, anthropic/claude-sonnet-3.7, x-ai/grok-3, openai/gpt-4.1
-- **Reasoning по умолчанию**: medium
+- **Модели**: google/gemini-2.5-pro, anthropic/claude-sonnet-3.7, x-ai/grok-3, openai/gpt-4.1, x-ai/grok-4
+- **Reasoning по умолчанию**: medium (fallback из переменной окружения)
 - **Приоритет**: баланс качества и стоимости
+- **Деградация**: может использовать модели Bronze тира при необходимости
 
 #### Bronze Tier
 - **Модели**: anthropic/claude-3.5-sonnet, openai/gpt-4.1, google/gemini-2.5-flash
-- **Reasoning по умолчанию**: medium (часто понижается до low)
+- **Reasoning по умолчанию**: medium (fallback из переменной окружения, часто понижается до low)
 - **Приоритет**: минимальная стоимость и задержка
+- **Деградация**: некуда деградировать ниже
 
 #### Троллинг
 - **Модели**: openai/gpt-4.1-mini, x-ai/grok-4-fast, x-ai/grok-4-fast:free
@@ -53,6 +56,16 @@
 AGENT_CONTEXT_SELECTION_PROMPT=<base64_encoded_prompt>
 AGENT_MODEL_SELECTION_PROMPT=<base64_encoded_prompt>
 TROLLING_MODELS=openai/gpt-4.1-mini,x-ai/grok-4-fast,x-ai/grok-4-fast:free
+
+# Модели для каждого тира (от самых умных к быстрым/дешевым)
+GOLD_DIALER_MODELS=anthropic/claude-opus-4.1,anthropic/claude-sonnet-4,google/gemini-2.5-pro,...
+SILVER_DIALER_MODELS=google/gemini-2.5-pro,anthropic/claude-sonnet-3.7,x-ai/grok-3,...
+BRONZE_DIALER_MODELS=anthropic/claude-3.5-sonnet,openai/gpt-4.1,google/gemini-2.5-flash
+
+# Reasoning effort как fallback (если агент не смог определить)
+GOLD_DIALER_REASONING_EFFORT=high
+SILVER_DIALER_REASONING_EFFORT=medium
+BRONZE_DIALER_REASONING_EFFORT=medium
 ```
 
 См. `.env.agents.example` для полной конфигурации.
@@ -76,6 +89,7 @@ TROLLING_MODELS=openai/gpt-4.1-mini,x-ai/grok-4-fast,x-ai/grok-4-fast:free
 ### 3. Основной запрос
 - Использует выбранный контекст (до 5 сообщений)
 - Применяет рекомендованную модель и reasoning effort
+- При превышении лимитов трат принудительно переключается на дешевые модели
 - Сохраняет результат в контекст для будущих запросов
 
 ## Преимущества
@@ -89,6 +103,14 @@ TROLLING_MODELS=openai/gpt-4.1-mini,x-ai/grok-4-fast,x-ai/grok-4-fast:free
 ## Fallback стратегии
 
 - При ошибке агента отбора контекста → последние 5 сообщений
-- При ошибке агента выбора модели → настройки тира по умолчанию
-- При превышении лимитов трат → принудительные дешевые модели
+- При ошибке агента выбора модели → вторая модель из списка тира + reasoning effort из переменных окружения
+- При превышении лимитов трат → принудительные дешевые модели (LIMIT_EXCEEDED_MODEL)
 - При ошибке декодирования промптов → встроенные промпты по умолчанию
+- Агент всегда вызывается, даже при превышении лимитов (но результат может быть переопределен)
+
+## Изменения в архитектуре
+
+1. **Убраны FALLBACK_MODELS** - заменены на DIALER_MODELS с полным списком от лучших к дешевым
+2. **Reasoning effort как fallback** - переменные окружения используются только при ошибках агента
+3. **Добавлена деградация моделей** - Gold может использовать Silver/Bronze модели, Silver может использовать Bronze
+4. **Агент всегда активен** - SelectModelAndEffort вызывается всегда, не зависимо от лимитов трат
