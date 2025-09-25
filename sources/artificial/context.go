@@ -119,3 +119,19 @@ func (x *ContextManager) Store(
 
 	return nil
 }
+
+func (x *ContextManager) Clear(logger *tracing.Logger, chatID platform.ChatID) error {
+	key := x.getChatHistoryKey(chatID)
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := x.redis.Del(ctx, key).Err()
+	if err != nil {
+		logger.E("Failed to clear chat history from Redis", "key", key, tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Chat history cleared successfully", "key", key)
+	return nil
+}

@@ -783,3 +783,16 @@ func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.
 
 	x.diplomat.Reply(log, msg, response)
 }
+
+// =========================  /context command handlers  =========================
+
+func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	err := x.contextManager.Clear(log, platform.ChatID(msg.Chat.ID))
+	if err != nil {
+		log.E("Failed to clear context", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshError))
+		return
+	}
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
+}

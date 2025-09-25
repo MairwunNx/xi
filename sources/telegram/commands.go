@@ -185,3 +185,32 @@ func (x *TelegramHandler) HandlePinnedCommand(log *tracing.Logger, user *entitie
 func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.diplomat.Reply(log, msg, texting.MsgHelpText)
 }
+
+func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	args := msg.CommandArguments()
+	if args == "" {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
+		return
+	}
+
+	var cmd ContextCmd
+	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
+		return
+	}
+
+	switch ctx.Command() {
+	case "refresh":
+		if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextNoAccess))
+			return
+		}
+		x.ContextCommandRefresh(log, user, msg)
+	case "help":
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
+	default:
+		log.W("Unknown context subcommand", tracing.InternalCommand, ctx.Command())
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
+	}
+}

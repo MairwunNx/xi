@@ -87,3 +87,11 @@ type PinnedCmd struct {
 	List struct {
 	} `cmd:"" help:"List all pinned messages"`
 }
+
+type ContextCmd struct {
+	Refresh struct {
+	} `cmd:"" help:"Clear context memory for current chat"`
+
+	Help struct {
+	} `cmd:"" help:"Show context management help"`
+}
