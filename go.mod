@@ -6,7 +6,6 @@ toolchain go1.24.3
 
 require (
 	github.com/alecthomas/kong v1.12.0
-	github.com/dustin/go-humanize v1.0.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
@@ -18,6 +17,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/net v0.41.0
+	golang.org/x/text v0.26.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gen v0.3.27
 	gorm.io/gorm v1.30.0
@@ -51,7 +51,6 @@ require (
 	golang.org/x/mod v0.25.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
-	golang.org/x/text v0.26.0 // indirect
 	golang.org/x/tools v0.34.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gorm.io/datatypes v1.2.5 // indirect

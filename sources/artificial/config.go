@@ -1,6 +1,7 @@
 package artificial
 
 import (
+	"encoding/base64"
 	"ximanager/sources/platform"
 
 	"github.com/sashabaranov/go-openai"
@@ -17,6 +18,13 @@ type AIConfig struct {
 	LimitExceededFallbackModels []string
 	SpendingLimits              SpendingLimits
 	GradeLimits                 map[platform.UserGrade]GradeLimits
+	
+	// Agent prompts (base64 encoded)
+	ContextSelectionPrompt string
+	ModelSelectionPrompt   string
+	
+	// Trolling models
+	TrollingModels []string
 }
 
 type GradeLimits struct {
@@ -62,6 +70,13 @@ func NewAIConfig() *AIConfig {
 
 		LimitExceededModel:          platform.Get("SPENDINGS_LIMIT_EXCEEDED_MODEL", "openai/gpt-4o-mini"),
 		LimitExceededFallbackModels: platform.GetAsSlice("SPENDINGS_LIMIT_EXCEEDED_FALLBACK_MODELS", []string{"deepseek/deepseek-chat"}),
+		
+		// Agent prompts (base64 encoded)
+		ContextSelectionPrompt: platform.Get("AGENT_CONTEXT_SELECTION_PROMPT", ""),
+		ModelSelectionPrompt:   platform.Get("AGENT_MODEL_SELECTION_PROMPT", ""),
+		
+		// Trolling models
+		TrollingModels: platform.GetAsSlice("TROLLING_MODELS", []string{"openai/gpt-4.1-mini", "x-ai/grok-4-fast", "x-ai/grok-4-fast:free"}),
 
 		SpendingLimits: SpendingLimits{
 			BronzeDailyLimit:   platform.GetDecimal("SPENDINGS_BRONZE_DAILY_LIMIT", "2.0"),
@@ -134,4 +149,95 @@ func NewAIConfig() *AIConfig {
 			},
 		},
 	}
+}
+
+// GetContextSelectionPrompt returns the decoded context selection prompt
+func (c *AIConfig) GetContextSelectionPrompt() string {
+	if c.ContextSelectionPrompt == "" {
+		return getDefaultContextSelectionPrompt()
+	}
+	
+	decoded, err := base64.StdEncoding.DecodeString(c.ContextSelectionPrompt)
+	if err != nil {
+		return getDefaultContextSelectionPrompt()
+	}
+	
+	return string(decoded)
+}
+
+// GetModelSelectionPrompt returns the decoded model selection prompt
+func (c *AIConfig) GetModelSelectionPrompt() string {
+	if c.ModelSelectionPrompt == "" {
+		return getDefaultModelSelectionPrompt()
+	}
+	
+	decoded, err := base64.StdEncoding.DecodeString(c.ModelSelectionPrompt)
+	if err != nil {
+		return getDefaultModelSelectionPrompt()
+	}
+	
+	return string(decoded)
+}
+
+func getDefaultContextSelectionPrompt() string {
+	return `You are a context selection agent. Your job is to analyze conversation history and determine which messages are relevant for answering a new user question.
+
+Conversation history:
+%s
+
+New user question:
+%s
+
+Analyze the conversation and determine which messages from the history are relevant to answering the new question. Consider:
+1. Topical relevance - are previous messages about the same or related topic?
+2. Context dependency - does the new question reference or build upon previous messages?
+3. Conversation flow - are there important context clues in recent messages?
+4. User intent - if the user explicitly asks to "remember" or "continue" something, include relevant history.
+
+If the new question is about a completely different topic and doesn't reference previous conversation, you may return an empty array.
+
+Return your response as JSON in this exact format:
+{
+  "relevant_indices": [array of message indices that are relevant, e.g., [0, 2, 5]],
+  "reasoning": "Brief explanation of why these messages were selected"
+}`
+}
+
+func getDefaultModelSelectionPrompt() string {
+	return `You are a model selection agent. Your job is to analyze a task and recommend the optimal AI model and reasoning effort.
+
+Available models for this tier (from most capable to fastest/cheapest): %s
+Default reasoning effort for this tier: %s
+Tier description: %s
+
+Recent conversation context:
+%s
+
+New user task:
+%s
+
+Analyze the task and recommend:
+1. Which model to use (must be from the available models list)
+2. What reasoning effort level (low/medium/high)
+3. Task complexity assessment
+4. Whether user needs speed vs quality
+5. Whether this appears to be trolling/testing behavior
+
+Consider:
+- Complex coding, analysis, research tasks → higher capability model + higher reasoning
+- Simple questions, quick answers → faster model + lower reasoning
+- User requests for "quick" or "fast" → prioritize speed
+- User requests for "detailed" or "thorough" → prioritize quality
+- Nonsensical, repetitive, or obviously testing queries → trolling models
+
+Return your response as JSON in this exact format:
+{
+  "recommended_model": "exact model name from available list",
+  "reasoning_effort": "low/medium/high",
+  "task_complexity": "low/medium/high",
+  "requires_speed": true/false,
+  "requires_quality": true/false,
+  "is_trolling": true/false,
+  "reasoning": "Brief explanation of your choice"
+}`
 }
