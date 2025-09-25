@@ -28,9 +28,10 @@ type TelegramHandler struct {
 	usage          *repository.UsageRepository
 	throttler      *throttler.Throttler
 	contextManager *artificial.ContextManager
+	health         *repository.HealthRepository
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:       diplomat,
 		users:          users,
@@ -45,6 +46,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		usage:          usage,
 		throttler:      throttler,
 		contextManager: contextManager,
+		health:         health,
 	}
 }
 
@@ -113,6 +115,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleRestartCommand(log, user, msg)
 		case "context":
 			x.HandleContextCommand(log, user, msg)
+		case "health":
+			x.HandleHealthCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
