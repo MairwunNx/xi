@@ -143,12 +143,15 @@ func (a *AgentSystem) SelectModelAndEffort(
 	
 	prompt := a.getModelSelectionPrompt()
 	
+	trollingModelsText := strings.Join(a.config.TrollingModels, ", ")
+	
 	systemMessage := fmt.Sprintf(prompt, 
 		tierPolicy.ModelsText,
 		tierPolicy.DefaultReasoning,
 		tierPolicy.Description,
 		contextText,
 		newUserMessage,
+		trollingModelsText,
 	)
 
 	messages := []openrouter.ChatCompletionMessage{

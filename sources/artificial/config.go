@@ -222,7 +222,7 @@ Consider:
 - Simple questions, quick answers → faster model + lower reasoning
 - User requests for "quick" or "fast" → prioritize speed
 - User requests for "detailed" or "thorough" → prioritize quality
-- Nonsensical, repetitive, or obviously testing queries → use trolling models (openai/gpt-4.1-mini, x-ai/grok-4-fast, x-ai/grok-4-fast:free)
+- Nonsensical, repetitive, or obviously testing queries → use trolling models (%s)
 
 Return your response as JSON in this exact format:
 {
