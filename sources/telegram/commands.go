@@ -186,6 +186,10 @@ func (x *TelegramHandler) HandleHelpCommand(log *tracing.Logger, user *entities.
 	x.diplomat.Reply(log, msg, texting.MsgHelpText)
 }
 
+func (x *TelegramHandler) HandleHealthCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	x.HealthCommand(log, user, msg)
+}
+
 func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	args := msg.CommandArguments()
 	if args == "" {
