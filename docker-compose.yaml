@@ -34,7 +34,7 @@ services:
     build: { context: ., dockerfile: Dockerfile }
     networks: [ default ]
     ports:
-      - "${OUTSIDERS_PORT}:10000"
+      - "${OUTSIDERS_STARTUP_PORT}:10000"
       - "${OUTSIDERS_METRICS_PORT}:10001"
     volumes:
       - ${HOME}/data/bots/ximanager:/data
