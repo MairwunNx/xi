@@ -53,7 +53,7 @@ func (a *AgentSystem) SelectRelevantContext(
 		return []platform.RedisMessage{}, nil
 	}
 
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 45*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentContextTimeout)*time.Second)
 	defer cancel()
 
 	// Create a lightweight prompt for context selection
@@ -74,8 +74,7 @@ func (a *AgentSystem) SelectRelevantContext(
 		},
 	}
 
-	// Use a fast, cheap model for context selection
-	model := "openai/gpt-4o-mini"
+	model := a.config.AgentContextModel
 	
 	request := openrouter.ChatCompletionRequest{
 		Model:    model,
@@ -84,7 +83,7 @@ func (a *AgentSystem) SelectRelevantContext(
 			DataCollection: openrouter.DataCollectionDeny,
 			Sort:           openrouter.ProviderSortingLatency,
 		},
-		Temperature: 0.1, // Low temperature for consistent analysis
+		Temperature: 0.1,
 	}
 
 	log = log.With("ai_agent", "context_selector", tracing.AiModel, model)
@@ -131,7 +130,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	newUserMessage string,
 	userGrade platform.UserGrade,
 ) (*ModelSelectionResponse, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentModelTimeout)*time.Second)
 	defer cancel()
 
 	// Get tier policy for the user
@@ -160,8 +159,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 		},
 	}
 
-	// Use a fast, cheap model for model selection
-	model := "openai/gpt-4o-mini"
+	model := a.config.AgentModelSelectionModel
 	
 	request := openrouter.ChatCompletionRequest{
 		Model:    model,
@@ -178,16 +176,14 @@ func (a *AgentSystem) SelectModelAndEffort(
 	response, err := a.ai.CreateChatCompletion(ctx, request)
 	if err != nil {
 		log.E("Failed to get model selection", tracing.InnerError, err)
-		// Fallback to default tier settings
 		gradeLimits := a.config.GradeLimits[userGrade]
-		// Use second model (index 1) as fallback, or first if only one available
-		fallbackModel := gradeLimits.DialerModels[0] // Default to first
+		fallbackModel := gradeLimits.DialerModels[0]
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1] // Second model (index 1)
+			fallbackModel = gradeLimits.DialerModels[1]
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
-			ReasoningEffort:  gradeLimits.DialerReasoningEffort, // Fallback from env variables
+			ReasoningEffort:  gradeLimits.DialerReasoningEffort,
 			TaskComplexity:   "medium",
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
@@ -201,16 +197,14 @@ func (a *AgentSystem) SelectModelAndEffort(
 	var modelResponse ModelSelectionResponse
 	if err := json.Unmarshal([]byte(responseText), &modelResponse); err != nil {
 		log.E("Failed to parse model selection response", tracing.InnerError, err)
-		// Fallback to default tier settings
 		gradeLimits := a.config.GradeLimits[userGrade]
-		// Use second model (index 1) as fallback, or first if only one available
-		fallbackModel := gradeLimits.DialerModels[0] // Default to first
+		fallbackModel := gradeLimits.DialerModels[0]
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1] // Second model (index 1)
+			fallbackModel = gradeLimits.DialerModels[1]
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
-			ReasoningEffort:  gradeLimits.DialerReasoningEffort, // Fallback from env variables
+			ReasoningEffort:  gradeLimits.DialerReasoningEffort,
 			TaskComplexity:   "medium",
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
@@ -235,8 +229,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 
 	return &modelResponse, nil
 }
-
-// Helper functions
 
 func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) string {
 	var parts []string
@@ -296,7 +288,7 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Bronze tier: minimal cost and latency",
-			DowngradeModels:  []string{}, // No downgrade available
+			DowngradeModels:  []string{},
 		}
 	default:
 		return TierPolicy{
@@ -341,11 +333,10 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	}
 	
 	if !modelValid {
-		// Fallback: use second model from tier (index 1), or first if only one available
 		if len(gradeLimits.DialerModels) > 1 {
-			response.RecommendedModel = gradeLimits.DialerModels[1] // Second model (index 1)
+			response.RecommendedModel = gradeLimits.DialerModels[1]
 		} else if len(gradeLimits.DialerModels) > 0 {
-			response.RecommendedModel = gradeLimits.DialerModels[0] // First model if only one available
+			response.RecommendedModel = gradeLimits.DialerModels[0]
 		}
 	}
 	

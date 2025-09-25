@@ -124,17 +124,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade)
 		if err != nil {
 			log.E("Failed to select relevant context, using fallback", tracing.InnerError, err)
-			// Fallback: use last 5 messages
-			if len(history) > 5 {
-				selectedContext = history[len(history)-5:]
-			} else {
-				selectedContext = history
-			}
-		}
-		
-		// Limit to last 5 messages as per requirements
-		if len(selectedContext) > 5 {
-			selectedContext = selectedContext[len(selectedContext)-5:]
+			// Fallback: use all available history
+			selectedContext = history
 		}
 	}
 
@@ -156,14 +147,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	
 	if err != nil {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
-		// Fallback: use second model from tier (index 1), or first if only one available
 		if len(gradeLimits.DialerModels) > 1 {
-			modelToUse = gradeLimits.DialerModels[1] // Second model (index 1)
+			modelToUse = gradeLimits.DialerModels[1]
 		} else if len(gradeLimits.DialerModels) > 0 {
-			modelToUse = gradeLimits.DialerModels[0] // First model if only one available
+			modelToUse = gradeLimits.DialerModels[0]
 		}
 		reasoningEffort = gradeLimits.DialerReasoningEffort
-		// Safe fallback models: skip first two if available
 		if len(gradeLimits.DialerModels) > 2 {
 			fallbackModels = gradeLimits.DialerModels[2:]
 		} else {
@@ -184,24 +173,22 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			"agent_reasoning", modelSelection.Reasoning,
 		)
 		
-		// Get fallback models based on selection
 		if modelSelection.IsTrolling {
 			if len(x.config.TrollingModels) > 1 {
-				fallbackModels = x.config.TrollingModels[1:] // Skip first as it's already selected
+				fallbackModels = x.config.TrollingModels[1:]
 			} else {
 				fallbackModels = []string{}
 			}
 		} else {
-			// Use remaining models from tier as fallbacks
 			tierModels := gradeLimits.DialerModels
 			for i, model := range tierModels {
 				if model == modelToUse {
-					fallbackModels = tierModels[i+1:] // Take models after selected one
+					fallbackModels = tierModels[i+1:]
 					break
 				}
 			}
 			if len(fallbackModels) == 0 && len(tierModels) > 1 {
-				fallbackModels = tierModels[1:] // Skip first model
+				fallbackModels = tierModels[1:]
 			}
 		}
 	}
@@ -216,7 +203,6 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			fallbackModels = x.config.LimitExceededFallbackModels
 			reasoningEffort = "low"
 
-			// Log spending override
 			log.I("spending_limit_override",
 				"original_model", originalModel,
 				"override_model", modelToUse,
