@@ -10,6 +10,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -795,4 +796,38 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 	}
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
+}
+
+// =========================  /health command handlers  =========================
+
+func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	dbStatus := texting.MsgHealthStatusOk
+	if err := x.health.CheckDatabaseHealth(log); err != nil {
+		dbStatus = texting.MsgHealthStatusFail
+	}
+
+	redisStatus := texting.MsgHealthStatusOk
+	if err := x.health.CheckRedisHealth(log); err != nil {
+		redisStatus = texting.MsgHealthStatusFail
+	}
+
+	systemStatus := texting.MsgHealthStatusOk
+
+	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
+
+	version := platform.GetAppVersion()
+	buildTime := platform.GetAppBuildTime()
+
+	response := fmt.Sprintf(
+		"%s%s%s%s%s%s%s",
+		texting.MsgHealthTitle,
+		fmt.Sprintf(texting.MsgHealthDatabase, dbStatus),
+		fmt.Sprintf(texting.MsgHealthRedis, redisStatus),
+		fmt.Sprintf(texting.MsgHealthSystem, systemStatus),
+		fmt.Sprintf(texting.MsgHealthUptime, uptime),
+		fmt.Sprintf(texting.MsgHealthVersion, version),
+		fmt.Sprintf(texting.MsgHealthBuildTime, buildTime),
+	)
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
