@@ -174,10 +174,17 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		)
 		
 		if modelSelection.IsTrolling {
-			if len(x.config.TrollingModels) > 1 {
+			// For trolling, use remaining trolling models as fallback
+			for i, model := range x.config.TrollingModels {
+				if model == modelToUse {
+					if i+1 < len(x.config.TrollingModels) {
+						fallbackModels = x.config.TrollingModels[i+1:]
+					}
+					break
+				}
+			}
+			if len(fallbackModels) == 0 && len(x.config.TrollingModels) > 1 {
 				fallbackModels = x.config.TrollingModels[1:]
-			} else {
-				fallbackModels = []string{}
 			}
 		} else {
 			tierModels := gradeLimits.DialerModels

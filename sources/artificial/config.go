@@ -19,17 +19,14 @@ type AIConfig struct {
 	SpendingLimits              SpendingLimits
 	GradeLimits                 map[platform.UserGrade]GradeLimits
 	
-	// Agent prompts (base64 encoded)
 	ContextSelectionPrompt string
 	ModelSelectionPrompt   string
 	
-	// Agent configuration
 	AgentContextModel        string
 	AgentModelSelectionModel string
 	AgentContextTimeout      int
 	AgentModelTimeout        int
 	
-	// Trolling models
 	TrollingModels []string
 }
 
@@ -76,17 +73,14 @@ func NewAIConfig() *AIConfig {
 		LimitExceededModel:          platform.Get("SPENDINGS_LIMIT_EXCEEDED_MODEL", "openai/gpt-4o-mini"),
 		LimitExceededFallbackModels: platform.GetAsSlice("SPENDINGS_LIMIT_EXCEEDED_FALLBACK_MODELS", []string{"deepseek/deepseek-chat"}),
 		
-		// Agent prompts (base64 encoded)
 		ContextSelectionPrompt: platform.Get("AGENT_CONTEXT_SELECTION_PROMPT", ""),
 		ModelSelectionPrompt:   platform.Get("AGENT_MODEL_SELECTION_PROMPT", ""),
 		
-		// Agent configuration
 		AgentContextModel:        platform.Get("AGENT_CONTEXT_MODEL", "openai/gpt-4o-mini"),
 		AgentModelSelectionModel: platform.Get("AGENT_MODEL_SELECTION_MODEL", "openai/gpt-4o-mini"),
 		AgentContextTimeout:      platform.GetAsInt("AGENT_CONTEXT_TIMEOUT_SECONDS", 45),
 		AgentModelTimeout:        platform.GetAsInt("AGENT_MODEL_TIMEOUT_SECONDS", 30),
 		
-		// Trolling models
 		TrollingModels: platform.GetAsSlice("TROLLING_MODELS", []string{"openai/gpt-4.1-mini", "x-ai/grok-4-fast", "x-ai/grok-4-fast:free"}),
 
 		SpendingLimits: SpendingLimits{

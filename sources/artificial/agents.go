@@ -91,8 +91,7 @@ func (a *AgentSystem) SelectRelevantContext(
 	response, err := a.ai.CreateChatCompletion(ctx, request)
 	if err != nil {
 		log.E("Failed to get context selection", tracing.InnerError, err)
-		// Fallback: return last 5 messages
-		return a.getLastNMessages(history, 5), nil
+		return history, nil
 	}
 
 	responseText := response.Choices[0].Message.Content.Text
@@ -100,8 +99,7 @@ func (a *AgentSystem) SelectRelevantContext(
 	var contextResponse ContextSelectionResponse
 	if err := json.Unmarshal([]byte(responseText), &contextResponse); err != nil {
 		log.E("Failed to parse context selection response", tracing.InnerError, err)
-		// Fallback: return last 5 messages
-		return a.getLastNMessages(history, 5), nil
+		return history, nil
 	}
 
 	// Extract relevant messages based on indices
@@ -136,12 +134,24 @@ func (a *AgentSystem) SelectModelAndEffort(
 	// Get tier policy for the user
 	tierPolicy := a.getTierPolicy(userGrade)
 	
-	contextText := a.formatHistoryForAgent(selectedContext)
+	// Limit context to last 6 messages (3 pairs) to save tokens
+	limitedContext := selectedContext
+	if len(selectedContext) > 6 {
+		limitedContext = selectedContext[len(selectedContext)-6:]
+	}
+	contextText := a.formatHistoryForAgent(limitedContext)
 	
 	prompt := a.getModelSelectionPrompt()
 	
+	// Include trolling models in available models if this might be trolling
+	allModels := tierPolicy.ModelsText
+	if len(a.config.TrollingModels) > 0 {
+		trollingText := strings.Join(a.config.TrollingModels, ", ")
+		allModels += ", " + trollingText + " (for trolling/testing)"
+	}
+	
 	systemMessage := fmt.Sprintf(prompt, 
-		tierPolicy.ModelsText,
+		allModels,
 		tierPolicy.DefaultReasoning,
 		tierPolicy.Description,
 		contextText,
@@ -242,12 +252,6 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 	return strings.Join(parts, "\n")
 }
 
-func (a *AgentSystem) getLastNMessages(history []platform.RedisMessage, n int) []platform.RedisMessage {
-	if len(history) <= n {
-		return history
-	}
-	return history[len(history)-n:]
-}
 
 type TierPolicy struct {
 	ModelsText       string
@@ -304,17 +308,10 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	tierPolicy := a.getTierPolicy(userGrade)
 	gradeLimits := a.config.GradeLimits[userGrade]
 	
-	// Handle trolling case first
-	if response.IsTrolling {
-		if len(a.config.TrollingModels) > 0 {
-			response.RecommendedModel = a.config.TrollingModels[0]
-		}
-		response.ReasoningEffort = "low"
-		return response
-	}
-	
-	// Check if recommended model is available for this tier
+	// Check if recommended model is available for this tier or in trolling models
 	modelValid := false
+	
+	// Check tier models first
 	for _, model := range gradeLimits.DialerModels {
 		if model == response.RecommendedModel {
 			modelValid = true
@@ -322,8 +319,8 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 		}
 	}
 	
+	// Check downgrade models
 	if !modelValid {
-		// Try downgrade models if available
 		for _, model := range tierPolicy.DowngradeModels {
 			if model == response.RecommendedModel {
 				modelValid = true
@@ -332,12 +329,30 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 		}
 	}
 	
+	// Check trolling models if marked as trolling
+	if !modelValid && response.IsTrolling {
+		for _, model := range a.config.TrollingModels {
+			if model == response.RecommendedModel {
+				modelValid = true
+				break
+			}
+		}
+	}
+	
+	// Fallback if model not valid
 	if !modelValid {
-		if len(gradeLimits.DialerModels) > 1 {
+		if response.IsTrolling && len(a.config.TrollingModels) > 0 {
+			response.RecommendedModel = a.config.TrollingModels[0]
+		} else if len(gradeLimits.DialerModels) > 1 {
 			response.RecommendedModel = gradeLimits.DialerModels[1]
 		} else if len(gradeLimits.DialerModels) > 0 {
 			response.RecommendedModel = gradeLimits.DialerModels[0]
 		}
+	}
+	
+	// Set low reasoning for trolling
+	if response.IsTrolling {
+		response.ReasoningEffort = "low"
 	}
 	
 	// Validate reasoning effort based on tier
