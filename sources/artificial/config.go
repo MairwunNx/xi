@@ -125,7 +125,7 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeGold: {
-				DialerModels:          platform.GetAsSlice("GOLD_DIALER_MODELS", []string{"anthropic/claude-opus-4.1", "anthropic/claude-sonnet-4", "google/gemini-2.5-pro", "anthropic/claude-sonnet-3.7", "openai/gpt-5", "openai/gpt-4.1"}),
+				DialerModels:          platform.GetAsSlice("GOLD_DIALER_MODELS", []string{"anthropic/claude-opus-4.1", "anthropic/claude-sonnet-4", "openai/gpt-5", "google/gemini-2.5-pro", "anthropic/claude-sonnet-3.7", "openai/gpt-4.1"}),
 				DialerReasoningEffort: platform.Get("GOLD_DIALER_REASONING_EFFORT", "high"),
 				VisionPrimaryModel:    platform.Get("GOLD_VISION_PRIMARY_MODEL", "openai/o1"),
 				VisionFallbackModels:  platform.GetAsSlice("GOLD_VISION_FALLBACK_MODELS", []string{}),

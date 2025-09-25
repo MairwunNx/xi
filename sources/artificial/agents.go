@@ -53,7 +53,7 @@ func (a *AgentSystem) SelectRelevantContext(
 		return []platform.RedisMessage{}, nil
 	}
 
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 45*time.Second)
 	defer cancel()
 
 	// Create a lightweight prompt for context selection
@@ -113,10 +113,12 @@ func (a *AgentSystem) SelectRelevantContext(
 		}
 	}
 
-	log.I("Context selection completed", 
+	log.I("agent_context_selection_success", 
 		"original_count", len(history),
 		"selected_count", len(relevantMessages),
-		"reasoning", contextResponse.Reasoning,
+		"selected_indices", contextResponse.RelevantIndices,
+		"agent_reasoning", contextResponse.Reasoning,
+		"user_grade", userGrade,
 	)
 
 	return relevantMessages, nil
@@ -129,7 +131,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	newUserMessage string,
 	userGrade platform.UserGrade,
 ) (*ModelSelectionResponse, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Get tier policy for the user
@@ -178,9 +180,10 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Failed to get model selection", tracing.InnerError, err)
 		// Fallback to default tier settings
 		gradeLimits := a.config.GradeLimits[userGrade]
-		fallbackModel := gradeLimits.DialerModels[0]
+		// Use second model (index 1) as fallback, or first if only one available
+		fallbackModel := gradeLimits.DialerModels[0] // Default to first
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1] // Use second model as fallback
+			fallbackModel = gradeLimits.DialerModels[1] // Second model (index 1)
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
@@ -200,9 +203,10 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Failed to parse model selection response", tracing.InnerError, err)
 		// Fallback to default tier settings
 		gradeLimits := a.config.GradeLimits[userGrade]
-		fallbackModel := gradeLimits.DialerModels[0]
+		// Use second model (index 1) as fallback, or first if only one available
+		fallbackModel := gradeLimits.DialerModels[0] // Default to first
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1] // Use second model as fallback
+			fallbackModel = gradeLimits.DialerModels[1] // Second model (index 1)
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
@@ -218,12 +222,15 @@ func (a *AgentSystem) SelectModelAndEffort(
 	// Validate and adjust based on tier policy
 	modelResponse = a.validateModelSelection(modelResponse, userGrade)
 
-	log.I("Model selection completed",
-		"recommended_model", modelResponse.RecommendedModel,
-		"reasoning_effort", modelResponse.ReasoningEffort,
+	log.I("agent_model_selection_validated",
+		"final_model", modelResponse.RecommendedModel,
+		"final_reasoning_effort", modelResponse.ReasoningEffort,
 		"task_complexity", modelResponse.TaskComplexity,
+		"requires_speed", modelResponse.RequiresSpeed,
+		"requires_quality", modelResponse.RequiresQuality,
 		"is_trolling", modelResponse.IsTrolling,
-		"reasoning", modelResponse.Reasoning,
+		"agent_reasoning", modelResponse.Reasoning,
+		"user_grade", userGrade,
 	)
 
 	return &modelResponse, nil
@@ -272,7 +279,7 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		return TierPolicy{
 			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
-			Description:      "Gold tier: максимальное качество, глубина размышлений, высокая надёжность",
+			Description:      "Gold tier: maximum quality, deep reasoning, high reliability",
 			DowngradeModels:  downgradeModels,
 		}
 	case platform.GradeSilver:
@@ -281,15 +288,15 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		return TierPolicy{
 			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
-			Description:      "Silver tier: баланс качества и стоимости, низкая задержка",
+			Description:      "Silver tier: balance quality and cost, low latency",
 			DowngradeModels:  bronzeModels,
 		}
 	case platform.GradeBronze:
 		return TierPolicy{
 			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
-			Description:      "Bronze tier: минимальная стоимость и задержка",
-			DowngradeModels:  []string{}, // Некуда деградировать ниже
+			Description:      "Bronze tier: minimal cost and latency",
+			DowngradeModels:  []string{}, // No downgrade available
 		}
 	default:
 		return TierPolicy{
@@ -334,11 +341,11 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	}
 	
 	if !modelValid {
-		// Fallback: use second model from tier (first is primary, second is fallback)
+		// Fallback: use second model from tier (index 1), or first if only one available
 		if len(gradeLimits.DialerModels) > 1 {
-			response.RecommendedModel = gradeLimits.DialerModels[1]
+			response.RecommendedModel = gradeLimits.DialerModels[1] // Second model (index 1)
 		} else if len(gradeLimits.DialerModels) > 0 {
-			response.RecommendedModel = gradeLimits.DialerModels[0]
+			response.RecommendedModel = gradeLimits.DialerModels[0] // First model if only one available
 		}
 	}
 	

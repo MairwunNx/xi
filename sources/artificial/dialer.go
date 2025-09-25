@@ -145,19 +145,44 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	// Always use agent to select optimal model and reasoning effort
 	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade)
+	
+	// Log agent decision
+	agentSuccess := err == nil
+	log.I("agent_model_selection", 
+		"agent_success", agentSuccess,
+		"user_grade", userGrade,
+		"context_size", len(selectedContext),
+	)
+	
 	if err != nil {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
-		// Fallback: use second model from tier (first is primary, second is fallback)
+		// Fallback: use second model from tier (index 1), or first if only one available
 		if len(gradeLimits.DialerModels) > 1 {
-			modelToUse = gradeLimits.DialerModels[1]
+			modelToUse = gradeLimits.DialerModels[1] // Second model (index 1)
 		} else if len(gradeLimits.DialerModels) > 0 {
-			modelToUse = gradeLimits.DialerModels[0]
+			modelToUse = gradeLimits.DialerModels[0] // First model if only one available
 		}
 		reasoningEffort = gradeLimits.DialerReasoningEffort
-		fallbackModels = gradeLimits.DialerModels[2:] // Skip first two
+		// Safe fallback models: skip first two if available
+		if len(gradeLimits.DialerModels) > 2 {
+			fallbackModels = gradeLimits.DialerModels[2:]
+		} else {
+			fallbackModels = []string{}
+		}
 	} else {
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
+		
+		// Log successful agent decision details
+		log.I("agent_model_selection_success",
+			"recommended_model", modelSelection.RecommendedModel,
+			"reasoning_effort", modelSelection.ReasoningEffort,
+			"task_complexity", modelSelection.TaskComplexity,
+			"requires_speed", modelSelection.RequiresSpeed,
+			"requires_quality", modelSelection.RequiresQuality,
+			"is_trolling", modelSelection.IsTrolling,
+			"agent_reasoning", modelSelection.Reasoning,
+		)
 		
 		// Get fallback models based on selection
 		if modelSelection.IsTrolling {
@@ -175,13 +200,14 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 					break
 				}
 			}
-			if len(fallbackModels) == 0 {
+			if len(fallbackModels) == 0 && len(tierModels) > 1 {
 				fallbackModels = tierModels[1:] // Skip first model
 			}
 		}
 	}
 
 	// Check spending limits and override if necessary
+	originalModel := modelToUse
 	if limitErr := x.spendingLimiter.CheckSpendingLimits(log, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			log.W("Spending limit exceeded, overriding model selection", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
@@ -189,6 +215,16 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			modelToUse = x.config.LimitExceededModel
 			fallbackModels = x.config.LimitExceededFallbackModels
 			reasoningEffort = "low"
+
+			// Log spending override
+			log.I("spending_limit_override",
+				"original_model", originalModel,
+				"override_model", modelToUse,
+				"limit_type", spendingErr.LimitType,
+				"user_grade", spendingErr.UserGrade,
+				"current_spend", spendingErr.CurrentSpend.String(),
+				"limit_amount", spendingErr.LimitAmount.String(),
+			)
 
 			limitTypeText := texting.MsgSpendingLimitExceededDaily
 			if spendingErr.LimitType == LimitTypeMonthly {

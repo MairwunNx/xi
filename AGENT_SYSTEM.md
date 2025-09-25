@@ -27,7 +27,7 @@
 ### Политики по тирам
 
 #### Gold Tier
-- **Модели**: anthropic/claude-opus-4.1, anthropic/claude-sonnet-4, google/gemini-2.5-pro, anthropic/claude-sonnet-3.7, openai/gpt-5, openai/gpt-4.1
+- **Модели**: anthropic/claude-opus-4.1, anthropic/claude-sonnet-4, openai/gpt-5, google/gemini-2.5-pro, anthropic/claude-sonnet-3.7, openai/gpt-4.1
 - **Reasoning по умолчанию**: high (fallback из переменной окружения)
 - **Приоритет**: максимальное качество
 - **Деградация**: может использовать модели Silver и Bronze тиров при необходимости
@@ -58,7 +58,7 @@ AGENT_MODEL_SELECTION_PROMPT=<base64_encoded_prompt>
 TROLLING_MODELS=openai/gpt-4.1-mini,x-ai/grok-4-fast,x-ai/grok-4-fast:free
 
 # Модели для каждого тира (от самых умных к быстрым/дешевым)
-GOLD_DIALER_MODELS=anthropic/claude-opus-4.1,anthropic/claude-sonnet-4,google/gemini-2.5-pro,...
+GOLD_DIALER_MODELS=anthropic/claude-opus-4.1,anthropic/claude-sonnet-4,openai/gpt-5,google/gemini-2.5-pro,...
 SILVER_DIALER_MODELS=google/gemini-2.5-pro,anthropic/claude-sonnet-3.7,x-ai/grok-3,...
 BRONZE_DIALER_MODELS=anthropic/claude-3.5-sonnet,openai/gpt-4.1,google/gemini-2.5-flash
 
@@ -69,6 +69,25 @@ BRONZE_DIALER_REASONING_EFFORT=medium
 ```
 
 См. `.env.agents.example` для полной конфигурации.
+
+## Мониторинг и логирование
+
+Система предоставляет детальные структурированные логи для мониторинга:
+
+### Логи агентов
+- `agent_context_selection_success` - успешный отбор контекста
+- `agent_model_selection` - общий результат работы агента выбора модели  
+- `agent_model_selection_success` - детали успешного выбора модели
+- `agent_model_selection_validated` - финальный результат после валидации
+- `spending_limit_override` - переопределение модели из-за лимитов трат
+
+### Ключевые метрики
+- Количество исходных и отобранных сообщений контекста
+- Рекомендованная и финальная модель
+- Reasoning effort (рекомендованный и финальный)
+- Сложность задачи и требования к скорости/качеству
+- Детекция троллинга
+- Переопределения из-за лимитов
 
 ## Логика работы
 
@@ -114,3 +133,7 @@ BRONZE_DIALER_REASONING_EFFORT=medium
 2. **Reasoning effort как fallback** - переменные окружения используются только при ошибках агента
 3. **Добавлена деградация моделей** - Gold может использовать Silver/Bronze модели, Silver может использовать Bronze
 4. **Агент всегда активен** - SelectModelAndEffort вызывается всегда, не зависимо от лимитов трат
+5. **Улучшенное логирование** - структурированные логи решений агентов для мониторинга и аналитики
+6. **Увеличенные таймауты** - контекстный агент 45с, модельный агент 30с
+7. **Безопасная работа с массивами** - защита от паники при работе с пустыми списками моделей
+8. **Английские описания** - экономия токенов за счет использования английского языка в промптах агентов
