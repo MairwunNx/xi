@@ -12,5 +12,6 @@ var Module = fx.Module("repository",
 		NewDonationsRepository,
 		NewPinsRepository,
 		NewUsageRepository,
+		NewHealthRepository,
 	),
 )
