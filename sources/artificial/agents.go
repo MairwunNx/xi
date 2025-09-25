@@ -143,15 +143,8 @@ func (a *AgentSystem) SelectModelAndEffort(
 	
 	prompt := a.getModelSelectionPrompt()
 	
-	// Include trolling models in available models if this might be trolling
-	allModels := tierPolicy.ModelsText
-	if len(a.config.TrollingModels) > 0 {
-		trollingText := strings.Join(a.config.TrollingModels, ", ")
-		allModels += ", " + trollingText + " (for trolling/testing)"
-	}
-	
 	systemMessage := fmt.Sprintf(prompt, 
-		allModels,
+		tierPolicy.ModelsText,
 		tierPolicy.DefaultReasoning,
 		tierPolicy.Description,
 		contextText,
@@ -329,11 +322,13 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 		}
 	}
 	
-	// Check trolling models if marked as trolling
-	if !modelValid && response.IsTrolling {
+	// Check trolling models (regardless of is_trolling flag)
+	if !modelValid {
 		for _, model := range a.config.TrollingModels {
 			if model == response.RecommendedModel {
 				modelValid = true
+				// If LLM chose trolling model, mark as trolling
+				response.IsTrolling = true
 				break
 			}
 		}
