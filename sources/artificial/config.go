@@ -155,13 +155,9 @@ func NewAIConfig() *AIConfig {
 
 // GetContextSelectionPrompt returns the decoded context selection prompt
 func (c *AIConfig) GetContextSelectionPrompt() string {
-	if c.ContextSelectionPrompt == "" {
-		return getDefaultContextSelectionPrompt()
-	}
-	
 	decoded, err := base64.StdEncoding.DecodeString(c.ContextSelectionPrompt)
 	if err != nil {
-		return getDefaultContextSelectionPrompt()
+		return ""
 	}
 	
 	return string(decoded)
@@ -169,13 +165,9 @@ func (c *AIConfig) GetContextSelectionPrompt() string {
 
 // GetModelSelectionPrompt returns the decoded model selection prompt
 func (c *AIConfig) GetModelSelectionPrompt() string {
-	if c.ModelSelectionPrompt == "" {
-		return getDefaultModelSelectionPrompt()
-	}
-	
 	decoded, err := base64.StdEncoding.DecodeString(c.ModelSelectionPrompt)
 	if err != nil {
-		return getDefaultModelSelectionPrompt()
+		return ""
 	}
 	
 	return string(decoded)
