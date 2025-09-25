@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"time"
 	"ximanager/sources/artificial"
 	"ximanager/sources/external"
 	"ximanager/sources/network"
 	"ximanager/sources/persistence"
+	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/telegram"
 	"ximanager/sources/throttler"
@@ -17,9 +19,12 @@ import (
 var (
 	version = "0.0.0"
 	buildTime = "1970-01-01"
+	startTime = time.Now()
 )
 
 func main() {
+	platform.SetAppManifest(version, buildTime, startTime)
+	
 	fx.New(
 		tracing.Module,
 		external.Module,
