@@ -227,6 +227,20 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
+	req = UserReq(persona, req)
+	prompt := mode.Prompt
+
+	var history []platform.RedisMessage
+	if stackful {
+		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
+		if err != nil {
+			log.E("Failed to get message pairs", tracing.InnerError, err)
+			history = []platform.RedisMessage{}
+		}
+	}
+
+  prompt += x.formatEnvironmentBlock(msg)
+
 	pins, err := x.pins.GetPinsByChatAndUser(log, msg.Chat.ID, user)
 	if err != nil {
 		pins = []*entities.Pin{}
@@ -373,4 +387,34 @@ func (x *Dialer) formatPinsForPrompt(pins []*entities.Pin) string {
 	}
 
 	return string(jsonBytes)
+}
+
+func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
+	moscowTime := time.Now().UTC().Add(3 * time.Hour)
+	dateTimeStr := moscowTime.Format("Monday, January 2, 2006 at 15:04")
+	
+	chatTitle := msg.Chat.Title
+	if chatTitle == "" {
+		if msg.Chat.Type == "private" {
+			chatTitle = "Private chat"
+		} else {
+			chatTitle = "Untitled chat"
+		}
+	}
+	
+	chatDescription := msg.Chat.Description
+	if chatDescription == "" {
+		chatDescription = "No description"
+	}
+	
+	version := platform.GetAppVersion()
+	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
+	
+	return fmt.Sprintf(texting.MsgEnvironmentBlock, 
+		dateTimeStr,
+		chatTitle,
+		chatDescription,
+		version,
+		uptime.String(),
+	)
 }
