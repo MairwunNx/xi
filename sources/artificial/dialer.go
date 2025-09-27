@@ -29,6 +29,7 @@ type Dialer struct {
 	contextManager *ContextManager
 	usageLimiter   *UsageLimiter
 	spendingLimiter *SpendingLimiter
+	agentSystem    *AgentSystem
 }
 
 func NewDialer(
@@ -56,6 +57,7 @@ func NewDialer(
 		contextManager: contextManager,
 		usageLimiter:   usageLimiter,
 		spendingLimiter: spendingLimiter,
+		agentSystem:    NewAgentSystem(ai, config),
 	}
 }
 
@@ -105,34 +107,123 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		gradeLimits = x.config.GradeLimits[platform.GradeBronze]
 	}
 
-	modelToUse := gradeLimits.DialerPrimaryModel
-	fallbackModels := gradeLimits.DialerFallbackModels
+	req = UserReq(persona, req)
+	prompt := mode.Prompt
+
+	var history []platform.RedisMessage
+	var selectedContext []platform.RedisMessage
+	
+	if stackful {
+		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
+		if err != nil {
+			log.E("Failed to get message pairs", tracing.InnerError, err)
+			history = []platform.RedisMessage{}
+		}
+		
+		// Use agent to select relevant context
+		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade)
+		if err != nil {
+			log.E("Failed to select relevant context, using fallback", tracing.InnerError, err)
+			// Fallback: use all available history
+			selectedContext = history
+		}
+	}
+
+	var modelToUse string
+	var fallbackModels []string
+	var reasoningEffort string
 	var limitWarning string
 
+	// Always use agent to select optimal model and reasoning effort
+	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade)
+	
+	// Log agent decision
+	agentSuccess := err == nil
+	log.I("agent_model_selection", 
+		"agent_success", agentSuccess,
+		"user_grade", userGrade,
+		"context_size", len(selectedContext),
+	)
+	
+	if err != nil {
+		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
+		if len(gradeLimits.DialerModels) > 1 {
+			modelToUse = gradeLimits.DialerModels[1]
+		} else if len(gradeLimits.DialerModels) > 0 {
+			modelToUse = gradeLimits.DialerModels[0]
+		}
+		reasoningEffort = gradeLimits.DialerReasoningEffort
+		if len(gradeLimits.DialerModels) > 2 {
+			fallbackModels = gradeLimits.DialerModels[2:]
+		} else {
+			fallbackModels = []string{}
+		}
+	} else {
+		modelToUse = modelSelection.RecommendedModel
+		reasoningEffort = modelSelection.ReasoningEffort
+		
+		// Log successful agent decision details
+		log.I("agent_model_selection_success",
+			"recommended_model", modelSelection.RecommendedModel,
+			"reasoning_effort", modelSelection.ReasoningEffort,
+			"task_complexity", modelSelection.TaskComplexity,
+			"requires_speed", modelSelection.RequiresSpeed,
+			"requires_quality", modelSelection.RequiresQuality,
+			"is_trolling", modelSelection.IsTrolling,
+			"agent_reasoning", modelSelection.Reasoning,
+		)
+		
+		if modelSelection.IsTrolling {
+			// For trolling, use remaining trolling models as fallback
+			for i, model := range x.config.TrollingModels {
+				if model == modelToUse {
+					if i+1 < len(x.config.TrollingModels) {
+						fallbackModels = x.config.TrollingModels[i+1:]
+					}
+					break
+				}
+			}
+			if len(fallbackModels) == 0 && len(x.config.TrollingModels) > 1 {
+				fallbackModels = x.config.TrollingModels[1:]
+			}
+		} else {
+			tierModels := gradeLimits.DialerModels
+			for i, model := range tierModels {
+				if model == modelToUse {
+					fallbackModels = tierModels[i+1:]
+					break
+				}
+			}
+			if len(fallbackModels) == 0 && len(tierModels) > 1 {
+				fallbackModels = tierModels[1:]
+			}
+		}
+	}
+
+	// Check spending limits and override if necessary
+	originalModel := modelToUse
 	if limitErr := x.spendingLimiter.CheckSpendingLimits(log, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
-			log.W("Spending limit exceeded, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
+			log.W("Spending limit exceeded, overriding model selection", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
 
 			modelToUse = x.config.LimitExceededModel
 			fallbackModels = x.config.LimitExceededFallbackModels
+			reasoningEffort = "low"
+
+			log.I("spending_limit_override",
+				"original_model", originalModel,
+				"override_model", modelToUse,
+				"limit_type", spendingErr.LimitType,
+				"user_grade", spendingErr.UserGrade,
+				"current_spend", spendingErr.CurrentSpend.String(),
+				"limit_amount", spendingErr.LimitAmount.String(),
+			)
 
 			limitTypeText := texting.MsgSpendingLimitExceededDaily
 			if spendingErr.LimitType == LimitTypeMonthly {
 				limitTypeText = texting.MsgSpendingLimitExceededMonthly
 			}
 			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededDialer, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
-		}
-	}
-
-	req = UserReq(persona, req)
-	prompt := mode.Prompt
-
-	var history []platform.RedisMessage
-	if stackful {
-		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
-		if err != nil {
-			log.E("Failed to get message pairs", tracing.InnerError, err)
-			history = []platform.RedisMessage{}
 		}
 	}
 
@@ -152,8 +243,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		},
 	}
 
-	if len(history) > 0 {
-		for _, h := range history {
+	if len(selectedContext) > 0 {
+		for _, h := range selectedContext {
 			var role string
 			switch h.Role {
 			case platform.MessageRoleUser:
@@ -179,7 +270,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		Model:     modelToUse,
 		Models:    fallbackModels,
 		Messages:  messages,
-		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(gradeLimits.DialerReasoningEffort)},
+		Reasoning: &openrouter.ChatCompletionReasoning{Effort: openrouter.String(reasoningEffort)},
 		Usage:     &openrouter.IncludeUsage{Include: true},
 		Provider: &openrouter.ChatProvider{
 			DataCollection: openrouter.DataCollectionDeny,
@@ -205,7 +296,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
-	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model)
+	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "context_messages", len(selectedContext))
 
 	response, err := x.ai.CreateChatCompletion(ctx, request)
 	if err != nil {
