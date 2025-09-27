@@ -1,34 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    networks: [ default ]
-    container_name: ximanager_db
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    env_file: .env
-    environment:
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - ${HOME}/data/bots/ximanager/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  flyway:
-    image: flyway/flyway:10-alpine
-    container_name: ximanager_flyway
-    networks: [ default ]
-    env_file: .env
-    command: -url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate
-    volumes:
-      - ./migrations:/flyway/sql
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   ximanager:
     container_name: ximanager
     build: { context: ., dockerfile: Dockerfile }
@@ -52,81 +22,34 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: ximanager_prometheus
+  postgres:
+    image: postgres:16-alpine
     networks: [ default ]
-    env_file: .env
+    container_name: ximanager_db
     ports:
-      - "${PROMETHEUS_PORT}:9090"
-    volumes:
-      - ./configurations/prometheus:/etc/prometheus
-      - ${HOME}/data/bots/ximanager/prometheus:/prometheus
-    user: "0"
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-    restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: ximanager_grafana
-    networks: [ default ]
-    user: "0"
-    ports:
-      - "${GRAFANA_PORT}:3000"
-    volumes:
-      - ./configurations/grafana:/etc/grafana/provisioning/datasources
-      - ${HOME}/data/bots/ximanager/grafana:/var/lib/grafana
+      - "${POSTGRES_PORT}:5432"
     env_file: .env
     environment:
-      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
-      - GF_SECURITY_ALLOW_EMBEDDING=true
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_FEATURE_TOGGLES_ENABLE=structuredLogging
-      - GF_LOG_LEVEL=info
-    depends_on:
-      prometheus:
-        condition: service_started
-    restart: unless-stopped
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: ximanager_node_exporter
-    networks: [ default ]
-    env_file: .env
-    ports:
-      - "${NODE_EXPORTER_PORT}:9100"
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - /proc:/host/proc:ro
-      - /sys:/host/sys:ro
-      - /:/rootfs:ro
-    command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - ${HOME}/data/bots/ximanager/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
-
-  postgres-exporter:
-    image: prometheuscommunity/postgres-exporter:latest
-    container_name: ximanager_postgres_exporter
+  flyway:
+    image: flyway/flyway:10-alpine
+    container_name: ximanager_flyway
     networks: [ default ]
     env_file: .env
-    ports:
-      - "${POSTGRES_EXPORTER_PORT:-9187}:9187"
-    environment:
-      - DATA_SOURCE_NAME=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    command: -url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate
+    volumes:
+      - ./migrations:/flyway/sql
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     container_name: ximanager_redis
@@ -141,20 +64,6 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
-
-  redis-exporter:
-    image: oliver006/redis_exporter:latest
-    container_name: ximanager_redis_exporter
-    networks: [ default ]
-    ports:
-      - "${REDIS_EXPORTER_PORT:-9121}:9121"
-    environment:
-      - REDIS_ADDR=redis://redis:6379
-    depends_on:
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
 networks:
   default:
     driver: bridge
