@@ -23,7 +23,7 @@ func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
 		ss: &http.Server{
 			Addr: fmt.Sprintf(":%d", config.StartupPort),
 			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
-				m.HandleFunc("/startup", func(w http.ResponseWriter, r *http.Request) {
+				m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 					startuphandler(log, w, r)
 				})
 			}),
@@ -58,5 +58,5 @@ func startuphandler(log *tracing.Logger, w http.ResponseWriter, r *http.Request)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status": "available"}`))
+	_, _ = w.Write([]byte(`{"status":"ok","service":"ximanager"}`))
 }
