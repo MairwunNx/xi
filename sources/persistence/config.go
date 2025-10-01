@@ -18,6 +18,7 @@ type DatabaseConfig struct {
 type RedisConfig struct {
 	Host        string
 	Port        int
+	Password    string
 	DB          int
 	MaxRetries  int
 	DialTimeout time.Duration
@@ -39,6 +40,7 @@ func NewRedisConfig() *RedisConfig {
 	return &RedisConfig{
 		Host:        platform.Get("REDIS_HOST", "redis"),
 		Port:        platform.GetAsInt("REDIS_PORT", 6379),
+		Password:    platform.Get("REDIS_PASSWORD", ""),
 		DB:          platform.GetAsInt("REDIS_DB", 0),
 		MaxRetries:  platform.GetAsInt("REDIS_MAX_RETRIES", 5),
 		DialTimeout: platform.GetAsDuration("REDIS_DIAL_TIMEOUT", "5s"),

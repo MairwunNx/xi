@@ -10,6 +10,7 @@ import (
 func NewRedis(config *RedisConfig, log *tracing.Logger) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:                  config.Host + ":" + strconv.Itoa(config.Port),
+		Password:              config.Password,
 		DB:                    config.DB,
 		MaxRetries:            config.MaxRetries,
 		DialTimeout:           config.DialTimeout,
