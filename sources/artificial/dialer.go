@@ -227,19 +227,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
-	req = UserReq(persona, req)
-	prompt := mode.Prompt
-
-	var history []platform.RedisMessage
-	if stackful {
-		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
-		if err != nil {
-			log.E("Failed to get message pairs", tracing.InnerError, err)
-			history = []platform.RedisMessage{}
-		}
-	}
-
-  prompt += x.formatEnvironmentBlock(msg)
+	prompt += x.formatEnvironmentBlock(msg)
 
 	pins, err := x.pins.GetPinsByChatAndUser(log, msg.Chat.ID, user)
 	if err != nil {
