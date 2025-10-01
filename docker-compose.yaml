@@ -1,69 +1,122 @@
-services:
-  ximanager:
-    container_name: ximanager
-    build: { context: ., dockerfile: Dockerfile }
-    networks: [ default ]
-    ports:
-      - "${OUTSIDERS_STARTUP_PORT}:10000"
-      - "${OUTSIDERS_METRICS_PORT}:10001"
-    volumes:
-      - ${HOME}/data/bots/ximanager:/data
-    env_file: .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      flyway:
-        condition: service_completed_successfully
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-  postgres:
-    image: postgres:16-alpine
-    networks: [ default ]
-    container_name: ximanager_db
-    ports:
-      - "${POSTGRES_PORT}:5432"
-    env_file: .env
-    environment:
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - ${HOME}/data/bots/ximanager/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-  flyway:
-    image: flyway/flyway:10-alpine
-    container_name: ximanager_flyway
-    networks: [ default ]
-    env_file: .env
-    command: -url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate
-    volumes:
-      - ./migrations:/flyway/sql
-    depends_on:
-      postgres:
-        condition: service_healthy
-  redis:
-    image: redis:7-alpine
-    container_name: ximanager_redis
-    networks: [ default ]
-    volumes:
-      - ${HOME}/data/bots/ximanager/redis:/data
-    user: "0"
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    restart: unless-stopped
+---
 networks:
   default:
     driver: bridge
+services:
+  ximanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/usr/local/bin/ximanager"]
+    container_name: ximanager
+    cpus: '1.5'
+    depends_on:
+      ximanager-flyway:
+        condition: service_completed_successfully
+      ximanager-postgres:
+        condition: service_healthy
+      ximanager-redis:
+        condition: service_healthy
+    env_file: .env
+    logging:
+      driver: json-file
+      options:
+        max-file: '3'
+        max-size: 10m
+    mem_limit: 512m
+    mem_reservation: 300m
+    networks: [ default ]
+    ports:
+      - ${OUTSIDERS_STARTUP_PORT}:10000
+      - ${OUTSIDERS_METRICS_PORT}:10001
+    restart: unless-stopped
+  ximanager-flyway:
+    command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate'
+    container_name: ximanager-flyway
+    cpus: '0.2'
+    depends_on:
+      ximanager-postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+    image: flyway/flyway:11.13.1-alpine
+    logging:
+      driver: local
+      options:
+        max-file: '3'
+        max-size: 10m
+    networks: [ default ]
+    volumes:
+      - ./migrations:/flyway/sql
+  ximanager-postgres:
+    container_name: ximanager-postgres
+    cpus: '0.5'
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      TZ: ${TZ}
+    healthcheck:
+      interval: 10s
+      retries: 6
+      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1"]
+      timeout: 5s
+    image: postgres:18.0-alpine3.21
+    logging:
+      driver: local
+      options:
+        max-file: '3'
+        max-size: 10m
+    mem_limit: 416m
+    mem_reservation: 200m
+    networks: [ default ]
+    ports:
+      - ${POSTGRES_PORT}:5432
+    restart: unless-stopped
+    volumes:
+      - ximanager-postgres-data:/var/lib/postgresql/data
+  ximanager-redis:
+    command: >
+      redis-server --port 6379
+      --loglevel warning
+      --save 20 1
+      --requirepass ${REDIS_PASSWORD}
+    container_name: ximanager-redis
+    cpus: '0.5'
+    env_file: [ .env ]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      TZ: ${TZ}
+    healthcheck:
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
+      timeout: 5s
+    image: redis:8.2-alpine
+    logging:
+      driver: local
+      options:
+        max-file: '3'
+        max-size: 10m
+    mem_limit: 256m
+    mem_reservation: 128m
+    networks: [ default ]
+    ports: [ "6379:6379" ]
+    restart: unless-stopped
+    user: '0'
+    volumes:
+      - ximanager-redis-data:/data
+volumes:
+  ximanager-postgres-data:
+    driver: local
+  ximanager-redis-data:
+    driver: local
