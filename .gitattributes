@@ -5,3 +5,7 @@
 *.json text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+*.conf text eol=crlf
+Dockerfile linguist-language=Dockerfile
+Dockerfile.* linguist-language=Dockerfile
+**/Dockerfile* linguist-language=Dockerfile
