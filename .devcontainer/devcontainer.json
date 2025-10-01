@@ -1,0 +1,70 @@
+{
+  "name": "ximanager-dev",
+  "dockerComposeFile": [
+    "../docker-compose.dev.yaml"
+  ],
+  "service": "ximanager",
+  "workspaceFolder": "/workspace",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/docker-from-docker:1": {},
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.25"
+    }
+  },
+  "forwardPorts": [
+    5432,
+    6379,
+    10000,
+    10001
+  ],
+  "portsAttributes": {
+    "5432": {
+      "label": "PostgreSQL",
+      "onAutoForward": "notify"
+    },
+    "6379": {
+      "label": "Redis",
+      "onAutoForward": "notify"
+    },
+    "10000": {
+      "label": "Xi Manager API",
+      "onAutoForward": "notify"
+    },
+    "10001": {
+      "label": "Xi Manager Metrics",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-azuretools.vscode-docker",
+        "ckolkman.vscode-postgres",
+        "editorconfig.editorconfig",
+        "k--kato.intellij-idea-keybindings",
+        "redis.redis-for-vscode"
+      ],
+      "settings": {
+        "go.gopath": "/go",
+        "go.toolsManagement.autoUpdate": true,
+        "go.useLanguageServer": true,
+        "go.buildFlags": [],
+        "go.lintTool": "golangci-lint",
+        "go.formatTool": "goimports",
+        "files.eol": "\n"
+      }
+    }
+  },
+  "postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
+  "postStartCommand": "go version && go env",
+  "runServices": [
+    "ximanager-postgres",
+    "ximanager-redis",
+    "ximanager-flyway",
+    "ximanager"
+  ],
+  "shutdownAction": "stopCompose"
+}
