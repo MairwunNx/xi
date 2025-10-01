@@ -1,8 +1,7 @@
 package texting
 
 /*
-#cgo pkg-config: python3
-#cgo LDFLAGS: -lpython3.11 -ldl
+#cgo pkg-config: python3-embed
 #include "../../markdownify.c"
 #include <stdlib.h>
 */

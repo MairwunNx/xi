@@ -9,7 +9,7 @@ RUN pip install --upgrade pip && pip install telegramify-markdown
 
 FROM golang:1.25.1-alpine3.21 AS builder
 WORKDIR /src
-RUN apk --no-cache add git build-base pkgconfig python3 python3-dev
+RUN apk --no-cache add git build-base pkgconfig python3 python3-dev py3-pip
 ENV CGO_ENABLED=1
 COPY go.mod go.sum ./
 RUN go mod download
