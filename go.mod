@@ -10,7 +10,7 @@ require (
 	github.com/pkoukk/tiktoken-go v0.1.8
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.14.0
-	github.com/revrost/go-openrouter v0.2.5
+	github.com/revrost/go-openrouter v0.2.6
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/shopspring/decimal v1.4.0
 	go.uber.org/fx v1.24.0

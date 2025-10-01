@@ -103,6 +103,8 @@ github.com/revrost/go-openrouter v0.1.8 h1:WB/xwyHeW4TxxvROIWi2RHxOUsNb9GVERFaT3
 github.com/revrost/go-openrouter v0.1.8/go.mod h1:ZH/UdpnDEdMmJwq8tbSTX1S5I07ee8KMlEYN4jmegU0=
 github.com/revrost/go-openrouter v0.2.5 h1:dTETsFPScl598NnLVnrJjtmgkV3EINgPkXf9xkCi6Ks=
 github.com/revrost/go-openrouter v0.2.5/go.mod h1:jZFcumFqvS25o8oEQc1/+4yeK7lHDSnwPMIJ/pKPdNc=
+github.com/revrost/go-openrouter v0.2.6 h1:5riNi1FaWHIC2A2EP5hGunUGfU998vcz+CsIWsOWjx0=
+github.com/revrost/go-openrouter v0.2.6/go.mod h1:jZFcumFqvS25o8oEQc1/+4yeK7lHDSnwPMIJ/pKPdNc=
 github.com/rs/xid v1.6.0/go.mod h1:7XoLgs4eV+QndskICGsho+ADou8ySMSjJKDIan90Nz0=
 github.com/rs/zerolog v1.34.0 h1:k43nTLIwcTVQAncfCw4KZ2VY6ukYoZaBPNOE8txlOeY=
 github.com/rs/zerolog v1.34.0/go.mod h1:bJsvje4Z08ROH4Nhs5iH600c3IkWhwp44iRc54W6wYQ=
