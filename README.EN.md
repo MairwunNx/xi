@@ -55,24 +55,14 @@
 - **Telegram Bot API** — works in private and group chats
 - **Database**: PostgreSQL 13+
 - **Cache**: Redis 6.0+
-- **Runtime**: Go 1.23+
+- **Runtime**: Go 1.25+
 - **Deployment**: Docker + Docker Compose
 
-## Installation
+## Deployment
 
-### Fastest Launch with Docker Compose
+### Dev Containers (recommended for development)
 
-1. You need to declare Xi Manager as a service using the ready-made image:
-
-```yaml
-services:
-  ximanager:
-    image: ghcr.io/mairwunnx/ximanager:latest
-```
-
-2. Start the service after feeding it environment variables.
-
-### Quick Start with Docker Compose
+The easiest way to launch for development is to use Dev Containers in VS Code or similar IDEs:
 
 1. Clone the repository:
 ```bash
@@ -80,15 +70,51 @@ git clone https://github.com/mairwunnx/xi
 cd xi
 ```
 
-2. Configure environment variables:
+2. Configure required environment variables (in `.env.dev` file):
 ```bash
-# Copy the configuration example
-cp .env.draft .env
+# Telegram Bot
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
 
-# Edit the .env file, filling in the necessary variables
+# AI API Keys
+OPENROUTER_API_KEY="your_openrouter_api_key"
+OPENAI_API_KEY="your_openai_api_key"
+
+# Agent Prompts (base64 encoded)
+AGENT_CONTEXT_SELECTION_PROMPT="base64_encoded_prompt"
+AGENT_MODEL_SELECTION_PROMPT="base64_encoded_prompt"
 ```
 
-> You can also immediately change the default prompt in `V4__create_modes_tables.sql`! (or change the default prompt later in the database)
+> **Note**: Pre-made base64 agent prompts can be found in `prompt0.json` and `prompt1.json` files.
+
+> You can also immediately change the default prompt in `migrations/V4__create_modes_tables.sql`!
+
+3. Open the project in VS Code and select "Reopen in Container"
+
+Everything else (PostgreSQL, Redis, Flyway migrations, dependencies) will be configured automatically. Simple and fast!
+
+### Docker Compose (for production)
+
+1. Clone the repository:
+```bash
+git clone https://github.com/mairwunnx/xi
+cd xi
+```
+
+2. Configure required environment variables (in `.env` file):
+```bash
+# Telegram Bot
+TELEGRAM_BOT_TOKEN="your_telegram_bot_token"
+
+# AI API Keys
+OPENROUTER_API_KEY="your_openrouter_api_key"
+OPENAI_API_KEY="your_openai_api_key"
+
+# Agent Prompts (base64 encoded)
+AGENT_CONTEXT_SELECTION_PROMPT="base64_encoded_prompt"
+AGENT_MODEL_SELECTION_PROMPT="base64_encoded_prompt"
+```
+
+> **Note**: Configure other environment variables as needed (passwords for Redis and PostgreSQL, Prometheus/Grafana configuration).
 
 3. Start the services:
 ```bash
@@ -100,29 +126,77 @@ docker compose up -d
 docker compose logs -f ximanager
 ```
 
+### Docker Compose with Pre-built Image
+
+If you want to use a pre-built image and manage PostgreSQL/Redis yourself:
+
+1. Declare the ximanager service in `docker-compose.yml`:
+
+```yaml
+services:
+  ximanager:
+    image: ghcr.io/mairwunnx/ximanager:latest
+    env_file: .env
+    environment:
+      REDIS_ADDRESS: ${REDIS_ADDRESS}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AGENT_CONTEXT_SELECTION_PROMPT: ${AGENT_CONTEXT_SELECTION_PROMPT}
+      AGENT_MODEL_SELECTION_PROMPT: ${AGENT_MODEL_SELECTION_PROMPT}
+```
+
+> **Note**: You will need to pass all environment variables from the `.env` file or any other convenient way.
+
+2. Declare PostgreSQL and Redis services in `docker-compose.yml`. 
+> Important: **PostgreSQL** version should be `13+`, and **Redis** should be `6.0+`.
+
+3. Configure database migrations using Flyway or apply them manually from the `migrations/` folder.
+
+4. Start the services:
+```bash
+docker compose up -d
+```
+
 ### Building from Source
 
+#### Manual and Direct Build
+
 Requirements:
-- Go 1.23+
-- Python 3 (for interop)
-- Docker for containerization
+- Go 1.25+
 
 ```bash
-# Generate GORM DAO
-go run sources/persistence/gormgen/zygote.go
+go build -o ximanager program.go
+```
 
-# Build Docker image
-docker build -t xi-manager .
+#### Building with Docker
+
+Requirements:
+- Docker
+
+```bash
+docker build -t ximanager .
 ```
 
 ## Tech Stack
 
-- **Go 1.23** — main development language with modular architecture
+- **Go 1.25** — main development language
 - **Telegram Bot API (tgbotapi)** — Telegram integration
-- **PostgreSQL + GORM** — main database with ORM and auto-generation
+- **PostgreSQL + GORM** — main database with ORM and DAO auto-generation
 - **Redis + go-redis** — session caching and fast operations
-- **OpenAI, DeepSeek, Anthropic, xAI APIs** — multiple AI providers
+- **Flyway** — database migration management
+- **OpenAI API** — GPT models
+- **DeepSeek API** — DeepSeek models
+- **Anthropic API** — Claude models
+- **xAI API** — Grok models
 - **OpenRouter** — AI model aggregator for expanded capabilities
+- **Whisper** — voice message recognition
 - **Uber-FX** — dependency injection for modular architecture
 - **Structured Logging (slog)** — JSON logging with context
 - **Docker + Docker Compose** — containerization and orchestration
