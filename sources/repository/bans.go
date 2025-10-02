@@ -29,14 +29,12 @@ func NewBansRepository() *BansRepository {
 	return &BansRepository{}
 }
 
-// ParseDuration парсит строку длительности в формате "1d", "4h", "10m", "60s" и возвращает time.Duration
 func (x *BansRepository) ParseDuration(durationStr string) (time.Duration, error) {
 	durationStr = strings.TrimSpace(durationStr)
 	if durationStr == "" {
 		return 0, ErrInvalidDuration
 	}
 
-	// Извлекаем число и единицу измерения
 	var value int64
 	var unit string
 	
@@ -72,12 +70,10 @@ func (x *BansRepository) ParseDuration(durationStr string) (time.Duration, error
 		return 0, ErrInvalidDuration
 	}
 
-	// Проверяем минимальную длительность (0 секунд)
 	if duration < 0 {
 		return 0, ErrDurationTooShort
 	}
 
-	// Проверяем максимальную длительность (12 часов)
 	maxDuration := 12 * time.Hour
 	if duration > maxDuration {
 		return 0, ErrDurationTooLong
@@ -86,12 +82,10 @@ func (x *BansRepository) ParseDuration(durationStr string) (time.Duration, error
 	return duration, nil
 }
 
-// CreateBan создает новую запись бана
 func (x *BansRepository) CreateBan(logger *tracing.Logger, userID uuid.UUID, chatID int64, reason string, duration string) (*entities.Ban, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
-	// Проверяем валидность длительности
 	_, err := x.ParseDuration(duration)
 	if err != nil {
 		logger.W("Invalid ban duration", "duration", duration, tracing.InnerError, err)
@@ -118,14 +112,12 @@ func (x *BansRepository) CreateBan(logger *tracing.Logger, userID uuid.UUID, cha
 	return ban, nil
 }
 
-// GetActiveBan возвращает активный бан для пользователя, если он есть
 func (x *BansRepository) GetActiveBan(logger *tracing.Logger, userID uuid.UUID) (*entities.Ban, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
 
-	// Получаем все баны пользователя, отсортированные по времени создания (новые первыми)
 	bans, err := q.Ban.Where(query.Ban.UserID.Eq(userID)).Order(query.Ban.BannedAt.Desc()).Find()
 	if err != nil {
 		logger.E("Failed to get user bans", tracing.InnerError, err)
@@ -136,7 +128,6 @@ func (x *BansRepository) GetActiveBan(logger *tracing.Logger, userID uuid.UUID) 
 		return nil, ErrBanNotFound
 	}
 
-	// Проверяем каждый бан на активность
 	for _, ban := range bans {
 		duration, err := x.ParseDuration(ban.Duration)
 		if err != nil {
@@ -154,7 +145,6 @@ func (x *BansRepository) GetActiveBan(logger *tracing.Logger, userID uuid.UUID) 
 	return nil, ErrBanNotFound
 }
 
-// GetActiveBanWithExpiry возвращает активный бан и время его истечения
 func (x *BansRepository) GetActiveBanWithExpiry(logger *tracing.Logger, userID uuid.UUID) (*entities.Ban, time.Time, error) {
 	ban, err := x.GetActiveBan(logger, userID)
 	if err != nil {
@@ -171,13 +161,11 @@ func (x *BansRepository) GetActiveBanWithExpiry(logger *tracing.Logger, userID u
 	return ban, expiresAt, nil
 }
 
-// IsUserBanned проверяет, заблокирован ли пользователь в данный момент
 func (x *BansRepository) IsUserBanned(logger *tracing.Logger, userID uuid.UUID) bool {
 	_, err := x.GetActiveBan(logger, userID)
 	return err == nil
 }
 
-// DeleteBansByUser удаляет все баны пользователя (разбанивание)
 func (x *BansRepository) DeleteBansByUser(logger *tracing.Logger, userID uuid.UUID) error {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
@@ -194,7 +182,6 @@ func (x *BansRepository) DeleteBansByUser(logger *tracing.Logger, userID uuid.UU
 	return nil
 }
 
-// GetBansByUser возвращает все баны пользователя
 func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID) ([]*entities.Ban, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
@@ -210,13 +197,11 @@ func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID)
 	return bans, nil
 }
 
-// FormatBanExpiry форматирует время окончания бана в читаемый вид
 func (x *BansRepository) FormatBanExpiry(expiresAt time.Time) string {
 	moscowTime := expiresAt.UTC().Add(3 * time.Hour)
 	return moscowTime.Format("02.01.2006 в 15:04")
 }
 
-// GetRemainingDuration возвращает оставшееся время бана
 func (x *BansRepository) GetRemainingDuration(expiresAt time.Time) time.Duration {
 	remaining := time.Until(expiresAt)
 	if remaining < 0 {
@@ -225,7 +210,6 @@ func (x *BansRepository) GetRemainingDuration(expiresAt time.Time) time.Duration
 	return remaining
 }
 
-// FormatRemainingTime форматирует оставшееся время в читаемый вид
 func (x *BansRepository) FormatRemainingTime(duration time.Duration) string {
 	if duration <= 0 {
 		return "истек"

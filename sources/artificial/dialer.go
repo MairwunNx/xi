@@ -283,25 +283,24 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		},
 	}
 
-	// Добавляем тул временного бана, если пользователь не имеет is_banless
 	if !platform.BoolValue(user.IsBanless, false) {
 		request.Tools = []openrouter.Tool{
 			{
 				Type: openrouter.ToolTypeFunction,
 				Function: &openrouter.FunctionDefinition{
 					Name:        "temporary_ban",
-					Description: "Выдать пользователю временную блокировку за нарушения. Используй ТОЛЬКО при серьезных и повторяющихся нарушениях. Предпочитай мягкие предупреждения тяжелым банам. ВАЖНО: Всегда предупреждай пользователя перед баном, дай шанс исправиться!",
+					Description: "Apply temporary ban to user for violations. Use ONLY for serious and repeated violations. Prefer warnings over bans. IMPORTANT: Always warn user before banning, give them a chance to improve! Violation severity (most to least): 1) explicit prolonged rudeness, 2) explicit prolonged trolling, 3) explicit prolonged spam, 4) meaningless message chains, 5) very heavy tasks. Consider: message timing patterns, content, history. Ban duration based on severity: heavy tasks=30s-1m, light spam=1m-5m, serious rudeness=30m-2h. Max 12h. Min 0 (don't call). When banning: naturally explain in response that ban applied, mention reason and duration, give advice to avoid future bans.",
 					Parameters: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
 							"duration": map[string]interface{}{
 								"type":        "string",
-								"description": "Длительность бана в формате: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Максимум 12 часов. Примеры: тяжелая задача = 30s-1m, легкий флуд = 1m-5m, серьезное хамство = 30m-2h",
+								"description": "Ban duration format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Max 12 hours. Examples: heavy task=30s-1m, light spam=1m-5m, serious rudeness=30m-2h",
 								"enum":        []string{"30s", "1m", "2m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "6h", "12h"},
 							},
 							"reason": map[string]interface{}{
 								"type":        "string",
-								"description": "Краткое описание причины бана (например: 'продолжительное хамство', 'троллинг', 'флуд', 'тяжелая задача')",
+								"description": "Brief reason for ban (e.g., 'prolonged rudeness', 'trolling', 'spam', 'heavy task')",
 							},
 						},
 						"required": []string{"duration", "reason"},
@@ -353,13 +352,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	responseText := response.Choices[0].Message.Content.Text
 	
-	// Обрабатываем вызовы тулов (если есть)
 	if len(response.Choices[0].Message.ToolCalls) > 0 {
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
 			if toolCall.Function.Name == "temporary_ban" {
 				log.I("LLM called temporary_ban tool", "arguments", toolCall.Function.Arguments)
 				
-				// Парсим аргументы
 				var banArgs struct {
 					Duration string `json:"duration"`
 					Reason   string `json:"reason"`
@@ -370,14 +367,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 					continue
 				}
 				
-				// Создаем бан
 				_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
 				if err != nil {
 					log.E("Failed to create ban from tool call", tracing.InnerError, err)
-					responseText += "\n\n_(Попытка выдать бан не удалась из-за технической ошибки)_"
+					responseText += "\n\n_(Attempt to apply ban failed due to technical error)_"
 				} else {
 					log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason)
-					// LLM должна сама добавить информацию о бане в свой ответ
 				}
 			}
 		}

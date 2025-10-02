@@ -10,13 +10,12 @@ import (
 
 type (
 	Ban struct {
-		ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		UserID     uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
-		Reason     string    `gorm:"type:text;not null" json:"reason"`
-		Duration   string    `gorm:"size:50;not null" json:"duration"`
-		BannedAt   time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"banned_at"`
-		BannedWhere int64    `gorm:"not null" json:"banned_where"`
-		CreatedAt  time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+		ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID      uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Reason      string    `gorm:"type:text;not null" json:"reason"`
+		Duration    string    `gorm:"size:50;not null" json:"duration"`
+		BannedAt    time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"banned_at"`
+		BannedWhere int64     `gorm:"not null" json:"banned_where"`
 
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}

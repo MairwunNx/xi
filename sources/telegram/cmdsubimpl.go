@@ -803,11 +803,10 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Message, userID int64, reason string, duration string) {
 	targetUser, err := x.users.GetUserByEid(log, userID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf("💢 Пользователь с ID **%d** не найден.", userID)))
+		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanUserNotFound, userID)))
 		return
 	}
 
-	// Проверяем валидность длительности
 	_, err = x.bans.ParseDuration(duration)
 	if err != nil {
 		if errors.Is(err, repository.ErrDurationTooLong) {
@@ -818,7 +817,6 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 		return
 	}
 
-	// Создаем бан
 	_, err = x.bans.CreateBan(log, targetUser.ID, msg.Chat.ID, reason, duration)
 	if err != nil {
 		log.E("Failed to create ban", tracing.InnerError, err)
@@ -837,11 +835,10 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, userID int64) {
 	targetUser, err := x.users.GetUserByEid(log, userID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf("💢 Пользователь с ID **%d** не найден.", userID)))
+		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanUserNotFound, userID)))
 		return
 	}
 
-	// Проверяем, есть ли активный бан
 	_, err = x.bans.GetActiveBan(log, targetUser.ID)
 	if err != nil {
 		username := fmt.Sprintf("%d", userID)
@@ -852,7 +849,6 @@ func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.
 		return
 	}
 
-	// Удаляем все баны пользователя
 	err = x.bans.DeleteBansByUser(log, targetUser.ID)
 	if err != nil {
 		log.E("Failed to pardon user", tracing.InnerError, err)

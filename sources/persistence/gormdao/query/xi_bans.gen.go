@@ -34,7 +34,6 @@ func newBan(db *gorm.DB, opts ...gen.DOOption) ban {
 	_ban.Duration = field.NewString(tableName, "duration")
 	_ban.BannedAt = field.NewTime(tableName, "banned_at")
 	_ban.BannedWhere = field.NewInt64(tableName, "banned_where")
-	_ban.CreatedAt = field.NewTime(tableName, "created_at")
 	_ban.User = banHasOneUser{
 		db: db.Session(&gorm.Session{}),
 
@@ -169,7 +168,6 @@ type ban struct {
 	Duration    field.String
 	BannedAt    field.Time
 	BannedWhere field.Int64
-	CreatedAt   field.Time
 	User        banHasOneUser
 
 	fieldMap map[string]field.Expr
@@ -193,7 +191,6 @@ func (b *ban) updateTableName(table string) *ban {
 	b.Duration = field.NewString(table, "duration")
 	b.BannedAt = field.NewTime(table, "banned_at")
 	b.BannedWhere = field.NewInt64(table, "banned_where")
-	b.CreatedAt = field.NewTime(table, "created_at")
 
 	b.fillFieldMap()
 
@@ -218,14 +215,13 @@ func (b *ban) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (b *ban) fillFieldMap() {
-	b.fieldMap = make(map[string]field.Expr, 8)
+	b.fieldMap = make(map[string]field.Expr, 7)
 	b.fieldMap["id"] = b.ID
 	b.fieldMap["user_id"] = b.UserID
 	b.fieldMap["reason"] = b.Reason
 	b.fieldMap["duration"] = b.Duration
 	b.fieldMap["banned_at"] = b.BannedAt
 	b.fieldMap["banned_where"] = b.BannedWhere
-	b.fieldMap["created_at"] = b.CreatedAt
 
 }
 
