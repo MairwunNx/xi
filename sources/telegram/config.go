@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"fmt"
 	"ximanager/sources/platform"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -20,10 +21,20 @@ type PollerConfig struct {
 	MaxConcurrency    int
 }
 
+func (c *BotConfig) Validate() error {
+	return platform.ValidateTelegramBotToken(c.Token)
+}
+
 func NewBotConfig() *BotConfig {
-	return &BotConfig{
+	config := &BotConfig{
 		Token: platform.Get("TELEGRAM_BOT_TOKEN", ""),
 	}
+	
+	if err := config.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid bot configuration: %v", err))
+	}
+	
+	return config
 }
 
 func NewDiplomatConfig() *DiplomatConfig {

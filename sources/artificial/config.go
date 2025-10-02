@@ -2,6 +2,7 @@ package artificial
 
 import (
 	"encoding/base64"
+	"fmt"
 	"ximanager/sources/platform"
 
 	"github.com/sashabaranov/go-openai"
@@ -63,8 +64,24 @@ type SpendingLimits struct {
 	GoldMonthlyLimit   decimal.Decimal
 }
 
+func (c *AIConfig) Validate() error {
+	if err := platform.ValidateOpenAIToken(c.OpenAIToken); err != nil {
+		return err
+	}
+	
+	if err := platform.ValidateBase64(c.ContextSelectionPrompt, "ContextSelectionPrompt"); err != nil {
+		return err
+	}
+	
+	if err := platform.ValidateBase64(c.ModelSelectionPrompt, "ModelSelectionPrompt"); err != nil {
+		return err
+	}
+	
+	return nil
+}
+
 func NewAIConfig() *AIConfig {
-	return &AIConfig{
+	config := &AIConfig{
 		OpenRouterToken: platform.Get("OPENROUTER_API_KEY", ""),
 		OpenAIToken:     platform.Get("OPENAI_API_KEY", ""),
 
@@ -151,6 +168,12 @@ func NewAIConfig() *AIConfig {
 			},
 		},
 	}
+	
+	if err := config.Validate(); err != nil {
+		panic(fmt.Sprintf("invalid AI configuration: %v", err))
+	}
+	
+	return config
 }
 
 // GetContextSelectionPrompt returns the decoded context selection prompt
