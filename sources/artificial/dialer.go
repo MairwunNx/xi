@@ -26,6 +26,7 @@ type Dialer struct {
 	usage          *repository.UsageRepository
 	donations      *repository.DonationsRepository
 	messages       *repository.MessagesRepository
+	bans           *repository.BansRepository
 	contextManager *ContextManager
 	usageLimiter   *UsageLimiter
 	spendingLimiter *SpendingLimiter
@@ -41,6 +42,7 @@ func NewDialer(
 	usage *repository.UsageRepository,
 	donations *repository.DonationsRepository,
 	messages *repository.MessagesRepository,
+	bans *repository.BansRepository,
 	contextManager *ContextManager,
 	usageLimiter *UsageLimiter,
 	spendingLimiter *SpendingLimiter,
@@ -54,6 +56,7 @@ func NewDialer(
 		usage:          usage,
 		donations:      donations,
 		messages:       messages,
+		bans:           bans,
 		contextManager: contextManager,
 		usageLimiter:   usageLimiter,
 		spendingLimiter: spendingLimiter,
@@ -280,6 +283,33 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		},
 	}
 
+	if !platform.BoolValue(user.IsBanless, false) {
+		request.Tools = []openrouter.Tool{
+			{
+				Type: openrouter.ToolTypeFunction,
+				Function: &openrouter.FunctionDefinition{
+					Name:        "temporary_ban",
+					Description: "Apply temporary ban to user for violations. Use ONLY for serious and repeated violations. Prefer warnings over bans. IMPORTANT: Always warn user before banning, give them a chance to improve! Violation severity (most to least): 1) explicit prolonged rudeness, 2) explicit prolonged trolling, 3) explicit prolonged spam, 4) meaningless message chains, 5) very heavy tasks. Consider: message timing patterns, content, history. Ban duration based on severity: heavy tasks=30s-1m, light spam=1m-5m, serious rudeness=30m-2h. Max 12h. Min 0 (don't call). When banning: naturally explain in response that ban applied, mention reason and duration, give advice to avoid future bans.",
+					Parameters: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"duration": map[string]interface{}{
+								"type":        "string",
+								"description": "Ban duration format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Max 12 hours. Examples: heavy task=30s-1m, light spam=1m-5m, serious rudeness=30m-2h",
+								"enum":        []string{"30s", "45s", "1m", "90s", "2m", "3m", "5m", "7m", "10m", "15m", "20m", "30m", "45m", "1h", "90m", "2h", "3h", "4h", "5h", "6h", "8h", "10h", "12h"},
+							},
+							"reason": map[string]interface{}{
+								"type":        "string",
+								"description": "Reason for ban in Russian language. Formulate freely as you see fit. Examples: 'продолжительное хамство', 'троллинг', 'флуд', 'тяжелая задача'",
+							},
+						},
+						"required": []string{"duration", "reason"},
+					},
+				},
+			},
+		}
+	}
+
 	if mode.Params != nil {
 		if mode.Params.TopP != nil {
 			request.TopP = *mode.Params.TopP
@@ -321,6 +351,32 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	log.I("ai completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
 
 	responseText := response.Choices[0].Message.Content.Text
+	
+	if len(response.Choices[0].Message.ToolCalls) > 0 {
+		for _, toolCall := range response.Choices[0].Message.ToolCalls {
+			if toolCall.Function.Name == "temporary_ban" {
+				log.I("LLM called temporary_ban tool", "arguments", toolCall.Function.Arguments)
+				
+				var banArgs struct {
+					Duration string `json:"duration"`
+					Reason   string `json:"reason"`
+				}
+				
+				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &banArgs); err != nil {
+					log.E("Failed to parse ban tool arguments", tracing.InnerError, err)
+					continue
+				}
+				
+				_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
+				if err != nil {
+					log.E("Failed to create ban from tool call", tracing.InnerError, err)
+					responseText += "\n\n_(Attempt to apply ban failed due to technical error)_"
+				} else {
+					log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason)
+				}
+			}
+		}
+	}
 
 	if err := x.messages.SaveMessage(log, msg, false); err != nil {
 		log.E("Error saving user message", tracing.InnerError, err)

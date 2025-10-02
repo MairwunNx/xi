@@ -9,6 +9,18 @@ import (
 )
 
 type (
+	Ban struct {
+		ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID      uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Reason      string    `gorm:"type:text;not null" json:"reason"`
+		Duration    string    `gorm:"size:50;not null" json:"duration"`
+		BannedAt    time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"banned_at"`
+		BannedWhere int64     `gorm:"not null" json:"banned_where"`
+
+		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+	}
+
+
 	Donation struct {
 		ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		User      uuid.UUID       `gorm:"type:uuid;not null;column:user" json:"user"`
@@ -86,6 +98,7 @@ type (
 		IsActive       *bool          `gorm:"not null;default:true" json:"is_active"`
 		IsStackAllowed *bool          `gorm:"not null;default:false" json:"is_stack_allowed"`
 		IsStackEnabled *bool          `gorm:"not null;default:true" json:"is_stack_enabled"`
+		IsBanless      *bool          `gorm:"not null;default:false" json:"is_banless"`
 		WindowLimit    int64          `gorm:"not null;default:0" json:"window_limit"`
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
@@ -95,9 +108,11 @@ type (
 		SelectedModes []SelectedMode `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
 		Pins          []Pin          `gorm:"foreignKey:User;references:ID" json:"pins"`
 		Usages        []Usage        `gorm:"foreignKey:UserID;references:ID" json:"usages"`
+		Bans          []Ban          `gorm:"foreignKey:UserID;references:ID" json:"bans"`
 	}
 )
 
+func (Ban) TableName() string          { return "xi_bans" }
 func (Donation) TableName() string     { return "xi_donations" }
 func (Message) TableName() string      { return "xi_messages" }
 func (Mode) TableName() string         { return "xi_modes" }

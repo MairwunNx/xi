@@ -36,6 +36,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.IsActive = field.NewBool(tableName, "is_active")
 	_user.IsStackAllowed = field.NewBool(tableName, "is_stack_allowed")
 	_user.IsStackEnabled = field.NewBool(tableName, "is_stack_enabled")
+	_user.IsBanless = field.NewBool(tableName, "is_banless")
 	_user.WindowLimit = field.NewInt64(tableName, "window_limit")
 	_user.CreatedAt = field.NewTime(tableName, "created_at")
 	_user.Messages = userHasManyMessages{
@@ -78,6 +79,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 				}
 			}
 			Usages struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}
+			Bans struct {
 				field.RelationField
 				User struct {
 					field.RelationField
@@ -177,6 +184,19 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 					RelationField: field.NewRelation("Messages.User.Usages.User", "entities.User"),
 				},
 			},
+			Bans: struct {
+				field.RelationField
+				User struct {
+					field.RelationField
+				}
+			}{
+				RelationField: field.NewRelation("Messages.User.Bans", "entities.Ban"),
+				User: struct {
+					field.RelationField
+				}{
+					RelationField: field.NewRelation("Messages.User.Bans.User", "entities.User"),
+				},
+			},
 		},
 	}
 
@@ -210,6 +230,12 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 		RelationField: field.NewRelation("Usages", "entities.Usage"),
 	}
 
+	_user.Bans = userHasManyBans{
+		db: db.Session(&gorm.Session{}),
+
+		RelationField: field.NewRelation("Bans", "entities.Ban"),
+	}
+
 	_user.fillFieldMap()
 
 	return _user
@@ -227,6 +253,7 @@ type user struct {
 	IsActive       field.Bool
 	IsStackAllowed field.Bool
 	IsStackEnabled field.Bool
+	IsBanless      field.Bool
 	WindowLimit    field.Int64
 	CreatedAt      field.Time
 	Messages       userHasManyMessages
@@ -240,6 +267,8 @@ type user struct {
 	Pins userHasManyPins
 
 	Usages userHasManyUsages
+
+	Bans userHasManyBans
 
 	fieldMap map[string]field.Expr
 }
@@ -264,6 +293,7 @@ func (u *user) updateTableName(table string) *user {
 	u.IsActive = field.NewBool(table, "is_active")
 	u.IsStackAllowed = field.NewBool(table, "is_stack_allowed")
 	u.IsStackEnabled = field.NewBool(table, "is_stack_enabled")
+	u.IsBanless = field.NewBool(table, "is_banless")
 	u.WindowLimit = field.NewInt64(table, "window_limit")
 	u.CreatedAt = field.NewTime(table, "created_at")
 
@@ -290,7 +320,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 16)
+	u.fieldMap = make(map[string]field.Expr, 18)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["username"] = u.Username
@@ -299,6 +329,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["is_active"] = u.IsActive
 	u.fieldMap["is_stack_allowed"] = u.IsStackAllowed
 	u.fieldMap["is_stack_enabled"] = u.IsStackEnabled
+	u.fieldMap["is_banless"] = u.IsBanless
 	u.fieldMap["window_limit"] = u.WindowLimit
 	u.fieldMap["created_at"] = u.CreatedAt
 
@@ -318,6 +349,8 @@ func (u user) clone(db *gorm.DB) user {
 	u.Pins.db.Statement.ConnPool = db.Statement.ConnPool
 	u.Usages.db = db.Session(&gorm.Session{Initialized: true})
 	u.Usages.db.Statement.ConnPool = db.Statement.ConnPool
+	u.Bans.db = db.Session(&gorm.Session{Initialized: true})
+	u.Bans.db.Statement.ConnPool = db.Statement.ConnPool
 	return u
 }
 
@@ -329,6 +362,7 @@ func (u user) replaceDB(db *gorm.DB) user {
 	u.SelectedModes.db = db.Session(&gorm.Session{})
 	u.Pins.db = db.Session(&gorm.Session{})
 	u.Usages.db = db.Session(&gorm.Session{})
+	u.Bans.db = db.Session(&gorm.Session{})
 	return u
 }
 
@@ -373,6 +407,12 @@ type userHasManyMessages struct {
 			}
 		}
 		Usages struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
+		}
+		Bans struct {
 			field.RelationField
 			User struct {
 				field.RelationField
@@ -857,6 +897,87 @@ func (a userHasManyUsagesTx) Count() int64 {
 }
 
 func (a userHasManyUsagesTx) Unscoped() *userHasManyUsagesTx {
+	a.tx = a.tx.Unscoped()
+	return &a
+}
+
+type userHasManyBans struct {
+	db *gorm.DB
+
+	field.RelationField
+}
+
+func (a userHasManyBans) Where(conds ...field.Expr) *userHasManyBans {
+	if len(conds) == 0 {
+		return &a
+	}
+
+	exprs := make([]clause.Expression, 0, len(conds))
+	for _, cond := range conds {
+		exprs = append(exprs, cond.BeCond().(clause.Expression))
+	}
+	a.db = a.db.Clauses(clause.Where{Exprs: exprs})
+	return &a
+}
+
+func (a userHasManyBans) WithContext(ctx context.Context) *userHasManyBans {
+	a.db = a.db.WithContext(ctx)
+	return &a
+}
+
+func (a userHasManyBans) Session(session *gorm.Session) *userHasManyBans {
+	a.db = a.db.Session(session)
+	return &a
+}
+
+func (a userHasManyBans) Model(m *entities.User) *userHasManyBansTx {
+	return &userHasManyBansTx{a.db.Model(m).Association(a.Name())}
+}
+
+func (a userHasManyBans) Unscoped() *userHasManyBans {
+	a.db = a.db.Unscoped()
+	return &a
+}
+
+type userHasManyBansTx struct{ tx *gorm.Association }
+
+func (a userHasManyBansTx) Find() (result []*entities.Ban, err error) {
+	return result, a.tx.Find(&result)
+}
+
+func (a userHasManyBansTx) Append(values ...*entities.Ban) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Append(targetValues...)
+}
+
+func (a userHasManyBansTx) Replace(values ...*entities.Ban) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Replace(targetValues...)
+}
+
+func (a userHasManyBansTx) Delete(values ...*entities.Ban) (err error) {
+	targetValues := make([]interface{}, len(values))
+	for i, v := range values {
+		targetValues[i] = v
+	}
+	return a.tx.Delete(targetValues...)
+}
+
+func (a userHasManyBansTx) Clear() error {
+	return a.tx.Clear()
+}
+
+func (a userHasManyBansTx) Count() int64 {
+	return a.tx.Count()
+}
+
+func (a userHasManyBansTx) Unscoped() *userHasManyBansTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }

@@ -798,6 +798,59 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
 }
 
+// =========================  /ban and /pardon command handlers  =========================
+
+func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string, reason string, duration string) {
+	targetUser := x.retrieveUserByName(log, msg, username)
+	if targetUser == nil {
+		return
+	}
+
+	_, err := x.bans.ParseDuration(duration)
+	if err != nil {
+		if errors.Is(err, repository.ErrDurationTooLong) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorTooLong))
+		} else {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorInvalid))
+		}
+		return
+	}
+
+	_, err = x.bans.CreateBan(log, targetUser.ID, msg.Chat.ID, reason, duration)
+	if err != nil {
+		log.E("Failed to create ban", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorCreate))
+		return
+	}
+
+	displayName := *targetUser.Username
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanApplied, displayName, duration, reason)))
+}
+
+func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string) {
+	targetUser := x.retrieveUserByName(log, msg, username)
+	if targetUser == nil {
+		return
+	}
+
+	_, err := x.bans.GetActiveBan(log, targetUser.ID)
+	if err != nil {
+		displayName := *targetUser.Username
+		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanErrorNotFound, displayName)))
+		return
+	}
+
+	err = x.bans.DeleteBansByUser(log, targetUser.ID)
+	if err != nil {
+		log.E("Failed to pardon user", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorRemove))
+		return
+	}
+
+	displayName := *targetUser.Username
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanPardon, displayName)))
+}
+
 // =========================  /health command handlers  =========================
 
 func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {

@@ -17,6 +17,17 @@ func (x *TelegramHandler) HandleXiCommand(log *tracing.Logger, user *entities.Us
 		return
 	}
 
+	ban, expiresAt, err := x.bans.GetActiveBanWithExpiry(log, user.ID)
+	if err == nil {
+		remaining := x.bans.GetRemainingDuration(expiresAt)
+		formattedExpiry := x.bans.FormatBanExpiry(expiresAt)
+		formattedRemaining := x.bans.FormatRemainingTime(remaining)
+		
+		log.W("User is banned", "user_id", user.ID, "expires_at", expiresAt, "reason", ban.Reason)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanActive, formattedExpiry, ban.Reason, formattedRemaining)))
+		return
+	}
+
 	if msg.Photo != nil && len(msg.Photo) > 0 {
 		x.XiCommandPhoto(log, user, msg)
 		return
@@ -217,4 +228,36 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 		log.W("Unknown context subcommand", tracing.InternalCommand, ctx.Command())
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextHelpText))
 	}
+}
+
+func (x *TelegramHandler) HandleBanCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	if !x.rights.IsUserHasRight(log, user, "manage_users") {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgUsersNoAccess))
+		return
+	}
+
+	var cmd BanCmd
+	_, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanHelpText))
+		return
+	}
+
+	x.BanCommandApply(log, msg, cmd.Username, cmd.Reason, cmd.Duration)
+}
+
+func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	if !x.rights.IsUserHasRight(log, user, "manage_users") {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgUsersNoAccess))
+		return
+	}
+
+	var cmd PardonCmd
+	_, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPardonHelpText))
+		return
+	}
+
+	x.PardonCommandApply(log, msg, cmd.Username)
 }
