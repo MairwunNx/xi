@@ -2,7 +2,7 @@
 
 [![AI Capable](https://img.shields.io/badge/AI-Capable-brightgreen?style=flat&logo=openai&logoColor=white)](https://github.com/mairwunnx/ximanager)
 
-**Язык**: 🇷🇺 Русский | [🇺🇸 English](README.EN.md)
+**Язык**: 🇷🇺 Русский | [🇺🇸 English](README.EN.md) | [🇨🇳 中文](README.CN.md)
 
 **Xi Manager** — 🀄️ Telegram-бот с ИИ, стилизованный под личного помощника Xi. Личный помощник великого лидера, готовый отвечать на вопросы простого народа.
 
