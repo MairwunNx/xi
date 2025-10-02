@@ -296,11 +296,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 							"duration": map[string]interface{}{
 								"type":        "string",
 								"description": "Ban duration format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Max 12 hours. Examples: heavy task=30s-1m, light spam=1m-5m, serious rudeness=30m-2h",
-								"enum":        []string{"30s", "1m", "2m", "5m", "10m", "15m", "30m", "1h", "2h", "4h", "6h", "12h"},
+								"enum":        []string{"30s", "45s", "1m", "90s", "2m", "3m", "5m", "7m", "10m", "15m", "20m", "30m", "45m", "1h", "90m", "2h", "3h", "4h", "5h", "6h", "8h", "10h", "12h"},
 							},
 							"reason": map[string]interface{}{
 								"type":        "string",
-								"description": "Brief reason for ban (e.g., 'prolonged rudeness', 'trolling', 'spam', 'heavy task')",
+								"description": "Reason for ban in Russian language. Formulate freely as you see fit. Examples: 'продолжительное хамство', 'троллинг', 'флуд', 'тяжелая задача'",
 							},
 						},
 						"required": []string{"duration", "reason"},

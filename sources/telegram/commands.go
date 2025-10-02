@@ -243,7 +243,7 @@ func (x *TelegramHandler) HandleBanCommand(log *tracing.Logger, user *entities.U
 		return
 	}
 
-	x.BanCommandApply(log, msg, cmd.UserID, cmd.Reason, cmd.Duration)
+	x.BanCommandApply(log, msg, cmd.Username, cmd.Reason, cmd.Duration)
 }
 
 func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -259,5 +259,5 @@ func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
-	x.PardonCommandApply(log, msg, cmd.UserID)
+	x.PardonCommandApply(log, msg, cmd.Username)
 }

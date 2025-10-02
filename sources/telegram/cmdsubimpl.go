@@ -800,14 +800,13 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 
 // =========================  /ban and /pardon command handlers  =========================
 
-func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Message, userID int64, reason string, duration string) {
-	targetUser, err := x.users.GetUserByEid(log, userID)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanUserNotFound, userID)))
+func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string, reason string, duration string) {
+	targetUser := x.retrieveUserByName(log, msg, username)
+	if targetUser == nil {
 		return
 	}
 
-	_, err = x.bans.ParseDuration(duration)
+	_, err := x.bans.ParseDuration(duration)
 	if err != nil {
 		if errors.Is(err, repository.ErrDurationTooLong) {
 			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorTooLong))
@@ -824,28 +823,20 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 		return
 	}
 
-	username := fmt.Sprintf("%d", userID)
-	if targetUser.Username != nil && *targetUser.Username != "" {
-		username = *targetUser.Username
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanApplied, username, duration, reason)))
+	displayName := *targetUser.Username
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanApplied, displayName, duration, reason)))
 }
 
-func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, userID int64) {
-	targetUser, err := x.users.GetUserByEid(log, userID)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanUserNotFound, userID)))
+func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string) {
+	targetUser := x.retrieveUserByName(log, msg, username)
+	if targetUser == nil {
 		return
 	}
 
-	_, err = x.bans.GetActiveBan(log, targetUser.ID)
+	_, err := x.bans.GetActiveBan(log, targetUser.ID)
 	if err != nil {
-		username := fmt.Sprintf("%d", userID)
-		if targetUser.Username != nil && *targetUser.Username != "" {
-			username = *targetUser.Username
-		}
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanErrorNotFound, username)))
+		displayName := *targetUser.Username
+		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanErrorNotFound, displayName)))
 		return
 	}
 
@@ -856,12 +847,8 @@ func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.
 		return
 	}
 
-	username := fmt.Sprintf("%d", userID)
-	if targetUser.Username != nil && *targetUser.Username != "" {
-		username = *targetUser.Username
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanPardon, username)))
+	displayName := *targetUser.Username
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanPardon, displayName)))
 }
 
 // =========================  /health command handlers  =========================

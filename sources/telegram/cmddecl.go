@@ -97,11 +97,11 @@ type ContextCmd struct {
 }
 
 type BanCmd struct {
-	UserID   int64  `arg:"" help:"User ID to ban"`
+	Username string `arg:"" help:"Username to ban (with or without @ prefix)"`
 	Reason   string `arg:"" help:"Reason for ban"`
 	Duration string `arg:"" help:"Ban duration (e.g., 1d, 4h, 10m, 60s)"`
 }
 
 type PardonCmd struct {
-	UserID int64 `arg:"" help:"User ID to unban"`
+	Username string `arg:"" help:"Username to unban (with or without @ prefix)"`
 }
