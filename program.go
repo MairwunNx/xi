@@ -24,7 +24,13 @@ var (
 
 func main() {
 	platform.SetAppManifest(version, buildTime, startTime)
-	
+
+	if tz := platform.Get("TZ", "UTC"); tz != "" {
+		if loc, err := time.LoadLocation(tz); err == nil {
+				time.Local = loc
+		}
+	}
+
 	fx.New(
 		tracing.Module,
 		external.Module,

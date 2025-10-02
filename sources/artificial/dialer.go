@@ -434,8 +434,8 @@ func (x *Dialer) formatPinsForPrompt(pins []*entities.Pin) string {
 }
 
 func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
-	moscowTime := time.Now().UTC().Add(3 * time.Hour)
-	dateTimeStr := moscowTime.Format("Monday, January 2, 2006 at 15:04")
+	localNow := time.Now().In(time.Local)
+	dateTimeStr := localNow.Format("Monday, January 2, 2006 at 15:04")
 	
 	chatTitle := msg.Chat.Title
 	if chatTitle == "" {
