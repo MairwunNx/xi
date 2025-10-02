@@ -137,6 +137,19 @@ func newPin(db *gorm.DB, opts ...gen.DOOption) pin {
 				RelationField: field.NewRelation("UserEntity.Usages.User", "entities.User"),
 			},
 		},
+		Bans: struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
+		}{
+			RelationField: field.NewRelation("UserEntity.Bans", "entities.Ban"),
+			User: struct {
+				field.RelationField
+			}{
+				RelationField: field.NewRelation("UserEntity.Bans.User", "entities.User"),
+			},
+		},
 	}
 
 	_pin.fillFieldMap()
@@ -263,6 +276,12 @@ type pinBelongsToUserEntity struct {
 		}
 	}
 	Usages struct {
+		field.RelationField
+		User struct {
+			field.RelationField
+		}
+	}
+	Bans struct {
 		field.RelationField
 		User struct {
 			field.RelationField

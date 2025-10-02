@@ -138,6 +138,19 @@ func newUsage(db *gorm.DB, opts ...gen.DOOption) usage {
 				RelationField: field.NewRelation("User.Usages.User", "entities.User"),
 			},
 		},
+		Bans: struct {
+			field.RelationField
+			User struct {
+				field.RelationField
+			}
+		}{
+			RelationField: field.NewRelation("User.Bans", "entities.Ban"),
+			User: struct {
+				field.RelationField
+			}{
+				RelationField: field.NewRelation("User.Bans.User", "entities.User"),
+			},
+		},
 	}
 
 	_usage.fillFieldMap()
@@ -267,6 +280,12 @@ type usageHasOneUser struct {
 		}
 	}
 	Usages struct {
+		field.RelationField
+		User struct {
+			field.RelationField
+		}
+	}
+	Bans struct {
 		field.RelationField
 		User struct {
 			field.RelationField

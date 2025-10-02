@@ -29,9 +29,10 @@ type TelegramHandler struct {
 	throttler      *throttler.Throttler
 	contextManager *artificial.ContextManager
 	health         *repository.HealthRepository
+	bans           *repository.BansRepository
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:       diplomat,
 		users:          users,
@@ -47,6 +48,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		throttler:      throttler,
 		contextManager: contextManager,
 		health:         health,
+		bans:           bans,
 	}
 }
 
@@ -117,6 +119,10 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleContextCommand(log, user, msg)
 		case "health":
 			x.HandleHealthCommand(log, user, msg)
+		case "ban":
+			x.HandleBanCommand(log, user, msg)
+		case "pardon":
+			x.HandlePardonCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
 		}
