@@ -102,9 +102,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           filters: |
             flyway:
+              - '.version'
               - 'Dockerfile.flyway'
               - 'migrations/**'
             ximanager:
+              - '.version'
               - 'Dockerfile'
               - 'go.mod'
               - 'go.sum'
@@ -192,6 +194,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache: ${{ needs.version-check.outputs.version-changed == 'true' }}
 
   build-ximanager:
     name: 🔨 Build & push (ximanager)
@@ -232,8 +235,12 @@ jobs:
           platforms: ${{ env.PLATFORMS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ needs.version-check.outputs.version }}
+            BUILD_TIME=${{ github.event.head_commit.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          no-cache: ${{ needs.version-check.outputs.version-changed == 'true' }}
 
   release:
     name: 📋 Create GitHub Release
