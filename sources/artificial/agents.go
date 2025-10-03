@@ -88,9 +88,19 @@ func (a *AgentSystem) SelectRelevantContext(
 
 	log = log.With("ai_agent", "context_selector", tracing.AiModel, model)
 
+	startTime := time.Now()
 	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+	
 	if err != nil {
-		log.E("Failed to get context selection", tracing.InnerError, err)
+		log.E("Failed to get context selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_context_selection_failed", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		return history, nil
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in context selection response")
+		log.I("agent_context_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		return history, nil
 	}
 
@@ -98,23 +108,35 @@ func (a *AgentSystem) SelectRelevantContext(
 	
 	var contextResponse ContextSelectionResponse
 	if err := json.Unmarshal([]byte(responseText), &contextResponse); err != nil {
-		log.E("Failed to parse context selection response", tracing.InnerError, err)
+		log.E("Failed to parse context selection response", tracing.InnerError, err, "response_text", responseText)
+		log.I("agent_context_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		return history, nil
 	}
 
 	// Extract relevant messages based on indices
 	relevantMessages := []platform.RedisMessage{}
+	invalidIndices := 0
 	for _, index := range contextResponse.RelevantIndices {
 		if index >= 0 && index < len(history) {
 			relevantMessages = append(relevantMessages, history[index])
+		} else {
+			invalidIndices++
 		}
+	}
+
+	reductionPercent := 0
+	if len(history) > 0 {
+		reductionPercent = int(float64(len(history)-len(relevantMessages)) / float64(len(history)) * 100)
 	}
 
 	log.I("agent_context_selection_success", 
 		"original_count", len(history),
 		"selected_count", len(relevantMessages),
+		"reduction_percent", reductionPercent,
+		"invalid_indices", invalidIndices,
 		"selected_indices", contextResponse.RelevantIndices,
 		"agent_reasoning", contextResponse.Reasoning,
+		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
 	)
 
@@ -179,9 +201,13 @@ func (a *AgentSystem) SelectModelAndEffort(
 
 	log = log.With("ai_agent", "model_selector", tracing.AiModel, model)
 
+	startTime := time.Now()
 	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+	
 	if err != nil {
-		log.E("Failed to get model selection", tracing.InnerError, err)
+		log.E("Failed to get model selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_model_selection_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		gradeLimits := a.config.GradeLimits[userGrade]
 		fallbackModel := gradeLimits.DialerModels[0]
 		if len(gradeLimits.DialerModels) > 1 {
@@ -198,11 +224,31 @@ func (a *AgentSystem) SelectModelAndEffort(
 		}, nil
 	}
 
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in model selection response")
+		log.I("agent_model_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		gradeLimits := a.config.GradeLimits[userGrade]
+		fallbackModel := gradeLimits.DialerModels[0]
+		if len(gradeLimits.DialerModels) > 1 {
+			fallbackModel = gradeLimits.DialerModels[1]
+		}
+		return &ModelSelectionResponse{
+			RecommendedModel: fallbackModel,
+			ReasoningEffort:  gradeLimits.DialerReasoningEffort,
+			TaskComplexity:   "medium",
+			RequiresSpeed:    false,
+			RequiresQuality:  true,
+			IsTrolling:       false,
+			Reasoning:        "Fallback to default settings due to empty choices",
+		}, nil
+	}
+
 	responseText := response.Choices[0].Message.Content.Text
 	
 	var modelResponse ModelSelectionResponse
 	if err := json.Unmarshal([]byte(responseText), &modelResponse); err != nil {
-		log.E("Failed to parse model selection response", tracing.InnerError, err)
+		log.E("Failed to parse model selection response", tracing.InnerError, err, "response_text", responseText)
+		log.I("agent_model_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		gradeLimits := a.config.GradeLimits[userGrade]
 		fallbackModel := gradeLimits.DialerModels[0]
 		if len(gradeLimits.DialerModels) > 1 {
@@ -220,16 +266,26 @@ func (a *AgentSystem) SelectModelAndEffort(
 	}
 
 	// Validate and adjust based on tier policy
+	originalModel := modelResponse.RecommendedModel
+	originalEffort := modelResponse.ReasoningEffort
 	modelResponse = a.validateModelSelection(modelResponse, userGrade)
+	
+	modelChanged := originalModel != modelResponse.RecommendedModel
+	effortChanged := originalEffort != modelResponse.ReasoningEffort
 
 	log.I("agent_model_selection_validated",
 		"final_model", modelResponse.RecommendedModel,
 		"final_reasoning_effort", modelResponse.ReasoningEffort,
+		"model_changed", modelChanged,
+		"effort_changed", effortChanged,
+		"original_model", originalModel,
+		"original_effort", originalEffort,
 		"task_complexity", modelResponse.TaskComplexity,
 		"requires_speed", modelResponse.RequiresSpeed,
 		"requires_quality", modelResponse.RequiresQuality,
 		"is_trolling", modelResponse.IsTrolling,
 		"agent_reasoning", modelResponse.Reasoning,
+		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
 	)
 

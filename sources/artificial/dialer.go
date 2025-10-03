@@ -350,6 +350,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	log.I("ai completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
 
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in dialer response")
+		return "", fmt.Errorf("empty choices in AI response")
+	}
+
 	responseText := response.Choices[0].Message.Content.Text
 	
 	if len(response.Choices[0].Message.ToolCalls) > 0 {

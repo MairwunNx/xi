@@ -150,6 +150,11 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 
 	v.spendingLimiter.AddSpend(logger, user, cost)
 
+	if len(response.Choices) == 0 {
+		logger.E("Empty choices in vision response")
+		return "", fmt.Errorf("empty choices in AI response")
+	}
+
 	responseText := response.Choices[0].Message.Content.Text
 
 	if limitWarning != "" {
