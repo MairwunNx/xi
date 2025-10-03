@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"ximanager/sources/platform"
+	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
 	openrouter "github.com/revrost/go-openrouter"
@@ -114,12 +115,7 @@ func (a *AgentSystem) SelectRelevantContext(
 	}
 
 	// Parse indices and ranges into flat list of indices
-	indices, err := a.parseIndicesAndRanges(contextResponse.RelevantIndices, len(history)-1)
-	if err != nil {
-		log.E("Failed to parse indices and ranges", tracing.InnerError, err)
-		log.I("agent_context_selection_failed", "reason", "parse_indices_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return history, nil
-	}
+	indices := texting.ExpandIndicesAndRanges(contextResponse.RelevantIndices, len(history)-1)
 
 	// Extract relevant messages based on parsed indices
 	relevantMessages := []platform.RedisMessage{}
@@ -307,59 +303,6 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 		parts = append(parts, fmt.Sprintf("[%d] %s: %s", i, role, msg.Content))
 	}
 	return strings.Join(parts, "\n")
-}
-
-// parseIndicesAndRanges parses index strings that can be either single indices or ranges
-// Examples: "5" -> [5], "1-14" -> [1,2,3,...,14], "7-9" -> [7,8,9]
-func (a *AgentSystem) parseIndicesAndRanges(indicesStrs []string, maxIndex int) ([]int, error) {
-	var result []int
-	seen := make(map[int]bool)
-	
-	for _, str := range indicesStrs {
-		str = strings.TrimSpace(str)
-		
-		// Check if it's a range (contains "-")
-		if strings.Contains(str, "-") {
-			parts := strings.Split(str, "-")
-			if len(parts) != 2 {
-				continue // Invalid range format, skip
-			}
-			
-			var start, end int
-			if _, err := fmt.Sscanf(parts[0], "%d", &start); err != nil {
-				continue // Invalid start, skip
-			}
-			if _, err := fmt.Sscanf(parts[1], "%d", &end); err != nil {
-				continue // Invalid end, skip
-			}
-			
-			// Validate range
-			if start > end || start < 0 || end > maxIndex {
-				continue // Invalid range, skip
-			}
-			
-			// Add all indices in range
-			for i := start; i <= end; i++ {
-				if !seen[i] {
-					result = append(result, i)
-					seen[i] = true
-				}
-			}
-		} else {
-			// Single index
-			var index int
-			if _, err := fmt.Sscanf(str, "%d", &index); err != nil {
-				continue // Invalid index, skip
-			}
-			
-			if index >= 0 && index <= maxIndex && !seen[index] {
-				result = append(result, index)
-				seen[index] = true
-			}
-		}
-	}
-	
-	return result, nil
 }
 
 type TierPolicy struct {
