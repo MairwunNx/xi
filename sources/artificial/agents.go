@@ -362,7 +362,6 @@ func (a *AgentSystem) parseIndicesAndRanges(indicesStrs []string, maxIndex int) 
 	return result, nil
 }
 
-
 type TierPolicy struct {
 	ModelsText       string
 	DefaultReasoning string
