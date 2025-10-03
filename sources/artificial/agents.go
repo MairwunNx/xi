@@ -114,10 +114,8 @@ func (a *AgentSystem) SelectRelevantContext(
 		return history, nil
 	}
 
-	// Parse indices and ranges into flat list of indices
-	indices := texting.ExpandIndicesAndRanges(contextResponse.RelevantIndices, len(history)-1)
+	indices := texting.ExpandIndicesAndRanges(log, contextResponse.RelevantIndices, len(history)-1)
 
-	// Extract relevant messages based on parsed indices
 	relevantMessages := []platform.RedisMessage{}
 	for _, index := range indices {
 		if index >= 0 && index < len(history) {
