@@ -77,6 +77,8 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 	modelToUse := gradeLimits.VisionPrimaryModel
 	fallbackModels := gradeLimits.VisionFallbackModels
 	var limitWarning string
+	modelDowngraded := false
+	originalModel := modelToUse
 
 	if limitErr := v.spendingLimiter.CheckSpendingLimits(logger, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
@@ -84,6 +86,7 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 
 			modelToUse = v.config.LimitExceededModel
 			fallbackModels = v.config.LimitExceededFallbackModels
+			modelDowngraded = true
 
 			limitTypeText := texting.MsgSpendingLimitExceededDaily
 			if spendingErr.LimitType == LimitTypeMonthly {
@@ -92,6 +95,14 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededVision, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
 		}
 	}
+
+	logger.I("vision_model_selection",
+		"user_grade", userGrade,
+		"selected_model", modelToUse,
+		"original_model", originalModel,
+		"model_downgraded", modelDowngraded,
+		"fallback_models_count", len(fallbackModels),
+	)
 
 	if req == "" {
 		req = texting.InternalAIImageMessage

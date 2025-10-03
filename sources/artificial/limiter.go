@@ -84,7 +84,23 @@ func (x *UsageLimiter) checkAndIncrement(
 		logger.E("Failed to get monthly usage from Redis", "key", monthlyKey, tracing.InnerError, err)
 		return nil, err
 	}
+	
+	monthlyUsagePercent := 0
+	monthlyRemaining := monthlyLimit - monthlyCount
+	if monthlyLimit > 0 {
+		monthlyUsagePercent = int(float64(monthlyCount) / float64(monthlyLimit) * 100)
+	}
+	
 	if monthlyCount >= monthlyLimit {
+		logger.I("usage_limit_exceeded",
+			"user_id", userID,
+			"user_grade", userGrade,
+			"usage_type", usageType,
+			"limit_type", "monthly",
+			"current_usage", monthlyCount,
+			"limit", monthlyLimit,
+			"usage_percent", monthlyUsagePercent,
+		)
 		return &LimitCheckResult{Exceeded: true, IsDaily: false}, nil
 	}
 
@@ -94,7 +110,23 @@ func (x *UsageLimiter) checkAndIncrement(
 		logger.E("Failed to get daily usage from Redis", "key", dailyKey, tracing.InnerError, err)
 		return nil, err
 	}
+	
+	dailyUsagePercent := 0
+	dailyRemaining := dailyLimit - dailyCount
+	if dailyLimit > 0 {
+		dailyUsagePercent = int(float64(dailyCount) / float64(dailyLimit) * 100)
+	}
+	
 	if dailyCount >= dailyLimit {
+		logger.I("usage_limit_exceeded",
+			"user_id", userID,
+			"user_grade", userGrade,
+			"usage_type", usageType,
+			"limit_type", "daily",
+			"current_usage", dailyCount,
+			"limit", dailyLimit,
+			"usage_percent", dailyUsagePercent,
+		)
 		return &LimitCheckResult{Exceeded: true, IsDaily: true}, nil
 	}
 
@@ -110,6 +142,27 @@ func (x *UsageLimiter) checkAndIncrement(
 		logger.E("Failed to increment usage in Redis", tracing.InnerError, err)
 		return nil, err
 	}
+
+	dailyCount++
+	monthlyCount++
+	dailyUsagePercent = int(float64(dailyCount) / float64(dailyLimit) * 100)
+	monthlyUsagePercent = int(float64(monthlyCount) / float64(monthlyLimit) * 100)
+	dailyRemaining = dailyLimit - dailyCount
+	monthlyRemaining = monthlyLimit - monthlyCount
+
+	logger.I("usage_check_success",
+		"user_id", userID,
+		"user_grade", userGrade,
+		"usage_type", usageType,
+		"daily_usage", dailyCount,
+		"daily_limit", dailyLimit,
+		"daily_remaining", dailyRemaining,
+		"daily_usage_percent", dailyUsagePercent,
+		"monthly_usage", monthlyCount,
+		"monthly_limit", monthlyLimit,
+		"monthly_remaining", monthlyRemaining,
+		"monthly_usage_percent", monthlyUsagePercent,
+	)
 
 	return &LimitCheckResult{Exceeded: false}, nil
 }

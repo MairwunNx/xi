@@ -237,9 +237,18 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		pins = []*entities.Pin{}
 	}
 
-	if len(pins) > 0 {
+	pinsUsed := len(pins) > 0
+	pinsCount := len(pins)
+	if pinsUsed {
 		prompt += "," + x.formatPinsForPrompt(pins)
 	}
+
+	log.I("dialer_pins_status",
+		"pins_used", pinsUsed,
+		"pins_count", pinsCount,
+		"user_id", user.ID,
+		"chat_id", msg.Chat.ID,
+	)
 
 	messages := []openrouter.ChatCompletionMessage{
 		{
