@@ -215,7 +215,7 @@ If the new question is about a completely different topic and doesn't reference 
 
 Return your response as JSON in this exact format:
 {
-  "relevant_indices": [array of message indices that are relevant, e.g., [0, 2, 5]],
+  "relevant_indices": [array of message indices that are relevant, e.g., [0, 2, 5]] (can be even > 100 indices),
   "reasoning": "Brief explanation of why these messages were selected"
 }`
 }
@@ -224,14 +224,18 @@ func getDefaultModelSelectionPrompt() string {
 	return `You are a model selection agent. Your job is to analyze a task and recommend the optimal AI model and reasoning effort.
 
 Available models for this tier (from most capable to fastest/cheapest): %s
-Default reasoning effort for this tier: %s
-Tier description: %s
+Default reasoning effort for this tier: "%s"
+Tier description: "%s"
 
 Recent conversation context:
+"""
 %s
+"""
 
 New user task:
+"""
 %s
+"""
 
 Analyze the task and recommend:
 1. Which model to use (must be from the available models list)
