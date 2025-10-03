@@ -213,9 +213,14 @@ Analyze the conversation and determine which messages from the history are relev
 
 If the new question is about a completely different topic and doesn't reference previous conversation, you may return an empty array.
 
+IMPORTANT: You can use ranges to save tokens when selecting multiple consecutive messages!
+- Single indices: "5", "12", "20"
+- Ranges: "1-14" (includes messages 1,2,3...14), "7-9" (includes messages 7,8,9)
+- Mixed: ["0", "3-7", "12", "15-20"] is valid and efficient!
+
 Return your response as JSON in this exact format:
 {
-  "relevant_indices": [array of message indices that are relevant, e.g., [0, 2, 5]] (can be even > 100 indices),
+  "relevant_indices": [array of message indices or ranges as STRINGS, e.g., ["0", "3-7", "12", "15-20"]],
   "reasoning": "Brief explanation of why these messages were selected"
 }`
 }

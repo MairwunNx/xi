@@ -12,10 +12,10 @@ import (
 	openrouter "github.com/revrost/go-openrouter"
 )
 
-// AgentResponse represents the response from context selection agent
+// ContextSelectionResponse represents the response from context selection agent
 type ContextSelectionResponse struct {
-	RelevantIndices []int  `json:"relevant_indices"`
-	Reasoning       string `json:"reasoning"`
+	RelevantIndices []string `json:"relevant_indices"`
+	Reasoning       string   `json:"reasoning"`
 }
 
 // ModelSelectionResponse represents the response from model selection agent
@@ -113,14 +113,19 @@ func (a *AgentSystem) SelectRelevantContext(
 		return history, nil
 	}
 
-	// Extract relevant messages based on indices
+	// Parse indices and ranges into flat list of indices
+	indices, err := a.parseIndicesAndRanges(contextResponse.RelevantIndices, len(history)-1)
+	if err != nil {
+		log.E("Failed to parse indices and ranges", tracing.InnerError, err)
+		log.I("agent_context_selection_failed", "reason", "parse_indices_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		return history, nil
+	}
+
+	// Extract relevant messages based on parsed indices
 	relevantMessages := []platform.RedisMessage{}
-	invalidIndices := 0
-	for _, index := range contextResponse.RelevantIndices {
+	for _, index := range indices {
 		if index >= 0 && index < len(history) {
 			relevantMessages = append(relevantMessages, history[index])
-		} else {
-			invalidIndices++
 		}
 	}
 
@@ -133,8 +138,8 @@ func (a *AgentSystem) SelectRelevantContext(
 		"original_count", len(history),
 		"selected_count", len(relevantMessages),
 		"reduction_percent", reductionPercent,
-		"invalid_indices", invalidIndices,
-		"selected_indices", contextResponse.RelevantIndices,
+		"raw_indices_and_ranges", contextResponse.RelevantIndices,
+		"parsed_indices_count", len(indices),
 		"agent_reasoning", contextResponse.Reasoning,
 		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
@@ -302,6 +307,59 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 		parts = append(parts, fmt.Sprintf("[%d] %s: %s", i, role, msg.Content))
 	}
 	return strings.Join(parts, "\n")
+}
+
+// parseIndicesAndRanges parses index strings that can be either single indices or ranges
+// Examples: "5" -> [5], "1-14" -> [1,2,3,...,14], "7-9" -> [7,8,9]
+func (a *AgentSystem) parseIndicesAndRanges(indicesStrs []string, maxIndex int) ([]int, error) {
+	var result []int
+	seen := make(map[int]bool)
+	
+	for _, str := range indicesStrs {
+		str = strings.TrimSpace(str)
+		
+		// Check if it's a range (contains "-")
+		if strings.Contains(str, "-") {
+			parts := strings.Split(str, "-")
+			if len(parts) != 2 {
+				continue // Invalid range format, skip
+			}
+			
+			var start, end int
+			if _, err := fmt.Sscanf(parts[0], "%d", &start); err != nil {
+				continue // Invalid start, skip
+			}
+			if _, err := fmt.Sscanf(parts[1], "%d", &end); err != nil {
+				continue // Invalid end, skip
+			}
+			
+			// Validate range
+			if start > end || start < 0 || end > maxIndex {
+				continue // Invalid range, skip
+			}
+			
+			// Add all indices in range
+			for i := start; i <= end; i++ {
+				if !seen[i] {
+					result = append(result, i)
+					seen[i] = true
+				}
+			}
+		} else {
+			// Single index
+			var index int
+			if _, err := fmt.Sscanf(str, "%d", &index); err != nil {
+				continue // Invalid index, skip
+			}
+			
+			if index >= 0 && index <= maxIndex && !seen[index] {
+				result = append(result, index)
+				seen[index] = true
+			}
+		}
+	}
+	
+	return result, nil
 }
 
 
