@@ -49,8 +49,8 @@ func (a *AgentSystem) SelectRelevantContext(
 	newUserMessage string,
 	userGrade platform.UserGrade,
 ) ([]platform.RedisMessage, error) {
-	if len(history) == 0 {
-		return []platform.RedisMessage{}, nil
+	if len(history) <= 4 {
+		return history, nil
 	}
 
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentContextTimeout)*time.Second)
