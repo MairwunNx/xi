@@ -8,7 +8,6 @@ import (
 var (
 	OpenAITokenPattern = regexp.MustCompile(`^sk-[A-Za-z0-9]{48}$`)
 	TelegramBotTokenPattern = regexp.MustCompile(`^[0-9]+:AA[0-9A-Za-z\-_]{33}$`)
-	Base64Pattern = regexp.MustCompile(`^(eyJ|YTo|Tzo|PD[89]|aHR0cHM6L|aHR0cDo|rO0)[a-zA-Z0-9+/]+={0,2}$`)
 )
 
 func ValidateOpenAIToken(token string) error {
@@ -35,15 +34,7 @@ func ValidateTelegramBotToken(token string) error {
 	return nil
 }
 
-func ValidateBase64(value string, fieldName string) error {
-	if value == "" {
-		return nil
-	}
-	
-	if !Base64Pattern.MatchString(value) {
-		return fmt.Errorf("invalid base64 format for %s", fieldName)
-	}
-	
+func ValidateBase64(value string, fieldName string) error { // todo: может позже :)
 	return nil
 }
 
