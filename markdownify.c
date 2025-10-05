@@ -1,11 +1,13 @@
 #include <Python.h>
 #include <string.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "markdownify.h"
 
 static int python_initialized = 0;
 static PyObject *telegramify_module = NULL;
 static PyObject *markdownify_func = NULL;
+static pthread_mutex_t python_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int init_python()
 {
@@ -21,7 +23,8 @@ int init_python()
 		{
 			return 0;
 		}
-	}
+    PyEval_InitThreads();
+  }
 
 	telegramify_module = PyImport_ImportModule("telegramify_markdown");
 	if (!telegramify_module)
@@ -62,15 +65,22 @@ char *markdownify(const char *markdown_text)
 		return NULL;
 	}
 
-	if (!init_python())
+  pthread_mutex_lock(&python_mutex);
+
+  if (!init_python())
 	{
-		return strdup(markdown_text);
+    pthread_mutex_unlock(&python_mutex);
+    return strdup(markdown_text);
 	}
 
-	PyObject *py_text = PyUnicode_FromString(markdown_text);
+  PyGILState_STATE gstate = PyGILState_Ensure();
+
+  PyObject *py_text = PyUnicode_FromString(markdown_text);
 	if (!py_text)
 	{
-		return strdup(markdown_text);
+    PyGILState_Release(gstate);
+    pthread_mutex_unlock(&python_mutex);
+    return strdup(markdown_text);
 	}
 
 	PyObject *args = PyTuple_New(1);
@@ -96,7 +106,10 @@ char *markdownify(const char *markdown_text)
 	Py_DECREF(kwargs);
 	Py_DECREF(args);
 
-	return result_str ? result_str : strdup(markdown_text);
+  PyGILState_Release(gstate);
+  pthread_mutex_unlock(&python_mutex);
+
+  return result_str ? result_str : strdup(markdown_text);
 }
 
 void free_result(char *result)
