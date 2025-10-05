@@ -60,7 +60,7 @@ services:
       - ${OUTSIDERS_METRICS_PORT}:10001
     restart: unless-stopped
   ximanager-flyway:
-    command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate'
+    command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 flyway'
     container_name: ximanager-flyway
     cpus: '0.2'
     depends_on:
