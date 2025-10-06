@@ -220,8 +220,7 @@ IMPORTANT: You can use ranges to save tokens when selecting multiple consecutive
 
 Return your response as JSON in this exact format:
 {
-  "relevant_indices": [array of message indices or ranges as STRINGS, e.g., ["0", "3-7", "12", "15-20"]],
-  "reasoning": "Brief explanation of why these messages were selected"
+  "relevant_indices": [array of message indices or ranges as STRINGS, e.g., ["0", "3-7", "12", "15-20"]]
 }`
 }
 
@@ -263,7 +262,6 @@ Return your response as JSON in this exact format:
   "task_complexity": "low/medium/high",
   "requires_speed": true/false,
   "requires_quality": true/false,
-  "is_trolling": true/false,
-  "reasoning": "Brief explanation of your choice"
+  "is_trolling": true/false
 }`
 }

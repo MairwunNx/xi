@@ -173,7 +173,6 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			"requires_speed", modelSelection.RequiresSpeed,
 			"requires_quality", modelSelection.RequiresQuality,
 			"is_trolling", modelSelection.IsTrolling,
-			"agent_reasoning", modelSelection.Reasoning,
 		)
 		
 		if modelSelection.IsTrolling {

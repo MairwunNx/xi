@@ -16,7 +16,6 @@ import (
 // ContextSelectionResponse represents the response from context selection agent
 type ContextSelectionResponse struct {
 	RelevantIndices []string `json:"relevant_indices"`
-	Reasoning       string   `json:"reasoning"`
 }
 
 // ModelSelectionResponse represents the response from model selection agent
@@ -27,7 +26,6 @@ type ModelSelectionResponse struct {
 	RequiresSpeed       bool   `json:"requires_speed"`
 	RequiresQuality     bool   `json:"requires_quality"`
 	IsTrolling          bool   `json:"is_trolling"`
-	Reasoning           string `json:"reasoning"`
 }
 
 // AgentSystem handles the agent-based AI workflow
@@ -134,7 +132,6 @@ func (a *AgentSystem) SelectRelevantContext(
 		"reduction_percent", reductionPercent,
 		"raw_indices_and_ranges", contextResponse.RelevantIndices,
 		"parsed_indices_count", len(indices),
-		"agent_reasoning", contextResponse.Reasoning,
 		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
 	)
@@ -219,7 +216,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
-			Reasoning:        "Fallback to default settings due to agent failure",
 		}, nil
 	}
 
@@ -238,7 +234,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
-			Reasoning:        "Fallback to default settings due to empty choices",
 		}, nil
 	}
 
@@ -260,7 +255,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
-			Reasoning:        "Fallback to default settings due to parsing failure",
 		}, nil
 	}
 
@@ -283,7 +277,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 		"requires_speed", modelResponse.RequiresSpeed,
 		"requires_quality", modelResponse.RequiresQuality,
 		"is_trolling", modelResponse.IsTrolling,
-		"agent_reasoning", modelResponse.Reasoning,
 		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
 	)
