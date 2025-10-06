@@ -7,13 +7,16 @@
 static int python_initialized = 0;
 static PyObject *telegramify_module = NULL;
 static PyObject *markdownify_func = NULL;
-static pthread_mutex_t python_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int init_python()
 {
-	if (python_initialized)
+  pthread_mutex_lock(&init_mutex);
+
+  if (python_initialized)
 	{
-		return 1;
+    pthread_mutex_unlock(&init_mutex);
+    return 1;
 	}
 
 	if (!Py_IsInitialized())
@@ -21,23 +24,25 @@ int init_python()
 		Py_Initialize();
 		if (!Py_IsInitialized())
 		{
-			return 0;
-		}
-    PyEval_InitThreads();
+      pthread_mutex_unlock(&init_mutex);
+      return 0;
+    }
   }
 
-	telegramify_module = PyImport_ImportModule("telegramify_markdown");
+  telegramify_module = PyImport_ImportModule("telegramify_markdown");
 	if (!telegramify_module)
 	{
 		PyErr_Print();
-		return 0;
+    pthread_mutex_unlock(&init_mutex);
+    return 0;
 	}
 
 	markdownify_func = PyObject_GetAttrString(telegramify_module, "markdownify");
 	if (!markdownify_func || !PyCallable_Check(markdownify_func))
 	{
 		PyErr_Print();
-		return 0;
+    pthread_mutex_unlock(&init_mutex);
+    return 0;
 	}
 
 	PyObject *customize_module = PyImport_ImportModule("telegramify_markdown.customize");
@@ -55,7 +60,8 @@ int init_python()
 	}
 
 	python_initialized = 1;
-	return 1;
+  pthread_mutex_unlock(&init_mutex);
+  return 1;
 }
 
 char *markdownify(const char *markdown_text)
@@ -65,23 +71,19 @@ char *markdownify(const char *markdown_text)
 		return NULL;
 	}
 
-  pthread_mutex_lock(&python_mutex);
-
   if (!init_python())
-	{
-    pthread_mutex_unlock(&python_mutex);
+  {
     return strdup(markdown_text);
-	}
+  }
 
   PyGILState_STATE gstate = PyGILState_Ensure();
 
   PyObject *py_text = PyUnicode_FromString(markdown_text);
-	if (!py_text)
+  if (!py_text)
 	{
     PyGILState_Release(gstate);
-    pthread_mutex_unlock(&python_mutex);
     return strdup(markdown_text);
-	}
+  }
 
 	PyObject *args = PyTuple_New(1);
 	PyTuple_SetItem(args, 0, py_text);
@@ -107,7 +109,6 @@ char *markdownify(const char *markdown_text)
 	Py_DECREF(args);
 
   PyGILState_Release(gstate);
-  pthread_mutex_unlock(&python_mutex);
 
   return result_str ? result_str : strdup(markdown_text);
 }
