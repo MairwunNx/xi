@@ -279,6 +279,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		Content: openrouter.Content{Text: req},
 	})
 
+	if len(fallbackModels) > 3 {
+		fallbackModels = fallbackModels[:3]
+	}
+
 	request := openrouter.ChatCompletionRequest{
 		Model:     modelToUse,
 		Models:    fallbackModels,
