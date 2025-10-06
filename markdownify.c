@@ -23,10 +23,14 @@ int init_python()
     }
   }
 
+  /* Ensure we own the GIL while interacting with Python API */
+  PyGILState_STATE gstate = PyGILState_Ensure();
+
   telegramify_module = PyImport_ImportModule("telegramify_markdown");
   if (!telegramify_module)
   {
     PyErr_Print();
+    PyGILState_Release(gstate);
     return 0;
   }
 
@@ -34,6 +38,7 @@ int init_python()
   if (!markdownify_func || !PyCallable_Check(markdownify_func))
   {
     PyErr_Print();
+    PyGILState_Release(gstate);
     return 0;
   }
 
@@ -52,6 +57,7 @@ int init_python()
   }
 
   python_initialized = 1;
+  PyGILState_Release(gstate);
   return 1;
 }
 
@@ -67,9 +73,13 @@ char *markdownify(const char *markdown_text)
     return strdup(markdown_text);
   }
 
+  /* Acquire GIL for making Python C-API calls from this thread */
+  PyGILState_STATE gstate = PyGILState_Ensure();
+
   PyObject *py_text = PyUnicode_FromString(markdown_text);
   if (!py_text)
   {
+    PyGILState_Release(gstate);
     return strdup(markdown_text);
   }
 
@@ -95,6 +105,9 @@ char *markdownify(const char *markdown_text)
   Py_XDECREF(result);
   Py_DECREF(kwargs);
   Py_DECREF(args);
+
+  /* Release GIL after finishing Python calls */
+  PyGILState_Release(gstate);
 
   return result_str ? result_str : strdup(markdown_text);
 }
