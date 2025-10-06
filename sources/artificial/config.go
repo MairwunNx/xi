@@ -197,7 +197,7 @@ func (c *AIConfig) GetModelSelectionPrompt() string {
 }
 
 func getDefaultContextSelectionPrompt() string {
-	return `You are a context selection agent. Your job is to analyze conversation history and determine which messages are relevant for answering a new user question.
+	return `You are a context selection agent. Your task is to analyze a conversation history and select which messages are relevant for answering the new user question.
 
 Conversation history:
 %s
@@ -205,22 +205,27 @@ Conversation history:
 New user question:
 %s
 
-Analyze the conversation and determine which messages from the history are relevant to answering the new question. Consider:
-1. Topical relevance - are previous messages about the same or related topic?
-2. Context dependency - does the new question reference or build upon previous messages?
-3. Conversation flow - are there important context clues in recent messages?
-4. User intent - if the user explicitly asks to "remember" or "continue" something, include relevant history.
+Your goal: include all messages that help the model correctly understand and answer the new question.
 
-If the new question is about a completely different topic and doesn't reference previous conversation, you may return an empty array.
+Evaluate relevance using these principles (in order of importance):
 
-IMPORTANT: You can use ranges to save tokens when selecting multiple consecutive messages!
-- Single indices: "5", "12", "20"
-- Ranges: "1-14" (includes messages 1,2,3...14), "7-9" (includes messages 7,8,9)
-- Mixed: ["0", "3-7", "12", "15-20"] is valid and efficient!
+1. **Direct reference** — If the new question explicitly refers to earlier content (e.g. “as before”, “that idea”, “continue”), include the full referenced part.
+2. **Logical flow** — If several messages form a connected reasoning chain (e.g. question → clarification → response → follow-up), include the entire chain, not just the final message.
+3. **Topical relation** — Include messages that are about the same or closely related topic, even if phrased differently.
+4. **Recent context** — Prefer messages near the end of the conversation if they help understand tone, focus, or ongoing context.
+5. **Continuity bias** — When uncertain, include *slightly more* context rather than too little.
 
-Return your response as JSON in this exact format:
+If the new question is completely unrelated to previous topics, return an empty list.
+
+💡 Tip: You can select **ranges** to keep the output compact when messages are consecutive.
+Examples:
+- Single messages: "5", "12"
+- Ranges: "3-7" (includes 3,4,5,6,7)
+- Mixed: ["0", "3-7", "12", "15-20"]
+
+Return **only** JSON in this exact format:
 {
-  "relevant_indices": [array of message indices or ranges as STRINGS, e.g., ["0", "3-7", "12", "15-20"]]
+  "relevant_indices": ["0", "3-7", "12"]
 }`
 }
 
