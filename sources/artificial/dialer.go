@@ -301,21 +301,25 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				Type: openrouter.ToolTypeFunction,
 				Function: &openrouter.FunctionDefinition{
 					Name:        "temporary_ban",
-					Description: "Apply temporary ban to user for violations. Use ONLY for serious and repeated violations. Prefer warnings over bans. IMPORTANT: Always warn user before banning, give them a chance to improve! Violation severity (most to least): 1) explicit prolonged rudeness, 2) explicit prolonged trolling, 3) explicit prolonged spam, 4) meaningless message chains, 5) very heavy tasks. Consider: message timing patterns, content, history. Ban duration based on severity: heavy tasks=30s-1m, light spam=1m-5m, serious rudeness=30m-2h. Max 12h. Min 0 (don't call). When banning: naturally explain in response that ban applied, mention reason and duration, give advice to avoid future bans.",
+					Description: "Temporarily ban user for violations. STRICT RULES:\n\nWHEN TO CALL:\n- Minimum 2 similar violations within last 10 messages\n- After explicit warning given (or include warning in current response)\n- Pattern of repeated behavior, NOT isolated incident\n- User ignored previous warning\n\nVIOLATION TYPES (severity → duration):\n1. Explicit prolonged rudeness/insults → 30m-2h\n2. Explicit prolonged trolling → 10m-1h\n3. Explicit prolonged spam/flood → 1m-10m\n4. Meaningless message chains → 1m-5m\n5. Very heavy computational tasks → 30s-2m\n\nDO NOT BAN FOR:\n- Criticism, disagreement, debate\n- Single off-topic messages\n- Poor language quality, typos, slang\n- Questions or confusion\n- First-time minor violations\n- Sarcasm or humor\n- Simple misunderstandings\n\nPROCESS:\n1. Warn user first (in current response)\n2. If violation continues → call this tool\n3. Tool will send notice to user automatically\n4. Do NOT mention ban in your response text\n\nMax ban: 12h. When in doubt, DON'T call.",
 					Parameters: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
 							"duration": map[string]interface{}{
 								"type":        "string",
-								"description": "Ban duration format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Max 12 hours. Examples: heavy task=30s-1m, light spam=1m-5m, serious rudeness=30m-2h",
+								"description": "Ban duration based on violation severity. Format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Examples: heavy task=30s-1m, spam=1m-10m, rudeness=30m-2h",
 								"enum":        []string{"30s", "45s", "1m", "90s", "2m", "3m", "5m", "7m", "10m", "15m", "20m", "30m", "45m", "1h", "90m", "2h", "3h", "4h", "5h", "6h", "8h", "10h", "12h"},
 							},
 							"reason": map[string]interface{}{
 								"type":        "string",
-								"description": "Reason for ban in Russian language. Formulate freely as you see fit. Examples: 'продолжительное хамство', 'троллинг', 'флуд', 'тяжелая задача'",
+								"description": "Brief internal reason tag (Russian). Examples: 'хамство', 'троллинг', 'флуд', 'спам', 'тяжелая задача'",
+							},
+							"notice": map[string]interface{}{
+								"type":        "string",
+								"description": "Full notice to user in Russian. Explain: what violated, why banned, duration, how to avoid future bans. Tone: firm but fair. Example: 'Временная блокировка на 10 минут за продолжительный флуд. Пожалуйста, избегайте отправки множества коротких бессмысленных сообщений подряд.'",
 							},
 						},
-						"required": []string{"duration", "reason"},
+						"required": []string{"duration", "reason", "notice"},
 					},
 				},
 			},
@@ -367,7 +371,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return "", fmt.Errorf("empty choices in AI response")
 	}
 
-	responseText := response.Choices[0].Message.Content.Text
+	var responseText string
+  
+  if len(response.Choices) > 0 {
+    responseText = response.Choices[0].Message.Content.Text
+  }
+
+	var banNotice string
 	
 	if len(response.Choices[0].Message.ToolCalls) > 0 {
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
@@ -377,6 +387,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				var banArgs struct {
 					Duration string `json:"duration"`
 					Reason   string `json:"reason"`
+					Notice   string `json:"notice"`
 				}
 				
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &banArgs); err != nil {
@@ -387,9 +398,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
 				if err != nil {
 					log.E("Failed to create ban from tool call", tracing.InnerError, err)
-					responseText += "\n\n_(Attempt to apply ban failed due to technical error)_"
+					// Don't expose technical error to user, just log it
 				} else {
-					log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason)
+					log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason, "notice", banArgs.Notice)
+					if banArgs.Notice != "" {
+						banNotice = "\n\n" + banArgs.Notice
+					}
 				}
 			}
 		}
@@ -420,6 +434,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	if limitWarning != "" {
 		responseText += limitWarning
+	}
+
+	if banNotice != "" {
+		responseText += banNotice
 	}
 
 	return responseText, nil
