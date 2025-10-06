@@ -163,10 +163,28 @@ func (a *AgentSystem) SelectModelAndEffort(
 	
 	trollingModelsText := strings.Join(a.config.TrollingModels, ", ")
 	
+	// Build downgrade models text based on user grade
+	downgradeModelsText := ""
+	switch userGrade {
+	case platform.GradeGold:
+		silverModels := a.config.GradeLimits[platform.GradeSilver].DialerModels
+		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Silver tier models: %s\n- Bronze tier models: %s", 
+			strings.Join(silverModels, ", "), 
+			strings.Join(bronzeModels, ", "))
+	case platform.GradeSilver:
+		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Bronze tier models: %s", 
+			strings.Join(bronzeModels, ", "))
+	case platform.GradeBronze:
+		downgradeModelsText = ""
+	}
+	
 	systemMessage := fmt.Sprintf(prompt, 
 		tierPolicy.ModelsText,
 		tierPolicy.DefaultReasoning,
 		tierPolicy.Description,
+		downgradeModelsText,
 		contextText,
 		newUserMessage,
 		trollingModelsText,

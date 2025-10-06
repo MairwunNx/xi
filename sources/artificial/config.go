@@ -227,9 +227,15 @@ Return your response as JSON in this exact format:
 func getDefaultModelSelectionPrompt() string {
 	return `You are a model selection agent. Your job is to analyze a task and recommend the optimal AI model and reasoning effort.
 
-Available models for this tier (from most capable to fastest/cheapest): %s
+Available models for this tier: %s
 Default reasoning effort for this tier: "%s"
 Tier description: "%s"
+%s
+
+IMPORTANT: 
+- PREFER tier models for quality, complex, or important tasks
+- Consider downgrade models ONLY for simple, quick, or trivial tasks
+- When in doubt, choose tier models - they provide better quality
 
 Recent conversation context:
 """
@@ -242,17 +248,18 @@ New user task:
 """
 
 Analyze the task and recommend:
-1. Which model to use (must be from the available models list)
+1. Which model to use (must be from the available tier models OR downgrade models if listed)
 2. What reasoning effort level (low/medium/high)
 3. Task complexity assessment
 4. Whether user needs speed vs quality
 5. Whether this appears to be trolling/testing behavior
 
 Consider:
-- Complex coding, analysis, research tasks → higher capability model + higher reasoning
-- Simple questions, quick answers → faster model + lower reasoning
-- User requests for "quick" or "fast" → prioritize speed
-- User requests for "detailed" or "thorough" → prioritize quality
+- Complex coding, analysis, research tasks → ALWAYS use tier models + higher reasoning
+- Medium complexity tasks → prefer tier models + medium reasoning
+- Simple questions, quick answers → downgrade models acceptable + lower reasoning
+- User requests for "quick" or "fast" → consider downgrade models if task is truly simple
+- User requests for "detailed" or "thorough" → ALWAYS use tier models + prioritize quality
 - Nonsensical, repetitive, or obviously testing queries → use trolling models (%s)
 
 Return your response as JSON in this exact format:
