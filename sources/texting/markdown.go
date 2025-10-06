@@ -7,23 +7,86 @@ package texting
 */
 import "C"
 import (
+	"context"
+	"errors"
 	"log/slog"
+	"runtime"
 	"strings"
 	"sync"
+	"time"
 	"unsafe"
 )
 
+type mdReq struct {
+	in   string
+	out  chan string
+}
+
 var (
-	markdownMutex sync.Mutex
+	mdOnce sync.Once
+	mdCh   chan mdReq
 )
+
+func ensureMDWorker() {
+	mdOnce.Do(func() {
+		mdCh = make(chan mdReq, 256) // буфер на bursts
+		go func() {
+			runtime.LockOSThread()
+			defer runtime.UnlockOSThread()
+
+			for r := range mdCh {
+				r.out <- EscapeMarkdown(r.in)
+			}
+		}()
+	})
+}
+
+func EscapeMarkdownActor(in string) string {
+	ensureMDWorker()
+	reply := make(chan string, 1)
+	mdCh <- mdReq{in: in, out: reply}
+	return <-reply
+}
+
+func EscapeMarkdownActorCtx(ctx context.Context, in string) (string, error) {
+	ensureMDWorker()
+	reply := make(chan string, 1)
+
+	select {
+	case mdCh <- mdReq{in: in, out: reply}:
+		// ok
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+
+	select {
+	case res := <-reply:
+		return res, nil
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func EscapeMarkdownActorWithTimeout(in string, d time.Duration) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), d)
+	defer cancel()
+	return EscapeMarkdownActorCtx(ctx, in)
+}
+
+var ErrActorClosed = errors.New("markdown actor closed")
+
+func CloseMarkdownActor() error {
+	if mdCh == nil {
+		return nil
+	}
+	close(mdCh)
+	return nil
+}
 
 func EscapeMarkdown(input string) string {
 	if len(input) == 0 {
 		return input
 	}
-
-	markdownMutex.Lock()
-	defer markdownMutex.Unlock()
 
 	cInput := C.CString(input)
 	defer C.free(unsafe.Pointer(cInput))

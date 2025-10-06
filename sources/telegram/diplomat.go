@@ -25,7 +25,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 	tracing.ReportExecution(logger,
 		func() {
 			for _, chunk := range texting.Chunks(text, x.config.ChunkSize) {
-				chattable := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(chunk))
+				chattable := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdownActor(chunk))
 				chattable.ReplyToMessageID = msg.MessageID
 				chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
@@ -51,7 +51,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 
 				if _, err := x.bot.Send(chattable); err != nil {
 					logger.E("Message chunk sending error", tracing.InnerError, err)
-					emsg := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdown(texting.MsgXiError))
+					emsg := tgbotapi.NewMessage(msg.Chat.ID, texting.EscapeMarkdownActor(texting.MsgXiError))
 					emsg.ReplyToMessageID = msg.MessageID
 					emsg.ParseMode = tgbotapi.ModeMarkdownV2
 
