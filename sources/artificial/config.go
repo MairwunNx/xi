@@ -129,7 +129,7 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeSilver: {
-				DialerModels:          platform.GetAsSlice("SILVER_DIALER_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-sonnet-3.7", "x-ai/grok-3", "openai/gpt-4.1", "x-ai/grok-4"}),
+				DialerModels:          platform.GetAsSlice("SILVER_DIALER_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet", "x-ai/grok-3", "openai/gpt-4.1", "x-ai/grok-4"}),
 				DialerReasoningEffort: platform.Get("SILVER_DIALER_REASONING_EFFORT", "medium"),
 				VisionPrimaryModel:    platform.Get("SILVER_VISION_PRIMARY_MODEL", "openai/gpt-4.1"),
 				VisionFallbackModels:  platform.GetAsSlice("SILVER_VISION_FALLBACK_MODELS", []string{}),
@@ -148,7 +148,7 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeGold: {
-				DialerModels:          platform.GetAsSlice("GOLD_DIALER_MODELS", []string{"anthropic/claude-opus-4.1", "anthropic/claude-sonnet-4", "openai/gpt-5", "google/gemini-2.5-pro", "anthropic/claude-sonnet-3.7", "openai/gpt-4.1"}),
+				DialerModels:          platform.GetAsSlice("GOLD_DIALER_MODELS", []string{"anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4", "openai/gpt-5", "google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet", "openai/gpt-4.1"}),
 				DialerReasoningEffort: platform.Get("GOLD_DIALER_REASONING_EFFORT", "high"),
 				VisionPrimaryModel:    platform.Get("GOLD_VISION_PRIMARY_MODEL", "openai/o1"),
 				VisionFallbackModels:  platform.GetAsSlice("GOLD_VISION_FALLBACK_MODELS", []string{}),
