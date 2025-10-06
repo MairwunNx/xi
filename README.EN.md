@@ -135,7 +135,7 @@ If you want to use a pre-built image and manage PostgreSQL/Redis yourself:
 ```yaml
 services:
   ximanager:
-    image: ghcr.io/mairwunnx/ximanager:4.2.0
+    image: ghcr.io/mairwunnx/ximanager:4.2.2
     env_file: .env
     environment:
       REDIS_ADDRESS: ${REDIS_ADDRESS}
