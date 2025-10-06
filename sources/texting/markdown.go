@@ -9,13 +9,21 @@ import "C"
 import (
 	"log/slog"
 	"strings"
+	"sync"
 	"unsafe"
+)
+
+var (
+	markdownMutex sync.Mutex
 )
 
 func EscapeMarkdown(input string) string {
 	if len(input) == 0 {
 		return input
 	}
+
+	markdownMutex.Lock()
+	defer markdownMutex.Unlock()
 
 	cInput := C.CString(input)
 	defer C.free(unsafe.Pointer(cInput))
