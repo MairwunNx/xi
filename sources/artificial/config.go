@@ -277,17 +277,24 @@ Conversation history:
 New user question:
 %s
 
-Your goal: include all messages that help the model correctly understand and answer the new question.
+Goal:
+Select all messages that help the model correctly understand and respond to the new message — including implied or indirect context.
 
-Evaluate relevance using these principles (in order of importance):
+Evaluate relevance using these rules (in order of importance):
 
-1. **Direct reference** — If the new question explicitly refers to earlier content (e.g. “as before”, “that idea”, “continue”), include the full referenced part.
-2. **Logical flow** — If several messages form a connected reasoning chain (e.g. question → clarification → response → follow-up), include the entire chain, not just the final message.
-3. **Topical relation** — Include messages that are about the same or closely related topic, even if phrased differently.
-4. **Recent context** — Prefer messages near the end of the conversation if they help understand tone, focus, or ongoing context.
-5. **Continuity bias** — When uncertain, include *slightly more* context rather than too little.
+1. **Direct reference** — If the new message refers to, quotes, or builds upon earlier content (even indirectly), include that part fully.
+2. **Logical and conversational flow** — If several messages form a continuous conversation (even with slight topic drift), include the whole chain until the topic clearly changes.
+3. **Semantic relation** — Include messages that are conceptually or emotionally related, even if they use different words or topics.  
+   *Example: “А какие вопросы?” → previous Q&A context.*
+4. **Recency and tone** — Prefer the most recent messages, especially those establishing tone, personality, or current topic focus.
+5. **Continuity bias** — When uncertain, **err on the side of including more context**, especially recent relevant messages.
 
-If the new question is completely unrelated to previous topics, return an empty list.
+Additional guidance:
+- Small talk, acknowledgments, or “thank you” messages can still carry context — include them if they help preserve flow.
+- If the user asks meta-questions (“что мы обсуждали?”, “а ты помнишь?”), include *all relevant prior topics* that could match the reference.
+- If the conversation is long and multi-topic, select the last coherent segment (e.g. the last topic that lasted several turns).
+
+If the new message is clearly unrelated to all previous topics, you may return an empty list.
 
 💡 Tip: You can select **ranges** to keep the output compact when messages are consecutive.
 Examples:

@@ -33,7 +33,8 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 
 	x.diplomat.SendTyping(log, msg.Chat.ID)
 
-	response, err := x.dialer.Dial(log, msg, req, msg.From.FirstName+" "+msg.From.LastName, true)
+  persona := msg.From.FirstName+" "+msg.From.LastName + " (@" + msg.From.UserName + ")"
+	response, err := x.dialer.Dial(log, msg, req, persona, true)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
 		return
@@ -73,7 +74,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 		req = msg.Caption
 	}
 
-	persona := msg.From.FirstName + " " + msg.From.LastName
+	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 	response, err := x.vision.Visionify(log, iurl, user, msg.Chat.ID, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
@@ -135,7 +136,8 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	}
 
 	if userPrompt != "" {
-		response, err := x.dialer.Dial(log, msg, transcriptedText, msg.From.FirstName+" "+msg.From.LastName, false)
+    persona := msg.From.FirstName+" "+msg.From.LastName + " (@" + msg.From.UserName + ")"
+		response, err := x.dialer.Dial(log, msg, transcriptedText, persona, false)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
 			x.diplomat.Reply(log, msg, texting.MsgAudioError)

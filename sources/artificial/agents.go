@@ -190,8 +190,6 @@ func (a *AgentSystem) SelectModelAndEffort(
 		newUserMessage,
 	)
 
-	log.I("agent_model_selection_prompt", "prompt", systemMessage)
-
 	messages := []openrouter.ChatCompletionMessage{
 		{
 			Role:    openrouter.ChatMessageRoleSystem,

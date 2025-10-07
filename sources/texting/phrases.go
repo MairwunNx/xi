@@ -1,7 +1,6 @@
 package texting
 
 const (
-	InternalAIGreetingMessage = "Меня зовут '%s'. %s"
 	InternalAIImageMessage    = "Опиши что изображено на картинке. Обязательно попытайся ответить."
 	InternalAIAudioMessage    = "Транскрибируй аудио файл максимально точно."
 	InternalAIAudioPrompt     = "Текст для обработки"
