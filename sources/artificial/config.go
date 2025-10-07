@@ -232,7 +232,8 @@ Return **only** JSON in this exact format:
 func getDefaultModelSelectionPrompt() string {
 	return `You are a model selection agent. Your job is to analyze a user task and recommend the most efficient AI model and reasoning effort — balancing quality, speed, and cost.
 
-Available models for this tier (listed from LEAST to MOST capable): 
+Available models for this tier (from MOST to LEAST capable), with AAI score (0–100), price per 1M tokens, and context window:
+
 %s
 
 Default reasoning effort for this tier: "%s"
@@ -250,6 +251,18 @@ Your goals:
 - **Reserve top-tier models and high reasoning** only for tasks that truly require deep reasoning, multi-step planning, or advanced coding/research.
 - **Prefer efficiency** (faster + cheaper) for simple, factual, or routine tasks.
 
+Downgrade procedure (you MUST follow this):
+1) Start by assuming the TOP model is selected.
+2) Attempt to DOWNGRADE step-by-step to the next cheaper/faster model if ALL are true:
+   - The task is short or routine (no deep multi-step reasoning, no novel code, no research).
+   - Expected answer ≤ 6 sentences OR code change is local/simple OR it's casual chat.
+   - No high-stakes accuracy signals (health/finance/legal/mission-critical).
+3) STOP downgrading at the smallest model that remains clearly capable.
+4) If uncertain, prefer MEDIUM reasoning effort over HIGH.
+
+Guardrail:
+- Choosing a top-tier model + HIGH reasoning for simple or conversational tasks is considered a mistake.
+
 Decision logic clarification:
 - Begin with the **least powerful tier model** and reason upward only if it is likely to fail.
 - Prefer **staying within the tier** (users paid for its quality) unless the task is extremely trivial.
@@ -264,6 +277,7 @@ Guidelines:
 5. **User requests "detailed", "thorough", "in-depth" → prioritize quality and higher reasoning.**
 6. **If the task looks like trolling, testing, or nonsense → use trolling models (%s).**
 7. **Never default to top-tier + high reasoning** unless task clearly justifies it (complexity or stakes are obvious).
+8. Casual conversational turns (small talks) → prefer lower effort; select a mid/efficient model within the tier unless deep analysis is requested.
 
 Heuristics:
 - Ask yourself: “Would an average competent model solve this correctly in one pass?”  
