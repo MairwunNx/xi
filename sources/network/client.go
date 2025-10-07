@@ -13,13 +13,13 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-func NewProxyClient(proxy proxy.Dialer, log *tracing.Logger) *http.Client {
+func NewProxyClient(proxy proxy.Dialer, config *ProxyConfig, log *tracing.Logger) *http.Client {
 	dc := func(ctx context.Context, network, address string) (net.Conn, error) {
 		return proxy.Dial(network, address)
 	}
 
 	return &http.Client{
-		Timeout: 1 * time.Minute,
+		Timeout: time.Duration(config.TimeoutSeconds),
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           dc,
