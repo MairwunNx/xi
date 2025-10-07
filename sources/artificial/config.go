@@ -161,9 +161,10 @@ func NewAIConfig() *AIConfig {
 				DialerModels: parseModelsJSON(
 					platform.Get("BRONZE_DIALER_MODELS", ""),
 					[]ModelMeta{
-						{Name: "anthropic/claude-3.5-sonnet", AAI: 75, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
-						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
-						{Name: "google/gemini-2.5-flash", AAI: 70, InputPricePerM: "$0.075", OutputPricePerM: "$0.3", CtxTokens: "1M"},
+						{Name: "openai/gpt-4.1", AAI: 43, InputPricePerM: "$2", OutputPricePerM: "$8", CtxTokens: "1M"},
+						{Name: "anthropic/claude-3.7-sonnet", AAI: 34, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
+						{Name: "google/gemini-2.5-flash", AAI: 33, InputPricePerM: "$0.30", OutputPricePerM: "$2.50", CtxTokens: "1M"},
+						{Name: "anthropic/claude-3.5-sonnet", AAI: 30, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
 					},
 				),
 				DialerReasoningEffort: platform.Get("BRONZE_DIALER_REASONING_EFFORT", "medium"),
@@ -187,11 +188,9 @@ func NewAIConfig() *AIConfig {
 				DialerModels: parseModelsJSON(
 					platform.Get("SILVER_DIALER_MODELS", ""),
 					[]ModelMeta{
-						{Name: "google/gemini-2.5-pro", AAI: 85, InputPricePerM: "$1.25", OutputPricePerM: "$5", CtxTokens: "2M"},
-						{Name: "anthropic/claude-3.7-sonnet", AAI: 87, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
-						{Name: "x-ai/grok-3", AAI: 83, InputPricePerM: "$2", OutputPricePerM: "$10", CtxTokens: "128k"},
-						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
-						{Name: "x-ai/grok-4", AAI: 88, InputPricePerM: "$5", OutputPricePerM: "$15", CtxTokens: "128k"},
+						{Name: "google/gemini-2.5-pro", AAI: 60, InputPricePerM: "$1.25", OutputPricePerM: "$10", CtxTokens: "1M"},
+						{Name: "anthropic/claude-3.7-sonnet:thinking", AAI: 50, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
+						{Name: "openai/gpt-4.1", AAI: 43, InputPricePerM: "$2", OutputPricePerM: "$8", CtxTokens: "1M"},
 					},
 				),
 				DialerReasoningEffort: platform.Get("SILVER_DIALER_REASONING_EFFORT", "medium"),
@@ -215,12 +214,11 @@ func NewAIConfig() *AIConfig {
 				DialerModels: parseModelsJSON(
 					platform.Get("GOLD_DIALER_MODELS", ""),
 					[]ModelMeta{
-						{Name: "anthropic/claude-sonnet-4.5", AAI: 95, InputPricePerM: "$15", OutputPricePerM: "$75", CtxTokens: "400k"},
-						{Name: "anthropic/claude-sonnet-4", AAI: 93, InputPricePerM: "$12", OutputPricePerM: "$60", CtxTokens: "200k"},
-						{Name: "openai/gpt-5", AAI: 92, InputPricePerM: "$10", OutputPricePerM: "$30", CtxTokens: "256k"},
-						{Name: "google/gemini-2.5-pro", AAI: 85, InputPricePerM: "$1.25", OutputPricePerM: "$5", CtxTokens: "2M"},
-						{Name: "anthropic/claude-3.7-sonnet", AAI: 87, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
-						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
+						{Name: "openai/gpt-5-pro", AAI: 68, InputPricePerM: "$15", OutputPricePerM: "$120", CtxTokens: "400k"},
+						{Name: "x-ai/grok-4", AAI: 65, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "256k"},
+						{Name: "anthropic/claude-sonnet-4.5", AAI: 63, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "1M"},
+						{Name: "google/gemini-2.5-pro", AAI: 60, InputPricePerM: "$1.25", OutputPricePerM: "$10", CtxTokens: "1M"},
+						{Name: "anthropic/claude-sonnet-4", AAI: 57, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "1M"},
 					},
 				),
 				DialerReasoningEffort: platform.Get("GOLD_DIALER_REASONING_EFFORT", "high"),
