@@ -167,14 +167,14 @@ func (a *AgentSystem) SelectModelAndEffort(
 	downgradeModelsText := ""
 	switch userGrade {
 	case platform.GradeGold:
-		silverModels := a.config.GradeLimits[platform.GradeSilver].DialerModels
-		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
-		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Silver tier models: %s\n- Bronze tier models: %s", 
+		silverModels := reverseArray(a.config.GradeLimits[platform.GradeSilver].DialerModels)
+		bronzeModels := reverseArray(a.config.GradeLimits[platform.GradeBronze].DialerModels)
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Silver tier models (listed from LEAST to MOST capable): %s\n- Bronze tier models (listed from LEAST to MOST capable): %s", 
 			strings.Join(silverModels, ", "), 
 			strings.Join(bronzeModels, ", "))
 	case platform.GradeSilver:
-		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
-		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Bronze tier models: %s", 
+		bronzeModels := reverseArray(a.config.GradeLimits[platform.GradeBronze].DialerModels)
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Bronze tier models (listed from LEAST to MOST capable): %s", 
 			strings.Join(bronzeModels, ", "))
 	case platform.GradeBronze:
 		downgradeModelsText = ""
@@ -321,6 +321,13 @@ type TierPolicy struct {
 	DowngradeModels  []string
 }
 
+func reverseArray(arr []string) []string {
+	for i := 0; i < len(arr)/2; i++ {
+		arr[i], arr[len(arr)-i-1] = arr[len(arr)-i-1], arr[i]
+	}
+	return arr
+}
+
 func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 	gradeLimits, ok := a.config.GradeLimits[userGrade]
 	if !ok {
@@ -332,9 +339,8 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		silverModels := a.config.GradeLimits[platform.GradeSilver].DialerModels
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
 		downgradeModels := append(silverModels, bronzeModels...)
-		
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       strings.Join(reverseArray(downgradeModels), ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Gold tier: maximum quality, deep reasoning, high reliability",
 			DowngradeModels:  downgradeModels,
@@ -343,23 +349,23 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
 		
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       strings.Join(reverseArray(gradeLimits.DialerModels), ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Silver tier: balance quality and cost, low latency",
 			DowngradeModels:  bronzeModels,
 		}
 	case platform.GradeBronze:
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       strings.Join(reverseArray(gradeLimits.DialerModels), ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Bronze tier: minimal cost and latency",
 			DowngradeModels:  []string{},
 		}
 	default:
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       strings.Join(reverseArray(gradeLimits.DialerModels), ", "),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
-			Description:      "Default tier",
+			Description:      "Unknown tier",
 			DowngradeModels:  []string{},
 		}
 	}

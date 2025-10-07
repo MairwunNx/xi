@@ -135,7 +135,7 @@ docker compose logs -f ximanager
 ```yaml
 services:
   ximanager:
-    image: ghcr.io/mairwunnx/ximanager:4.2.2
+    image: ghcr.io/mairwunnx/ximanager:4.2.3
     env_file: .env
     environment:
       REDIS_ADDRESS: ${REDIS_ADDRESS}

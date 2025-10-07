@@ -230,17 +230,39 @@ Return **only** JSON in this exact format:
 }
 
 func getDefaultModelSelectionPrompt() string {
-	return `You are a model selection agent. Your job is to analyze a task and recommend the optimal AI model and reasoning effort.
+	return `You are a model selection agent. Your job is to analyze a user task and recommend the most efficient AI model and reasoning effort — balancing quality, speed, and cost.
 
-Available models for this tier: %s
+Available models for this tier (listed from LEAST to MOST capable): 
+%s
+
 Default reasoning effort for this tier: "%s"
 Tier description: "%s"
+
 %s
 
 IMPORTANT: 
 - PREFER tier models for quality, complex, or important tasks
 - Consider downgrade models ONLY for simple, quick, or trivial tasks
 - When in doubt, choose tier models - they provide better quality
+
+Your goals:
+- **Use the smallest capable model** that can reliably complete the task with good quality.
+- **Reserve top-tier models and high reasoning** only for tasks that truly require deep reasoning, multi-step planning, or advanced coding/research.
+- **Prefer efficiency** (faster + cheaper) for simple, factual, or routine tasks.
+
+Guidelines:
+1. **Complex / high-risk tasks** (deep reasoning, novel code, research, nuanced judgment): tier models + medium/high reasoning.
+2. **Moderate tasks** (short analysis, moderate code, multi-turn continuation): tier or efficient downgrade models + medium reasoning.
+3. **Simple / direct tasks** (factual Q&A, short instruction, obvious math, rephrase): downgrade models + low reasoning.
+4. **User requests "quick", "fast", "just need a short answer" → prioritize speed and low reasoning.**
+5. **User requests "detailed", "thorough", "in-depth" → prioritize quality and higher reasoning.**
+6. **If the task looks like trolling, testing, or nonsense → use trolling models (%s).**
+7. **Never default to top-tier + high reasoning** unless task clearly justifies it (complexity or stakes are obvious).
+
+Heuristics:
+- Ask yourself: “Would an average competent model solve this correctly in one pass?”  
+  - If yes → downgrade + low/medium reasoning.
+- If uncertain → pick *medium reasoning*, not high.
 
 Recent conversation context:
 """
@@ -252,22 +274,7 @@ New user task:
 %s
 """
 
-Analyze the task and recommend:
-1. Which model to use (must be from the available tier models OR downgrade models if listed)
-2. What reasoning effort level (low/medium/high)
-3. Task complexity assessment
-4. Whether user needs speed vs quality
-5. Whether this appears to be trolling/testing behavior
-
-Consider:
-- Complex coding, analysis, research tasks → ALWAYS use tier models + higher reasoning
-- Medium complexity tasks → prefer tier models + medium reasoning
-- Simple questions, quick answers → downgrade models acceptable + lower reasoning
-- User requests for "quick" or "fast" → consider downgrade models if task is truly simple
-- User requests for "detailed" or "thorough" → ALWAYS use tier models + prioritize quality
-- Nonsensical, repetitive, or obviously testing queries → use trolling models (%s)
-
-Return your response as JSON in this exact format:
+Return only JSON in this format:
 {
   "recommended_model": "exact model name from available list",
   "reasoning_effort": "low/medium/high",
