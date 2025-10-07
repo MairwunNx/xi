@@ -151,13 +151,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	if err != nil {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
 		if len(gradeLimits.DialerModels) > 1 {
-			modelToUse = gradeLimits.DialerModels[1]
+			modelToUse = gradeLimits.DialerModels[1].Name
 		} else if len(gradeLimits.DialerModels) > 0 {
-			modelToUse = gradeLimits.DialerModels[0]
+			modelToUse = gradeLimits.DialerModels[0].Name
 		}
 		reasoningEffort = gradeLimits.DialerReasoningEffort
 		if len(gradeLimits.DialerModels) > 2 {
-			fallbackModels = gradeLimits.DialerModels[2:]
+			fallbackModels = extractModelNames(gradeLimits.DialerModels[2:])
 		} else {
 			fallbackModels = []string{}
 		}
@@ -191,13 +191,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		} else {
 			tierModels := gradeLimits.DialerModels
 			for i, model := range tierModels {
-				if model == modelToUse {
-					fallbackModels = tierModels[i+1:]
+				if model.Name == modelToUse {
+					fallbackModels = extractModelNames(tierModels[i+1:])
 					break
 				}
 			}
 			if len(fallbackModels) == 0 && len(tierModels) > 1 {
-				fallbackModels = tierModels[1:]
+				fallbackModels = extractModelNames(tierModels[1:])
 			}
 		}
 	}

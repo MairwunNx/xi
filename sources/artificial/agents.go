@@ -169,13 +169,13 @@ func (a *AgentSystem) SelectModelAndEffort(
 	case platform.GradeGold:
 		silverModels := a.config.GradeLimits[platform.GradeSilver].DialerModels
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
-		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Silver tier models (listed from LEAST to MOST capable): %s\n- Bronze tier models (listed from LEAST to MOST capable): %s", 
-			strings.Join(silverModels, ", "), 
-			strings.Join(bronzeModels, ", "))
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n\nSilver tier models:\n%s\n\nBronze tier models:\n%s", 
+			formatModelsForPrompt(silverModels), 
+			formatModelsForPrompt(bronzeModels))
 	case platform.GradeSilver:
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
-		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n- Bronze tier models (listed from LEAST to MOST capable): %s", 
-			strings.Join(bronzeModels, ", "))
+		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n\nBronze tier models:\n%s", 
+			formatModelsForPrompt(bronzeModels))
 	case platform.GradeBronze:
 		downgradeModelsText = ""
 	}
@@ -223,9 +223,9 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Failed to get model selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
 		log.I("agent_model_selection_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		gradeLimits := a.config.GradeLimits[userGrade]
-		fallbackModel := gradeLimits.DialerModels[0]
+		fallbackModel := gradeLimits.DialerModels[0].Name
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1]
+			fallbackModel = gradeLimits.DialerModels[1].Name
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
@@ -241,9 +241,9 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Empty choices in model selection response")
 		log.I("agent_model_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		gradeLimits := a.config.GradeLimits[userGrade]
-		fallbackModel := gradeLimits.DialerModels[0]
+		fallbackModel := gradeLimits.DialerModels[0].Name
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1]
+			fallbackModel = gradeLimits.DialerModels[1].Name
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
@@ -262,9 +262,9 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Failed to parse model selection response", tracing.InnerError, err, "response_text", responseText)
 		log.I("agent_model_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		gradeLimits := a.config.GradeLimits[userGrade]
-		fallbackModel := gradeLimits.DialerModels[0]
+		fallbackModel := gradeLimits.DialerModels[0].Name
 		if len(gradeLimits.DialerModels) > 1 {
-			fallbackModel = gradeLimits.DialerModels[1]
+			fallbackModel = gradeLimits.DialerModels[1].Name
 		}
 		return &ModelSelectionResponse{
 			RecommendedModel: fallbackModel,
@@ -318,7 +318,7 @@ type TierPolicy struct {
 	ModelsText       string
 	DefaultReasoning string
 	Description      string
-	DowngradeModels  []string
+	DowngradeModels  []ModelMeta
 }
 
 func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
@@ -333,7 +333,7 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
 		downgradeModels := append(silverModels, bronzeModels...)
 		return TierPolicy{
-			ModelsText:       strings.Join(downgradeModels, ", "),
+			ModelsText:       formatModelsForPrompt(gradeLimits.DialerModels),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Gold tier: maximum quality, deep reasoning, high reliability",
 			DowngradeModels:  downgradeModels,
@@ -342,24 +342,24 @@ func (a *AgentSystem) getTierPolicy(userGrade platform.UserGrade) TierPolicy {
 		bronzeModels := a.config.GradeLimits[platform.GradeBronze].DialerModels
 		
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       formatModelsForPrompt(gradeLimits.DialerModels),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Silver tier: balance quality and cost, low latency",
 			DowngradeModels:  bronzeModels,
 		}
 	case platform.GradeBronze:
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       formatModelsForPrompt(gradeLimits.DialerModels),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Bronze tier: minimal cost and latency",
-			DowngradeModels:  []string{},
+			DowngradeModels:  []ModelMeta{},
 		}
 	default:
 		return TierPolicy{
-			ModelsText:       strings.Join(gradeLimits.DialerModels, ", "),
+			ModelsText:       formatModelsForPrompt(gradeLimits.DialerModels),
 			DefaultReasoning: gradeLimits.DialerReasoningEffort,
 			Description:      "Unknown tier",
-			DowngradeModels:  []string{},
+			DowngradeModels:  []ModelMeta{},
 		}
 	}
 }
@@ -373,7 +373,7 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	
 	// Check tier models first
 	for _, model := range gradeLimits.DialerModels {
-		if model == response.RecommendedModel {
+		if model.Name == response.RecommendedModel {
 			modelValid = true
 			break
 		}
@@ -382,7 +382,7 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	// Check downgrade models
 	if !modelValid {
 		for _, model := range tierPolicy.DowngradeModels {
-			if model == response.RecommendedModel {
+			if model.Name == response.RecommendedModel {
 				modelValid = true
 				break
 			}
@@ -406,9 +406,9 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 		if response.IsTrolling && len(a.config.TrollingModels) > 0 {
 			response.RecommendedModel = a.config.TrollingModels[0]
 		} else if len(gradeLimits.DialerModels) > 1 {
-			response.RecommendedModel = gradeLimits.DialerModels[1]
+			response.RecommendedModel = gradeLimits.DialerModels[1].Name
 		} else if len(gradeLimits.DialerModels) > 0 {
-			response.RecommendedModel = gradeLimits.DialerModels[0]
+			response.RecommendedModel = gradeLimits.DialerModels[0].Name
 		}
 	}
 	

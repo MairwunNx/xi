@@ -2,7 +2,9 @@ package artificial
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"ximanager/sources/platform"
 
 	"github.com/sashabaranov/go-openai"
@@ -31,8 +33,16 @@ type AIConfig struct {
 	TrollingModels []string
 }
 
+type ModelMeta struct {
+	Name            string `json:"name"`
+	AAI             int    `json:"aai"`
+	InputPricePerM  string `json:"input_price_per_m"`
+	OutputPricePerM string `json:"output_price_per_m"`
+	CtxTokens       string `json:"ctx_tokens"`
+}
+
 type GradeLimits struct {
-	DialerModels          []string
+	DialerModels          []ModelMeta
 	DialerReasoningEffort string
 	VisionPrimaryModel    string
 	VisionFallbackModels  []string
@@ -80,6 +90,44 @@ func (c *AIConfig) Validate() error {
 	return nil
 }
 
+func parseModelsJSON(jsonStr string, defaultModels []ModelMeta) []ModelMeta {
+	if jsonStr == "" {
+		return defaultModels
+	}
+	
+	var models []ModelMeta
+	if err := json.Unmarshal([]byte(jsonStr), &models); err != nil {
+		return defaultModels
+	}
+	
+	return models
+}
+
+// Format: - `<model_name>` — AAI <0-100> | Input ($/1M tokens): <input price> | Output ($/1M tokens): <output price> | context tokens: <tokens>
+func formatModelsForPrompt(models []ModelMeta) string {
+	var lines []string
+	for _, model := range models {
+		line := fmt.Sprintf("- `%s` — AAI %d | Input ($/1M tokens): %s | Output ($/1M tokens): %s | context tokens: %s",
+			model.Name,
+			model.AAI,
+			model.InputPricePerM,
+			model.OutputPricePerM,
+			model.CtxTokens,
+		)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// extractModelNames extracts model names from ModelMeta slice
+func extractModelNames(models []ModelMeta) []string {
+	names := make([]string, len(models))
+	for i, model := range models {
+		names[i] = model.Name
+	}
+	return names
+}
+
 func NewAIConfig() *AIConfig {
 	config := &AIConfig{
 		OpenRouterToken: platform.Get("OPENROUTER_API_KEY", ""),
@@ -110,7 +158,14 @@ func NewAIConfig() *AIConfig {
 		},
 		GradeLimits: map[platform.UserGrade]GradeLimits{
 			platform.GradeBronze: {
-				DialerModels:          platform.GetAsSlice("BRONZE_DIALER_MODELS", []string{"anthropic/claude-3.5-sonnet", "openai/gpt-4.1", "google/gemini-2.5-flash"}),
+				DialerModels: parseModelsJSON(
+					platform.Get("BRONZE_DIALER_MODELS", ""),
+					[]ModelMeta{
+						{Name: "anthropic/claude-3.5-sonnet", AAI: 75, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
+						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
+						{Name: "google/gemini-2.5-flash", AAI: 70, InputPricePerM: "$0.075", OutputPricePerM: "$0.3", CtxTokens: "1M"},
+					},
+				),
 				DialerReasoningEffort: platform.Get("BRONZE_DIALER_REASONING_EFFORT", "medium"),
 				VisionPrimaryModel:    platform.Get("BRONZE_VISION_PRIMARY_MODEL", "openai/chatgpt-4o-latest"),
 				VisionFallbackModels:  platform.GetAsSlice("BRONZE_VISION_FALLBACK_MODELS", []string{}),
@@ -129,7 +184,16 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeSilver: {
-				DialerModels:          platform.GetAsSlice("SILVER_DIALER_MODELS", []string{"google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet", "x-ai/grok-3", "openai/gpt-4.1", "x-ai/grok-4"}),
+				DialerModels: parseModelsJSON(
+					platform.Get("SILVER_DIALER_MODELS", ""),
+					[]ModelMeta{
+						{Name: "google/gemini-2.5-pro", AAI: 85, InputPricePerM: "$1.25", OutputPricePerM: "$5", CtxTokens: "2M"},
+						{Name: "anthropic/claude-3.7-sonnet", AAI: 87, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
+						{Name: "x-ai/grok-3", AAI: 83, InputPricePerM: "$2", OutputPricePerM: "$10", CtxTokens: "128k"},
+						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
+						{Name: "x-ai/grok-4", AAI: 88, InputPricePerM: "$5", OutputPricePerM: "$15", CtxTokens: "128k"},
+					},
+				),
 				DialerReasoningEffort: platform.Get("SILVER_DIALER_REASONING_EFFORT", "medium"),
 				VisionPrimaryModel:    platform.Get("SILVER_VISION_PRIMARY_MODEL", "openai/gpt-4.1"),
 				VisionFallbackModels:  platform.GetAsSlice("SILVER_VISION_FALLBACK_MODELS", []string{}),
@@ -148,7 +212,17 @@ func NewAIConfig() *AIConfig {
 				},
 			},
 			platform.GradeGold: {
-				DialerModels:          platform.GetAsSlice("GOLD_DIALER_MODELS", []string{"anthropic/claude-sonnet-4.5", "anthropic/claude-sonnet-4", "openai/gpt-5", "google/gemini-2.5-pro", "anthropic/claude-3.7-sonnet", "openai/gpt-4.1"}),
+				DialerModels: parseModelsJSON(
+					platform.Get("GOLD_DIALER_MODELS", ""),
+					[]ModelMeta{
+						{Name: "anthropic/claude-sonnet-4.5", AAI: 95, InputPricePerM: "$15", OutputPricePerM: "$75", CtxTokens: "400k"},
+						{Name: "anthropic/claude-sonnet-4", AAI: 93, InputPricePerM: "$12", OutputPricePerM: "$60", CtxTokens: "200k"},
+						{Name: "openai/gpt-5", AAI: 92, InputPricePerM: "$10", OutputPricePerM: "$30", CtxTokens: "256k"},
+						{Name: "google/gemini-2.5-pro", AAI: 85, InputPricePerM: "$1.25", OutputPricePerM: "$5", CtxTokens: "2M"},
+						{Name: "anthropic/claude-3.7-sonnet", AAI: 87, InputPricePerM: "$3", OutputPricePerM: "$15", CtxTokens: "200k"},
+						{Name: "openai/gpt-4.1", AAI: 80, InputPricePerM: "$2.5", OutputPricePerM: "$10", CtxTokens: "128k"},
+					},
+				),
 				DialerReasoningEffort: platform.Get("GOLD_DIALER_REASONING_EFFORT", "high"),
 				VisionPrimaryModel:    platform.Get("GOLD_VISION_PRIMARY_MODEL", "openai/o1"),
 				VisionFallbackModels:  platform.GetAsSlice("GOLD_VISION_FALLBACK_MODELS", []string{}),
