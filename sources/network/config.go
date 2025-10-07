@@ -17,6 +17,6 @@ func NewProxyConfig() *ProxyConfig {
 		ProxyAddress:   platform.Get("PROXY_ADDRESS", "localhost:9050"),
 		ProxyUser:      platform.Get("PROXY_USER", "admin"),
 		ProxyPass:      platform.Get("PROXY_PASS", "admin"),
-		TimeoutSeconds: platform.GetAsDuration("HTTP_TIMEOUT_SECONDS", "5m"),
+		TimeoutSeconds: platform.GetAsDuration("HTTP_TIMEOUT_SECONDS", "10m"),
 	}
 }

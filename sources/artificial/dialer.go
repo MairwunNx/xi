@@ -65,7 +65,7 @@ func NewDialer(
 }
 
 func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	mode, err := x.modes.GetModeConfigByChat(log, msg.Chat.ID)
