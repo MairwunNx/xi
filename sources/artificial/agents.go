@@ -185,9 +185,9 @@ func (a *AgentSystem) SelectModelAndEffort(
 		tierPolicy.DefaultReasoning,
 		tierPolicy.Description,
 		downgradeModelsText,
+		trollingModelsText,
 		contextText,
 		newUserMessage,
-		trollingModelsText,
 	)
 
 	messages := []openrouter.ChatCompletionMessage{
