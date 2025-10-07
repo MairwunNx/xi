@@ -241,48 +241,33 @@ Tier description: "%s"
 
 %s
 
-IMPORTANT: 
-- PREFER tier models for quality, complex, or important tasks
-- Consider downgrade models ONLY for simple, quick, or trivial tasks
-- When in doubt, choose tier models - they provide better quality
+Core rules:
+- Start from the **top model**, then **step down** to cheaper/faster ones if the task is simple, short, or routine.
+- Stay within the user's tier whenever possible — they paid for its quality.
+- Choose the **smallest capable model** that can reliably complete the task.
+- Avoid using top-tier + high reasoning for trivial or conversational turns.
+- If unsure, pick **medium reasoning**, not high.
 
-Your goals:
-- **Use the smallest capable model** that can reliably complete the task with good quality.
-- **Reserve top-tier models and high reasoning** only for tasks that truly require deep reasoning, multi-step planning, or advanced coding/research.
-- **Prefer efficiency** (faster + cheaper) for simple, factual, or routine tasks.
+When to downgrade:
+- Task is short or factual (≤ 6 sentences)  
+- Code edit is small/local  
+- Simple math, rephrase, or obvious continuation  
+- Light conversation or banter with Xi Manager  
+- No high-stakes accuracy (e.g. legal/finance/medical)
 
-Downgrade procedure (you MUST follow this):
-1) Start by assuming the TOP model is selected.
-2) Attempt to DOWNGRADE step-by-step to the next cheaper/faster model if ALL are true:
-   - The task is short or routine (no deep multi-step reasoning, no novel code, no research).
-   - Expected answer ≤ 6 sentences OR code change is local/simple OR it's casual chat.
-   - No high-stakes accuracy signals (health/finance/legal/mission-critical).
-3) STOP downgrading at the smallest model that remains clearly capable.
-4) If uncertain, prefer MEDIUM reasoning effort over HIGH.
+When to stay high-tier:
+- Multi-step reasoning, novel code, deep research  
+- User requests "detailed", "in-depth", "thorough"  
+- High-risk or high-importance tasks
 
-Guardrail:
-- Choosing a top-tier model + HIGH reasoning for simple or conversational tasks is considered a mistake.
+Special cases:
+- "Quick"/"fast" → prioritize speed + low reasoning  
+- "Detailed"/"thorough" → prioritize quality + higher reasoning  
+- Trolling/testing/nonsense → use trolling models (%s)
 
-Decision logic clarification:
-- Begin with the **least powerful tier model** and reason upward only if it is likely to fail.
-- Prefer **staying within the tier** (users paid for its quality) unless the task is extremely trivial.
-- "Extremely trivial" means: a short factual question, or an obvious continuation not requiring reasoning.
-- If the task is conversational or light banter with Xi Manager, medium reasoning on lower-tier models is acceptable.
-
-Guidelines:
-1. **Complex / high-risk tasks** (deep reasoning, novel code, research, nuanced judgment): tier models + medium/high reasoning.
-2. **Moderate tasks** (short analysis, moderate code, multi-turn continuation): tier or efficient downgrade models + medium reasoning.
-3. **Simple / direct tasks** (factual Q&A, short instruction, obvious math, rephrase): downgrade models + low reasoning.
-4. **User requests "quick", "fast", "just need a short answer" → prioritize speed and low reasoning.**
-5. **User requests "detailed", "thorough", "in-depth" → prioritize quality and higher reasoning.**
-6. **If the task looks like trolling, testing, or nonsense → use trolling models (%s).**
-7. **Never default to top-tier + high reasoning** unless task clearly justifies it (complexity or stakes are obvious).
-8. Casual conversational turns (small talks) → prefer lower effort; select a mid/efficient model within the tier unless deep analysis is requested.
-
-Heuristics:
-- Ask yourself: “Would an average competent model solve this correctly in one pass?”  
-  - If yes → downgrade + low/medium reasoning.
-- If uncertain → pick *medium reasoning*, not high.
+Heuristic:
+Ask yourself: “Would an average competent model solve this correctly in one pass?”  
+→ If yes, downgrade + low/medium reasoning.
 
 Recent conversation context:
 """
