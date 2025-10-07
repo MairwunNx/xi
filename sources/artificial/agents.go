@@ -210,7 +210,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 			DataCollection: openrouter.DataCollectionDeny,
 			Sort:           openrouter.ProviderSortingLatency,
 		},
-		Temperature: 0.2,
+		Temperature: 0.1,
 	}
 
 	log = log.With("ai_agent", "model_selector", tracing.AiModel, model)
