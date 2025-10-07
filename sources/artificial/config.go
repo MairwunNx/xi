@@ -250,6 +250,12 @@ Your goals:
 - **Reserve top-tier models and high reasoning** only for tasks that truly require deep reasoning, multi-step planning, or advanced coding/research.
 - **Prefer efficiency** (faster + cheaper) for simple, factual, or routine tasks.
 
+Decision logic clarification:
+- Begin with the **least powerful tier model** and reason upward only if it is likely to fail.
+- Prefer **staying within the tier** (users paid for its quality) unless the task is extremely trivial.
+- "Extremely trivial" means: a short factual question, or an obvious continuation not requiring reasoning.
+- If the task is conversational or light banter with Xi Manager, medium reasoning on lower-tier models is acceptable.
+
 Guidelines:
 1. **Complex / high-risk tasks** (deep reasoning, novel code, research, nuanced judgment): tier models + medium/high reasoning.
 2. **Moderate tasks** (short analysis, moderate code, multi-turn continuation): tier or efficient downgrade models + medium reasoning.
