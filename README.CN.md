@@ -1,8 +1,8 @@
 # 🀄️ Xi Manager
 
-[![AI Capable](https://img.shields.io/badge/AI-Capable-brightgreen?style=flat&logo=openai&logoColor=white)](https://github.com/mairwunnx/ximanager)
-[![Docker](https://img.shields.io/badge/Docker-Available-2496ED?style=flat&logo=docker&logoColor=white)](https://github.com/mairwunnx/ximanager/pkgs/container/ximanager)
-[![GitHub Release](https://img.shields.io/github/v/release/mairwunnx/xi?style=flat&logo=github&color=blue)](https://github.com/mairwunnx/ximanager/releases)
+[![AI Capable](https://img.shields.io/badge/AI-Capable-brightgreen?style=flat&logo=openai&logoColor=white)](https://github.com/mairwunnx/xi)
+[![Docker](https://img.shields.io/badge/Docker-Available-2496ED?style=flat&logo=docker&logoColor=white)](https://github.com/MairwunNx/xi/pkgs/container/ximanager)
+[![GitHub Release](https://img.shields.io/github/v/release/mairwunnx/xi?style=flat&logo=github&color=blue)](https://github.com/mairwunnx/xi/releases)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go&logoColor=white)](https://go.dev/)
 
 **语言**: [🇷🇺 Русский](README.md) | [🇺🇸 English](README.EN.md) | 🇨🇳 中文
