@@ -15,7 +15,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	go.uber.org/fx v1.24.0
 	golang.org/x/net v0.45.0
-	golang.org/x/text v0.29.0
+	golang.org/x/text v0.30.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gen v0.3.27
 	gorm.io/gorm v1.31.0
