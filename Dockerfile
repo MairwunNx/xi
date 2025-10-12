@@ -1,7 +1,7 @@
-FROM alpine:3.21 AS certs
+FROM alpine:3.22 AS certs
 RUN apk --no-cache add ca-certificates tzdata && update-ca-certificates
 
-FROM alpine:3.21 AS pydeps
+FROM alpine:3.22 AS pydeps
 RUN apk --no-cache add python3 py3-pip
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" PIP_NO_CACHE_DIR=1
@@ -24,7 +24,7 @@ RUN : "${APP_VERSION:=$(cat ./.version 2>/dev/null || echo 0.0.0)}" && \
     go build -trimpath \
       -ldflags="-s -w -X main.version=${APP_VERSION} -X main.buildTime=${BUILD_TIME}" \
       -o /app/ximanager ./program.go
-FROM alpine:3.21
+FROM alpine:3.22
 WORKDIR /app
 RUN apk --no-cache add python3 && adduser -D -s /bin/sh ximanager
 COPY --from=certs  /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
