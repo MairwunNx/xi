@@ -18,19 +18,19 @@ import (
 )
 
 type Dialer struct {
-	ai             *openrouter.Client
-	config         *AIConfig
-	modes          *repository.ModesRepository
-	users          *repository.UsersRepository
-	pins           *repository.PinsRepository
-	usage          *repository.UsageRepository
-	donations      *repository.DonationsRepository
-	messages       *repository.MessagesRepository
-	bans           *repository.BansRepository
-	contextManager *ContextManager
-	usageLimiter   *UsageLimiter
+	ai              *openrouter.Client
+	config          *AIConfig
+	modes           *repository.ModesRepository
+	users           *repository.UsersRepository
+	pins            *repository.PinsRepository
+	usage           *repository.UsageRepository
+	donations       *repository.DonationsRepository
+	messages        *repository.MessagesRepository
+	bans            *repository.BansRepository
+	contextManager  *ContextManager
+	usageLimiter    *UsageLimiter
 	spendingLimiter *SpendingLimiter
-	agentSystem    *AgentSystem
+	agentSystem     *AgentSystem
 }
 
 func NewDialer(
@@ -48,19 +48,19 @@ func NewDialer(
 	spendingLimiter *SpendingLimiter,
 ) *Dialer {
 	return &Dialer{
-		ai:             ai,
-		config:         config,
-		modes:          modes,
-		users:          users,
-		pins:           pins,
-		usage:          usage,
-		donations:      donations,
-		messages:       messages,
-		bans:           bans,
-		contextManager: contextManager,
-		usageLimiter:   usageLimiter,
+		ai:              ai,
+		config:          config,
+		modes:           modes,
+		users:           users,
+		pins:            pins,
+		usage:           usage,
+		donations:       donations,
+		messages:        messages,
+		bans:            bans,
+		contextManager:  contextManager,
+		usageLimiter:    usageLimiter,
 		spendingLimiter: spendingLimiter,
-		agentSystem:    NewAgentSystem(ai, config),
+		agentSystem:     NewAgentSystem(ai, config),
 	}
 }
 
@@ -115,14 +115,14 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	var history []platform.RedisMessage
 	var selectedContext []platform.RedisMessage
-	
+
 	if stackful {
 		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
 		if err != nil {
 			log.E("Failed to get message pairs", tracing.InnerError, err)
 			history = []platform.RedisMessage{}
 		}
-		
+
 		// Use agent to select relevant context
 		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade)
 		if err != nil {
@@ -139,15 +139,15 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	// Always use agent to select optimal model and reasoning effort
 	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade)
-	
+
 	// Log agent decision
 	agentSuccess := err == nil
-	log.I("agent_model_selection", 
+	log.I("agent_model_selection",
 		"agent_success", agentSuccess,
 		"user_grade", userGrade,
 		"context_size", len(selectedContext),
 	)
-	
+
 	if err != nil {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
 		if len(gradeLimits.DialerModels) > 1 {
@@ -164,7 +164,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	} else {
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
-		
+
 		// Log successful agent decision details
 		log.I("agent_model_selection_success",
 			"recommended_model", modelSelection.RecommendedModel,
@@ -174,7 +174,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			"requires_quality", modelSelection.RequiresQuality,
 			"is_trolling", modelSelection.IsTrolling,
 		)
-		
+
 		if modelSelection.IsTrolling {
 			// For trolling, use remaining trolling models as fallback
 			for i, model := range x.config.TrollingModels {
@@ -283,6 +283,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		fallbackModels = fallbackModels[:3]
 	}
 
+	sort := openrouter.ProviderSortingLatency
+	if modelSelection.RequiresSpeed {
+		sort = openrouter.ProviderSortingThroughput
+	}
+
 	request := openrouter.ChatCompletionRequest{
 		Model:     modelToUse,
 		Models:    fallbackModels,
@@ -291,9 +296,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		Usage:     &openrouter.IncludeUsage{Include: true},
 		Provider: &openrouter.ChatProvider{
 			DataCollection: openrouter.DataCollectionDeny,
-			Sort:           openrouter.ProviderSortingLatency,
+			Sort:           sort,
 		},
+		User: user.ID.String(),
 	}
+
+	request.Transforms = []string{}
 
 	if !platform.BoolValue(user.IsBanless, false) {
 		request.Tools = []openrouter.Tool{
@@ -301,7 +309,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				Type: openrouter.ToolTypeFunction,
 				Function: &openrouter.FunctionDefinition{
 					Name:        "temporary_ban",
-					Description: "Temporarily ban user for violations. STRICT RULES:\n\nWHEN TO CALL:\n- Minimum 2 similar violations within last 10 messages\n- After explicit warning given (or include warning in current response)\n- Pattern of repeated behavior, NOT isolated incident\n- User ignored previous warning\n\nVIOLATION TYPES (severity → duration):\n1. Explicit prolonged rudeness/insults → 30m-2h\n2. Explicit prolonged trolling → 10m-1h\n3. Explicit prolonged spam/flood → 1m-10m\n4. Meaningless message chains → 1m-5m\n5. Very heavy computational tasks → 30s-2m\n\nDO NOT BAN FOR:\n- Criticism, disagreement, debate\n- Single off-topic messages\n- Poor language quality, typos, slang\n- Questions or confusion\n- First-time minor violations\n- Sarcasm or humor\n- Simple misunderstandings\n\nPROCESS:\n1. Warn user first (in current response)\n2. If violation continues → call this tool\n3. Tool will send notice to user automatically\n4. Do NOT mention ban in your response text\n\nMax ban: 12h. When in doubt, DON'T call.",
+					Description: "Temporarily ban user for violations. STRICT RULES:\n\nWHEN TO CALL:\n- Minimum 3 similar violations within last 10 messages\n- After explicit warning given (or include warning in current response)\n- Pattern of repeated behavior, NOT isolated incident\n- User ignored previous warning\n\nVIOLATION TYPES (severity → duration):\n1. Explicit prolonged rudeness/insults → 30m-2h\n2. Explicit prolonged trolling → 10m-1h\n3. Explicit prolonged spam/flood → 1m-10m\n4. Meaningless message chains → 1m-5m\n5. Very heavy computational tasks → 30s-2m\n\nDO NOT BAN FOR:\n- Criticism, disagreement, debate\n- Single off-topic messages\n- Poor language quality, typos, slang\n- Questions or confusion\n- First-time minor violations\n- Sarcasm or humor\n- Simple misunderstandings\n\nPROCESS:\n1. Warn user first (in current response)\n2. If violation continues → call this tool\n3. Tool will send notice to user automatically\n4. Do NOT mention ban in your response text\n\nMax ban: 12h. When in doubt, DON'T call.",
 					Parameters: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
@@ -372,29 +380,29 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	var responseText string
-  
-  if len(response.Choices) > 0 {
-    responseText = response.Choices[0].Message.Content.Text
-  }
+
+	if len(response.Choices) > 0 {
+		responseText = response.Choices[0].Message.Content.Text
+	}
 
 	var banNotice string
-	
+
 	if len(response.Choices[0].Message.ToolCalls) > 0 {
 		for _, toolCall := range response.Choices[0].Message.ToolCalls {
 			if toolCall.Function.Name == "temporary_ban" {
 				log.I("LLM called temporary_ban tool", "arguments", toolCall.Function.Arguments)
-				
+
 				var banArgs struct {
 					Duration string `json:"duration"`
 					Reason   string `json:"reason"`
 					Notice   string `json:"notice"`
 				}
-				
+
 				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &banArgs); err != nil {
 					log.E("Failed to parse ban tool arguments", tracing.InnerError, err)
 					continue
 				}
-				
+
 				_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
 				if err != nil {
 					log.E("Failed to create ban from tool call", tracing.InnerError, err)
@@ -471,7 +479,7 @@ func (x *Dialer) formatPinsForPrompt(pins []*entities.Pin) string {
 func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
 	localNow := time.Now().In(time.Local)
 	dateTimeStr := localNow.Format("Monday, January 2, 2006 at 15:04")
-	
+
 	chatTitle := msg.Chat.Title
 	if chatTitle == "" {
 		if msg.Chat.Type == "private" {
@@ -480,16 +488,16 @@ func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
 			chatTitle = "Untitled chat"
 		}
 	}
-	
+
 	chatDescription := msg.Chat.Description
 	if chatDescription == "" {
 		chatDescription = "No description"
 	}
-	
+
 	version := platform.GetAppVersion()
 	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
-	
-	return fmt.Sprintf(texting.MsgEnvironmentBlock, 
+
+	return fmt.Sprintf(texting.MsgEnvironmentBlock,
 		dateTimeStr,
 		chatTitle,
 		chatDescription,
