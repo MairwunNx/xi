@@ -136,6 +136,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	var modelToUse string
 	var fallbackModels []string
 	var reasoningEffort string
+	var temperature float32
 	var limitWarning string
 
 	// Always use agent to select optimal model and reasoning effort
@@ -157,6 +158,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			modelToUse = gradeLimits.DialerModels[0].Name
 		}
 		reasoningEffort = gradeLimits.DialerReasoningEffort
+		temperature = 1.0 // Fallback temperature
 		if len(gradeLimits.DialerModels) > 2 {
 			fallbackModels = extractModelNames(gradeLimits.DialerModels[2:])
 		} else {
@@ -165,6 +167,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	} else {
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
+		temperature = modelSelection.Temperature
+		if temperature == 0 {
+			temperature = 1.0 // Fallback if temperature is not set
+		}
 
 		// Log successful agent decision details
 		log.I("agent_model_selection_success",
@@ -174,6 +180,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			"requires_speed", modelSelection.RequiresSpeed,
 			"requires_quality", modelSelection.RequiresQuality,
 			"is_trolling", modelSelection.IsTrolling,
+			"temperature", modelSelection.Temperature,
 		)
 
 		if modelSelection.IsTrolling {
@@ -335,6 +342,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
+	request.Temperature = temperature
+
 	if mode.Params != nil {
 		if mode.Params.TopP != nil {
 			request.TopP = *mode.Params.TopP
@@ -353,7 +362,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
-	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "context_messages", len(selectedContext))
+	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(selectedContext))
 
 	response, err := x.ai.CreateChatCompletion(ctx, request)
 	if err != nil {

@@ -20,12 +20,13 @@ type ContextSelectionResponse struct {
 
 // ModelSelectionResponse represents the response from model selection agent
 type ModelSelectionResponse struct {
-	RecommendedModel    string `json:"recommended_model"`
-	ReasoningEffort     string `json:"reasoning_effort"`
-	TaskComplexity      string `json:"task_complexity"`
-	RequiresSpeed       bool   `json:"requires_speed"`
-	RequiresQuality     bool   `json:"requires_quality"`
-	IsTrolling          bool   `json:"is_trolling"`
+	RecommendedModel    string  `json:"recommended_model"`
+	ReasoningEffort     string  `json:"reasoning_effort"`
+	TaskComplexity      string  `json:"task_complexity"`
+	RequiresSpeed       bool    `json:"requires_speed"`
+	RequiresQuality     bool    `json:"requires_quality"`
+	IsTrolling          bool    `json:"is_trolling"`
+	Temperature         float32 `json:"temperature"`
 }
 
 // AgentSystem handles the agent-based AI workflow
@@ -234,6 +235,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
+			Temperature:      1.0,
 		}, nil
 	}
 
@@ -252,6 +254,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
+			Temperature:      1.0,
 		}, nil
 	}
 
@@ -273,6 +276,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 			RequiresSpeed:    false,
 			RequiresQuality:  true,
 			IsTrolling:       false,
+			Temperature:      1.0,
 		}, nil
 	}
 
@@ -287,6 +291,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	log.I("agent_model_selection_validated",
 		"final_model", modelResponse.RecommendedModel,
 		"final_reasoning_effort", modelResponse.ReasoningEffort,
+		"final_temperature", modelResponse.Temperature,
 		"model_changed", modelChanged,
 		"effort_changed", effortChanged,
 		"original_model", originalModel,

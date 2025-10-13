@@ -344,8 +344,14 @@ Special cases:
 - "Detailed"/"thorough" → prioritize quality + higher reasoning  
 - Trolling/testing/nonsense → use trolling models (%s)
 
+Temperature selection:
+- Creative tasks (stories, brainstorming, casual chat): 0.8-1.2
+- Balanced tasks (explanations, discussions): 0.7-1.0
+- Precise tasks (code, math, facts, translation): 0.3-0.7
+- If uncertain, use 1.0 as default
+
 Heuristic:
-Ask yourself: “Would an average competent model solve this correctly in one pass?”  
+Ask yourself: "Would an average competent model solve this correctly in one pass?"  
 → If yes, downgrade + low/medium reasoning.
 
 Recent conversation context:
@@ -365,6 +371,7 @@ Return only JSON in this format:
   "task_complexity": "low/medium/high",
   "requires_speed": true/false,
   "requires_quality": true/false,
-  "is_trolling": true/false
+  "is_trolling": true/false,
+  "temperature": 1.0
 }`
 }
