@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
@@ -298,7 +299,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 			DataCollection: openrouter.DataCollectionDeny,
 			Sort:           sort,
 		},
-		User: user.ID.String(),
+		User: strconv.FormatInt(msg.Chat.ID, 10) + "_" + user.ID.String(),
 	}
 
 	request.Transforms = []string{}
