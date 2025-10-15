@@ -75,7 +75,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_PORT: ${POSTGRES_PORT}
       POSTGRES_USER: ${POSTGRES_USER}
-    image: flyway/flyway:11.14.0-alpine
+    image: flyway/flyway:11.14.1-alpine
     logging:
       driver: local
       options:
