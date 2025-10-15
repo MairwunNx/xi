@@ -7,7 +7,7 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" PIP_NO_CACHE_DIR=1
 RUN pip install --upgrade pip && pip install telegramify-markdown
 
-FROM golang:1.25.2-alpine3.21 AS builder
+FROM golang:1.25.3-alpine3.21 AS builder
 WORKDIR /src
 RUN apk --no-cache add git build-base pkgconfig python3 python3-dev py3-pip
 ENV CGO_ENABLED=1
