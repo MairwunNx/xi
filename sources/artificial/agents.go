@@ -438,7 +438,6 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	return response
 }
 
-// ValidatePersonalization uses an agent to validate if the text is about "self-description"
 func (a *AgentSystem) ValidatePersonalization(
 	log *tracing.Logger,
 	text string,
