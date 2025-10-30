@@ -75,17 +75,19 @@ type DonationsCmd struct {
 	} `cmd:"" help:"List all donations"`
 }
 
-type PinnedCmd struct {
-	Add struct {
-		Message string `arg:"" help:"Message to pin (max 1024 characters)"`
-	} `cmd:"" help:"Add a new pinned message"`
+type PersonalizationCmd struct {
+	Set struct {
+		Prompt string `arg:"" help:"Personalization prompt (12-1024 characters)"`
+	} `cmd:"" help:"Set personalization prompt"`
 
 	Remove struct {
-		Message string `arg:"" help:"Message to remove from pins"`
-	} `cmd:"" help:"Remove a pinned message"`
+	} `cmd:"" help:"Remove personalization prompt"`
 
-	List struct {
-	} `cmd:"" help:"List all pinned messages"`
+	Print struct {
+	} `cmd:"" help:"Print current personalization prompt"`
+
+	Help struct {
+	} `cmd:"" help:"Show personalization help"`
 }
 
 type ContextCmd struct {

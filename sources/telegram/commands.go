@@ -172,24 +172,32 @@ func (x *TelegramHandler) HandleStartCommand(log *tracing.Logger, user *entities
 	x.diplomat.Reply(log, msg, texting.MsgStartText)
 }
 
-func (x *TelegramHandler) HandlePinnedCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	var cmd PinnedCmd
+func (x *TelegramHandler) HandlePersonalizationCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	args := msg.CommandArguments()
+	if args == "" {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationHelpText))
+		return
+	}
+
+	var cmd PersonalizationCmd
 	ctx, err := x.ParseKongCommand(log, msg, &cmd)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedHelpText))
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationHelpText))
 		return
 	}
 
 	switch ctx.Command() {
-	case "add <message>":
-		x.PinnedCommandAdd(log, user, msg, cmd.Add.Message)
-	case "remove <message>":
-		x.PinnedCommandRemove(log, user, msg, cmd.Remove.Message)
-	case "list":
-		x.PinnedCommandList(log, user, msg)
+	case "set <prompt>":
+		x.PersonalizationCommandSet(log, user, msg, cmd.Set.Prompt)
+	case "remove":
+		x.PersonalizationCommandRemove(log, user, msg)
+	case "print":
+		x.PersonalizationCommandPrint(log, user, msg)
+	case "help":
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationHelpText))
 	default:
-		log.W("Unknown pinned subcommand", tracing.InternalCommand, ctx.Command())
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedHelpText))
+		log.W("Unknown personalization subcommand", tracing.InternalCommand, ctx.Command())
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationHelpText))
 	}
 }
 

@@ -684,107 +684,88 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
 
-// =========================  /pinned command handlers  =========================
+// =========================  /personalization command handlers  =========================
 
-func (x *TelegramHandler) PinnedCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, message string) {
-	if len(message) > 1024 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedTooLong))
+func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, prompt string) {
+	// Validate length first
+	if len(prompt) < 12 {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooShort))
 		return
 	}
 
-	donations, err := x.donations.GetDonationsByUser(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
+	if len(prompt) > 1024 {
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooLong))
 		return
 	}
 
-	err = x.pins.CheckPinLimit(log, user, msg.Chat.ID, donations)
+	// Validate with AI agent
+	validation, err := x.agents.ValidatePersonalization(log, prompt)
 	if err != nil {
-		if errors.Is(err, repository.ErrPinLimitExceeded) {
-			if len(donations) > 0 {
-				x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedFinalLimitReached))
-			} else {
-				x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedLimitReached))
-			}
+		log.E("Failed to validate personalization with agent", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationValidationError))
+		return
+	}
+
+	// Check confidence threshold (0.68)
+	if validation.Confidence <= 0.68 {
+		log.I("Personalization validation failed", "confidence", validation.Confidence)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationValidationFailed))
+		return
+	}
+
+	// Save personalization
+	_, err = x.personalizations.CreateOrUpdatePersonalization(log, user, prompt)
+	if err != nil {
+		if errors.Is(err, repository.ErrPersonalizationTooShort) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooShort))
 			return
 		}
 
-		if errors.Is(err, repository.ErrPinLimitExceededChat) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedChatLimitReached))
+		if errors.Is(err, repository.ErrPersonalizationTooLong) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooLong))
 			return
 		}
 
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
+		log.E("Failed to create personalization", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorAdd))
 		return
 	}
 
-	_, err = x.pins.CreatePin(log, user, msg.Chat.ID, message)
-	if err != nil {
-		if errors.Is(err, repository.ErrPinTooLong) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedTooLong))
-			return
-		}
-
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorAdd))
-		return
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedAdded))
+	log.I("Personalization set successfully", "confidence", validation.Confidence)
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationAdded))
 }
 
-func (x *TelegramHandler) PinnedCommandRemove(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, message string) {
-	_, err := x.pins.GetPinByUserChatAndMessage(log, user, msg.Chat.ID, message)
+func (x *TelegramHandler) PersonalizationCommandRemove(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	err := x.personalizations.DeletePersonalization(log, user)
 	if err != nil {
-		if errors.Is(err, repository.ErrPinNotFound) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedNotFound))
+		if errors.Is(err, repository.ErrPersonalizationNotFound) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationNotFound))
 			return
 		}
 
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorRemove))
+		log.E("Failed to delete personalization", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorRemove))
 		return
 	}
 
-	err = x.pins.DeletePin(log, user, msg.Chat.ID, message)
-	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorRemove))
-		return
-	}
-
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedRemoved))
+	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationRemoved))
 }
 
-func (x *TelegramHandler) PinnedCommandList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	pins, err := x.pins.GetPinsByChat(log, msg.Chat.ID)
+func (x *TelegramHandler) PersonalizationCommandPrint(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedErrorList))
+		if errors.Is(err, repository.ErrPersonalizationNotFound) {
+			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationNotFound))
+			return
+		}
+
+		log.E("Failed to get personalization", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorPrint))
 		return
 	}
 
-	if len(pins) == 0 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPinnedListEmpty))
-		return
-	}
-
-	response := texting.MsgPinnedListHeader
-	for i, pin := range pins {
-		authorName := "Мертвая душа"
-		if pin.UserEntity.Fullname != nil && *pin.UserEntity.Fullname != "" {
-			authorName = *pin.UserEntity.Fullname
-		}
-		username := ""
-		if pin.UserEntity.Username != nil && *pin.UserEntity.Username != "" {
-			username = " (@" + *pin.UserEntity.Username + ")"
-		}
-		response += fmt.Sprintf("%d. %s%s: %s\n", i+1, authorName, username, pin.Message)
-	}
-
-	donations, _ := x.donations.GetDonationsByUser(log, user)
-	userPinsCount, _ := x.pins.CountPinsByUserInChat(log, user, msg.Chat.ID)
-
-	limit := x.pins.GetPinLimit(log, user, donations)
-	response += fmt.Sprintf("\n" + texting.MsgPinnedListFooter, userPinsCount, limit)
-
-	x.diplomat.Reply(log, msg, response)
+	response := fmt.Sprintf(texting.MsgPersonalizationPrint, personalization.Prompt)
+	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
 
 // =========================  /context command handlers  =========================
