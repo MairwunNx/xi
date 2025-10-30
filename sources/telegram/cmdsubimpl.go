@@ -684,21 +684,18 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
 
-// =========================  /personalization command handlers  =========================
-
 func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, prompt string) {
-	// Validate length first
-	if len(prompt) < 12 {
+	promptRunes := []rune(prompt)
+	if len(promptRunes) < 12 {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooShort))
 		return
 	}
 
-	if len(prompt) > 1024 {
+	if len(promptRunes) > 1024 {
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooLong))
 		return
 	}
 
-	// Validate with AI agent
 	validation, err := x.agents.ValidatePersonalization(log, prompt)
 	if err != nil {
 		log.E("Failed to validate personalization with agent", tracing.InnerError, err)
@@ -706,14 +703,12 @@ func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *e
 		return
 	}
 
-	// Check confidence threshold (0.68)
 	if validation.Confidence <= 0.68 {
 		log.I("Personalization validation failed", "confidence", validation.Confidence)
 		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationValidationFailed))
 		return
 	}
 
-	// Save personalization
 	_, err = x.personalizations.CreateOrUpdatePersonalization(log, user, prompt)
 	if err != nil {
 		if errors.Is(err, repository.ErrPersonalizationTooShort) {

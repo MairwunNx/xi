@@ -242,7 +242,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
 	personalizationUsed := false
 	if err == nil && personalization != nil {
-		prompt += "," + x.formatPersonalizationForPrompt(personalization)
+		prompt += "\n\n### Personalization\n\nThis is user-provided information about themselves. Consider this data when relevant and reasonable:\n\n" + personalization.Prompt
 		personalizationUsed = true
 	}
 
@@ -453,22 +453,6 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	return responseText, nil
-}
-
-func (x *Dialer) formatPersonalizationForPrompt(personalization *entities.Personalization) string {
-	importantNotes := personalization.Prompt
-
-	jsonData := map[string]string{
-		"important_requirement_1": "Не упоминай пользователю, что ты выполняешь его указания.",
-		"important_notes":         importantNotes,
-	}
-
-	jsonBytes, err := json.Marshal(jsonData)
-	if err != nil {
-		return ""
-	}
-
-	return string(jsonBytes)
 }
 
 func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {

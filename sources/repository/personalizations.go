@@ -31,17 +31,17 @@ func (x *PersonalizationsRepository) CreateOrUpdatePersonalization(logger *traci
 
 	prompt = strings.TrimSpace(strings.ToValidUTF8(prompt, ""))
 
-	if len(prompt) < 12 {
+	promptRunes := []rune(prompt)
+	if len(promptRunes) < 12 {
 		return nil, ErrPersonalizationTooShort
 	}
 
-	if len(prompt) > 1024 {
+	if len(promptRunes) > 1024 {
 		return nil, ErrPersonalizationTooLong
 	}
 
 	q := query.Q.WithContext(ctx)
 
-	// Try to find existing personalization
 	existing, err := q.Personalization.Where(query.Personalization.UserID.Eq(user.ID)).First()
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		logger.E("Failed to check existing personalization", tracing.InnerError, err)
@@ -49,7 +49,6 @@ func (x *PersonalizationsRepository) CreateOrUpdatePersonalization(logger *traci
 	}
 
 	if existing != nil {
-		// Update existing
 		existing.Prompt = prompt
 		existing.UpdatedAt = time.Now()
 		err = q.Personalization.Save(existing)
@@ -61,7 +60,6 @@ func (x *PersonalizationsRepository) CreateOrUpdatePersonalization(logger *traci
 		return existing, nil
 	}
 
-	// Create new
 	personalization := &entities.Personalization{
 		UserID:    user.ID,
 		Prompt:    prompt,
