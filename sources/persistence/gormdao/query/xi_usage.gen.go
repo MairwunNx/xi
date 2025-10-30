@@ -112,17 +112,17 @@ func newUsage(db *gorm.DB, opts ...gen.DOOption) usage {
 		}{
 			RelationField: field.NewRelation("User.SelectedModes", "entities.SelectedMode"),
 		},
-		Pins: struct {
+		Personalizations: struct {
 			field.RelationField
-			UserEntity struct {
+			User struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("User.Pins", "entities.Pin"),
-			UserEntity: struct {
+			RelationField: field.NewRelation("User.Personalizations", "entities.Personalization"),
+			User: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("User.Pins.UserEntity", "entities.User"),
+				RelationField: field.NewRelation("User.Personalizations.User", "entities.User"),
 			},
 		},
 		Usages: struct {
@@ -273,9 +273,9 @@ type usageHasOneUser struct {
 	SelectedModes struct {
 		field.RelationField
 	}
-	Pins struct {
+	Personalizations struct {
 		field.RelationField
-		UserEntity struct {
+		User struct {
 			field.RelationField
 		}
 	}
