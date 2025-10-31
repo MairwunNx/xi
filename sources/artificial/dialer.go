@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
