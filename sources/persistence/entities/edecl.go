@@ -68,14 +68,14 @@ type (
 		User User `gorm:"foreignKey:SwitchedBy;references:ID" json:"user"`
 	}
 
-	Pin struct {
+	Personalization struct {
 		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		ChatID    int64     `gorm:"not null" json:"chat_id"`
-		User      uuid.UUID `gorm:"type:uuid;not null;column:user" json:"user"`
-		Message   string    `gorm:"type:text;not null" json:"message"`
+		UserID    uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Prompt    string    `gorm:"type:text;not null" json:"prompt"`
 		CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+		UpdatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
-		UserEntity User `gorm:"foreignKey:User;references:ID" json:"user_entity"`
+		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
 
 	Usage struct {
@@ -102,21 +102,21 @@ type (
 		WindowLimit    int64          `gorm:"not null;default:0" json:"window_limit"`
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
-		Messages      []Message      `gorm:"foreignKey:UserID;references:ID" json:"messages"`
-		Donations     []Donation     `gorm:"foreignKey:User;references:ID" json:"donations"`
-		CreatedModes  []Mode         `gorm:"foreignKey:CreatedBy;references:ID" json:"created_modes"`
-		SelectedModes []SelectedMode `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
-		Pins          []Pin          `gorm:"foreignKey:User;references:ID" json:"pins"`
-		Usages        []Usage        `gorm:"foreignKey:UserID;references:ID" json:"usages"`
-		Bans          []Ban          `gorm:"foreignKey:UserID;references:ID" json:"bans"`
+		Messages         []Message         `gorm:"foreignKey:UserID;references:ID" json:"messages"`
+		Donations        []Donation        `gorm:"foreignKey:User;references:ID" json:"donations"`
+		CreatedModes     []Mode            `gorm:"foreignKey:CreatedBy;references:ID" json:"created_modes"`
+		SelectedModes    []SelectedMode    `gorm:"foreignKey:SwitchedBy;references:ID" json:"selected_modes"`
+		Personalizations []Personalization `gorm:"foreignKey:UserID;references:ID" json:"personalizations"`
+		Usages           []Usage           `gorm:"foreignKey:UserID;references:ID" json:"usages"`
+		Bans             []Ban             `gorm:"foreignKey:UserID;references:ID" json:"bans"`
 	}
 )
 
-func (Ban) TableName() string          { return "xi_bans" }
-func (Donation) TableName() string     { return "xi_donations" }
-func (Message) TableName() string      { return "xi_messages" }
-func (Mode) TableName() string         { return "xi_modes" }
-func (Pin) TableName() string          { return "xi_pins" }
-func (SelectedMode) TableName() string { return "xi_selected_modes" }
-func (Usage) TableName() string        { return "xi_usage" }
-func (User) TableName() string         { return "xi_users" }
+func (Ban) TableName() string               { return "xi_bans" }
+func (Donation) TableName() string          { return "xi_donations" }
+func (Message) TableName() string           { return "xi_messages" }
+func (Mode) TableName() string              { return "xi_modes" }
+func (Personalization) TableName() string   { return "xi_personalizations" }
+func (SelectedMode) TableName() string      { return "xi_selected_modes" }
+func (Usage) TableName() string             { return "xi_usage" }
+func (User) TableName() string              { return "xi_users" }

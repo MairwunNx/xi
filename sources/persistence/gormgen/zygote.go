@@ -13,6 +13,6 @@ func main() {
 		Mode:         gen.WithDefaultQuery | gen.WithQueryInterface,
 	})
 
-	g.ApplyBasic(entities.User{}, entities.Ban{}, entities.Donation{}, entities.Message{}, entities.Mode{}, entities.SelectedMode{}, entities.Pin{}, entities.Usage{})
+	g.ApplyBasic(entities.User{}, entities.Ban{}, entities.Donation{}, entities.Message{}, entities.Mode{}, entities.SelectedMode{}, entities.Personalization{}, entities.Usage{})
 	g.Execute()
 }

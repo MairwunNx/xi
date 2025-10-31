@@ -72,9 +72,9 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			SelectedModes struct {
 				field.RelationField
 			}
-			Pins struct {
+			Personalizations struct {
 				field.RelationField
-				UserEntity struct {
+				User struct {
 					field.RelationField
 				}
 			}
@@ -158,17 +158,17 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 			}{
 				RelationField: field.NewRelation("Messages.User.SelectedModes", "entities.SelectedMode"),
 			},
-			Pins: struct {
+			Personalizations: struct {
 				field.RelationField
-				UserEntity struct {
+				User struct {
 					field.RelationField
 				}
 			}{
-				RelationField: field.NewRelation("Messages.User.Pins", "entities.Pin"),
-				UserEntity: struct {
+				RelationField: field.NewRelation("Messages.User.Personalizations", "entities.Personalization"),
+				User: struct {
 					field.RelationField
 				}{
-					RelationField: field.NewRelation("Messages.User.Pins.UserEntity", "entities.User"),
+					RelationField: field.NewRelation("Messages.User.Personalizations.User", "entities.User"),
 				},
 			},
 			Usages: struct {
@@ -218,10 +218,10 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 		RelationField: field.NewRelation("SelectedModes", "entities.SelectedMode"),
 	}
 
-	_user.Pins = userHasManyPins{
+	_user.Personalizations = userHasManyPersonalizations{
 		db: db.Session(&gorm.Session{}),
 
-		RelationField: field.NewRelation("Pins", "entities.Pin"),
+		RelationField: field.NewRelation("Personalizations", "entities.Personalization"),
 	}
 
 	_user.Usages = userHasManyUsages{
@@ -264,7 +264,7 @@ type user struct {
 
 	SelectedModes userHasManySelectedModes
 
-	Pins userHasManyPins
+	Personalizations userHasManyPersonalizations
 
 	Usages userHasManyUsages
 
@@ -345,8 +345,8 @@ func (u user) clone(db *gorm.DB) user {
 	u.CreatedModes.db.Statement.ConnPool = db.Statement.ConnPool
 	u.SelectedModes.db = db.Session(&gorm.Session{Initialized: true})
 	u.SelectedModes.db.Statement.ConnPool = db.Statement.ConnPool
-	u.Pins.db = db.Session(&gorm.Session{Initialized: true})
-	u.Pins.db.Statement.ConnPool = db.Statement.ConnPool
+	u.Personalizations.db = db.Session(&gorm.Session{Initialized: true})
+	u.Personalizations.db.Statement.ConnPool = db.Statement.ConnPool
 	u.Usages.db = db.Session(&gorm.Session{Initialized: true})
 	u.Usages.db.Statement.ConnPool = db.Statement.ConnPool
 	u.Bans.db = db.Session(&gorm.Session{Initialized: true})
@@ -360,7 +360,7 @@ func (u user) replaceDB(db *gorm.DB) user {
 	u.Donations.db = db.Session(&gorm.Session{})
 	u.CreatedModes.db = db.Session(&gorm.Session{})
 	u.SelectedModes.db = db.Session(&gorm.Session{})
-	u.Pins.db = db.Session(&gorm.Session{})
+	u.Personalizations.db = db.Session(&gorm.Session{})
 	u.Usages.db = db.Session(&gorm.Session{})
 	u.Bans.db = db.Session(&gorm.Session{})
 	return u
@@ -400,9 +400,9 @@ type userHasManyMessages struct {
 		SelectedModes struct {
 			field.RelationField
 		}
-		Pins struct {
+		Personalizations struct {
 			field.RelationField
-			UserEntity struct {
+			User struct {
 				field.RelationField
 			}
 		}
@@ -739,13 +739,13 @@ func (a userHasManySelectedModesTx) Unscoped() *userHasManySelectedModesTx {
 	return &a
 }
 
-type userHasManyPins struct {
+type userHasManyPersonalizations struct {
 	db *gorm.DB
 
 	field.RelationField
 }
 
-func (a userHasManyPins) Where(conds ...field.Expr) *userHasManyPins {
+func (a userHasManyPersonalizations) Where(conds ...field.Expr) *userHasManyPersonalizations {
 	if len(conds) == 0 {
 		return &a
 	}
@@ -758,32 +758,32 @@ func (a userHasManyPins) Where(conds ...field.Expr) *userHasManyPins {
 	return &a
 }
 
-func (a userHasManyPins) WithContext(ctx context.Context) *userHasManyPins {
+func (a userHasManyPersonalizations) WithContext(ctx context.Context) *userHasManyPersonalizations {
 	a.db = a.db.WithContext(ctx)
 	return &a
 }
 
-func (a userHasManyPins) Session(session *gorm.Session) *userHasManyPins {
+func (a userHasManyPersonalizations) Session(session *gorm.Session) *userHasManyPersonalizations {
 	a.db = a.db.Session(session)
 	return &a
 }
 
-func (a userHasManyPins) Model(m *entities.User) *userHasManyPinsTx {
-	return &userHasManyPinsTx{a.db.Model(m).Association(a.Name())}
+func (a userHasManyPersonalizations) Model(m *entities.User) *userHasManyPersonalizationsTx {
+	return &userHasManyPersonalizationsTx{a.db.Model(m).Association(a.Name())}
 }
 
-func (a userHasManyPins) Unscoped() *userHasManyPins {
+func (a userHasManyPersonalizations) Unscoped() *userHasManyPersonalizations {
 	a.db = a.db.Unscoped()
 	return &a
 }
 
-type userHasManyPinsTx struct{ tx *gorm.Association }
+type userHasManyPersonalizationsTx struct{ tx *gorm.Association }
 
-func (a userHasManyPinsTx) Find() (result []*entities.Pin, err error) {
+func (a userHasManyPersonalizationsTx) Find() (result []*entities.Personalization, err error) {
 	return result, a.tx.Find(&result)
 }
 
-func (a userHasManyPinsTx) Append(values ...*entities.Pin) (err error) {
+func (a userHasManyPersonalizationsTx) Append(values ...*entities.Personalization) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -791,7 +791,7 @@ func (a userHasManyPinsTx) Append(values ...*entities.Pin) (err error) {
 	return a.tx.Append(targetValues...)
 }
 
-func (a userHasManyPinsTx) Replace(values ...*entities.Pin) (err error) {
+func (a userHasManyPersonalizationsTx) Replace(values ...*entities.Personalization) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -799,7 +799,7 @@ func (a userHasManyPinsTx) Replace(values ...*entities.Pin) (err error) {
 	return a.tx.Replace(targetValues...)
 }
 
-func (a userHasManyPinsTx) Delete(values ...*entities.Pin) (err error) {
+func (a userHasManyPersonalizationsTx) Delete(values ...*entities.Personalization) (err error) {
 	targetValues := make([]interface{}, len(values))
 	for i, v := range values {
 		targetValues[i] = v
@@ -807,15 +807,15 @@ func (a userHasManyPinsTx) Delete(values ...*entities.Pin) (err error) {
 	return a.tx.Delete(targetValues...)
 }
 
-func (a userHasManyPinsTx) Clear() error {
+func (a userHasManyPersonalizationsTx) Clear() error {
 	return a.tx.Clear()
 }
 
-func (a userHasManyPinsTx) Count() int64 {
+func (a userHasManyPersonalizationsTx) Count() int64 {
 	return a.tx.Count()
 }
 
-func (a userHasManyPinsTx) Unscoped() *userHasManyPinsTx {
+func (a userHasManyPersonalizationsTx) Unscoped() *userHasManyPersonalizationsTx {
 	a.tx = a.tx.Unscoped()
 	return &a
 }

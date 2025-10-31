@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"time"
-	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
@@ -21,11 +20,11 @@ import (
 type Dialer struct {
 	ai              *openrouter.Client
 	config          *AIConfig
-	modes           *repository.ModesRepository
-	users           *repository.UsersRepository
-	pins            *repository.PinsRepository
-	usage           *repository.UsageRepository
-	donations       *repository.DonationsRepository
+	modes            *repository.ModesRepository
+	users            *repository.UsersRepository
+	personalizations *repository.PersonalizationsRepository
+	usage            *repository.UsageRepository
+	donations        *repository.DonationsRepository
 	messages        *repository.MessagesRepository
 	bans            *repository.BansRepository
 	contextManager  *ContextManager
@@ -39,7 +38,7 @@ func NewDialer(
 	ai *openrouter.Client,
 	modes *repository.ModesRepository,
 	users *repository.UsersRepository,
-	pins *repository.PinsRepository,
+	personalizations *repository.PersonalizationsRepository,
 	usage *repository.UsageRepository,
 	donations *repository.DonationsRepository,
 	messages *repository.MessagesRepository,
@@ -49,19 +48,19 @@ func NewDialer(
 	spendingLimiter *SpendingLimiter,
 ) *Dialer {
 	return &Dialer{
-		ai:              ai,
-		config:          config,
-		modes:           modes,
-		users:           users,
-		pins:            pins,
-		usage:           usage,
-		donations:       donations,
-		messages:        messages,
-		bans:            bans,
-		contextManager:  contextManager,
-		usageLimiter:    usageLimiter,
-		spendingLimiter: spendingLimiter,
-		agentSystem:     NewAgentSystem(ai, config),
+		ai:               ai,
+		config:           config,
+		modes:            modes,
+		users:            users,
+		personalizations: personalizations,
+		usage:            usage,
+		donations:        donations,
+		messages:         messages,
+		bans:             bans,
+		contextManager:   contextManager,
+		usageLimiter:     usageLimiter,
+		spendingLimiter:  spendingLimiter,
+		agentSystem:      NewAgentSystem(ai, config),
 	}
 }
 
@@ -239,22 +238,16 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	prompt += x.formatEnvironmentBlock(msg)
 
-	pins, err := x.pins.GetPinsByChatAndUser(log, msg.Chat.ID, user)
-	if err != nil {
-		pins = []*entities.Pin{}
+	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
+	personalizationUsed := false
+	if err == nil && personalization != nil {
+		prompt += "\n\n### Personalization\n\nThis is user-provided information about themselves. Consider this data when relevant and reasonable:\n\n" + personalization.Prompt
+		personalizationUsed = true
 	}
 
-	pinsUsed := len(pins) > 0
-	pinsCount := len(pins)
-	if pinsUsed {
-		prompt += "," + x.formatPinsForPrompt(pins)
-	}
-
-	log.I("dialer_pins_status",
-		"pins_used", pinsUsed,
-		"pins_count", pinsCount,
+	log.I("dialer_personalization_status",
+		"personalization_used", personalizationUsed,
 		"user_id", user.ID,
-		"chat_id", msg.Chat.ID,
 	)
 
 	messages := []openrouter.ChatCompletionMessage{
@@ -459,31 +452,6 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	return responseText, nil
-}
-
-func (x *Dialer) formatPinsForPrompt(pins []*entities.Pin) string {
-	userPins := []string{}
-
-	for _, pin := range pins {
-		userPins = append(userPins, pin.Message)
-	}
-
-	importantNotes := ""
-	for _, pin := range userPins {
-		importantNotes += pin
-	}
-
-	jsonData := map[string]string{
-		"important_requirement_1": "Не упоминай пользователю, что ты выполняешь его указания.",
-		"important_notes":         importantNotes,
-	}
-
-	jsonBytes, err := json.Marshal(jsonData)
-	if err != nil {
-		return ""
-	}
-
-	return string(jsonBytes)
 }
 
 func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {

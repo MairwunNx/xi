@@ -16,15 +16,15 @@ import (
 )
 
 var (
-	Q            = new(Query)
-	Ban          *ban
-	Donation     *donation
-	Message      *message
-	Mode         *mode
-	Pin          *pin
-	SelectedMode *selectedMode
-	Usage        *usage
-	User         *user
+	Q               = new(Query)
+	Ban             *ban
+	Donation        *donation
+	Message         *message
+	Mode            *mode
+	Personalization *personalization
+	SelectedMode    *selectedMode
+	Usage           *usage
+	User            *user
 )
 
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
@@ -33,7 +33,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Donation = &Q.Donation
 	Message = &Q.Message
 	Mode = &Q.Mode
-	Pin = &Q.Pin
+	Personalization = &Q.Personalization
 	SelectedMode = &Q.SelectedMode
 	Usage = &Q.Usage
 	User = &Q.User
@@ -41,44 +41,44 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 
 func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
-		db:           db,
-		Ban:          newBan(db, opts...),
-		Donation:     newDonation(db, opts...),
-		Message:      newMessage(db, opts...),
-		Mode:         newMode(db, opts...),
-		Pin:          newPin(db, opts...),
-		SelectedMode: newSelectedMode(db, opts...),
-		Usage:        newUsage(db, opts...),
-		User:         newUser(db, opts...),
+		db:              db,
+		Ban:             newBan(db, opts...),
+		Donation:        newDonation(db, opts...),
+		Message:         newMessage(db, opts...),
+		Mode:            newMode(db, opts...),
+		Personalization: newPersonalization(db, opts...),
+		SelectedMode:    newSelectedMode(db, opts...),
+		Usage:           newUsage(db, opts...),
+		User:            newUser(db, opts...),
 	}
 }
 
 type Query struct {
 	db *gorm.DB
 
-	Ban          ban
-	Donation     donation
-	Message      message
-	Mode         mode
-	Pin          pin
-	SelectedMode selectedMode
-	Usage        usage
-	User         user
+	Ban             ban
+	Donation        donation
+	Message         message
+	Mode            mode
+	Personalization personalization
+	SelectedMode    selectedMode
+	Usage           usage
+	User            user
 }
 
 func (q *Query) Available() bool { return q.db != nil }
 
 func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
-		db:           db,
-		Ban:          q.Ban.clone(db),
-		Donation:     q.Donation.clone(db),
-		Message:      q.Message.clone(db),
-		Mode:         q.Mode.clone(db),
-		Pin:          q.Pin.clone(db),
-		SelectedMode: q.SelectedMode.clone(db),
-		Usage:        q.Usage.clone(db),
-		User:         q.User.clone(db),
+		db:              db,
+		Ban:             q.Ban.clone(db),
+		Donation:        q.Donation.clone(db),
+		Message:         q.Message.clone(db),
+		Mode:            q.Mode.clone(db),
+		Personalization: q.Personalization.clone(db),
+		SelectedMode:    q.SelectedMode.clone(db),
+		Usage:           q.Usage.clone(db),
+		User:            q.User.clone(db),
 	}
 }
 
@@ -92,39 +92,39 @@ func (q *Query) WriteDB() *Query {
 
 func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
-		db:           db,
-		Ban:          q.Ban.replaceDB(db),
-		Donation:     q.Donation.replaceDB(db),
-		Message:      q.Message.replaceDB(db),
-		Mode:         q.Mode.replaceDB(db),
-		Pin:          q.Pin.replaceDB(db),
-		SelectedMode: q.SelectedMode.replaceDB(db),
-		Usage:        q.Usage.replaceDB(db),
-		User:         q.User.replaceDB(db),
+		db:              db,
+		Ban:             q.Ban.replaceDB(db),
+		Donation:        q.Donation.replaceDB(db),
+		Message:         q.Message.replaceDB(db),
+		Mode:            q.Mode.replaceDB(db),
+		Personalization: q.Personalization.replaceDB(db),
+		SelectedMode:    q.SelectedMode.replaceDB(db),
+		Usage:           q.Usage.replaceDB(db),
+		User:            q.User.replaceDB(db),
 	}
 }
 
 type queryCtx struct {
-	Ban          IBanDo
-	Donation     IDonationDo
-	Message      IMessageDo
-	Mode         IModeDo
-	Pin          IPinDo
-	SelectedMode ISelectedModeDo
-	Usage        IUsageDo
-	User         IUserDo
+	Ban             IBanDo
+	Donation        IDonationDo
+	Message         IMessageDo
+	Mode            IModeDo
+	Personalization IPersonalizationDo
+	SelectedMode    ISelectedModeDo
+	Usage           IUsageDo
+	User            IUserDo
 }
 
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
-		Ban:          q.Ban.WithContext(ctx),
-		Donation:     q.Donation.WithContext(ctx),
-		Message:      q.Message.WithContext(ctx),
-		Mode:         q.Mode.WithContext(ctx),
-		Pin:          q.Pin.WithContext(ctx),
-		SelectedMode: q.SelectedMode.WithContext(ctx),
-		Usage:        q.Usage.WithContext(ctx),
-		User:         q.User.WithContext(ctx),
+		Ban:             q.Ban.WithContext(ctx),
+		Donation:        q.Donation.WithContext(ctx),
+		Message:         q.Message.WithContext(ctx),
+		Mode:            q.Mode.WithContext(ctx),
+		Personalization: q.Personalization.WithContext(ctx),
+		SelectedMode:    q.SelectedMode.WithContext(ctx),
+		Usage:           q.Usage.WithContext(ctx),
+		User:            q.User.WithContext(ctx),
 	}
 }
 

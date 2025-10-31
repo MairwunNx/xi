@@ -24,7 +24,8 @@ type TelegramHandler struct {
 	modes          *repository.ModesRepository
 	donations      *repository.DonationsRepository
 	messages       *repository.MessagesRepository
-	pins           *repository.PinsRepository
+	personalizations *repository.PersonalizationsRepository
+	agents           *artificial.AgentSystem
 	usage          *repository.UsageRepository
 	throttler      *throttler.Throttler
 	contextManager *artificial.ContextManager
@@ -32,7 +33,7 @@ type TelegramHandler struct {
 	bans           *repository.BansRepository
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, pins *repository.PinsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:       diplomat,
 		users:          users,
@@ -43,7 +44,8 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		modes:          modes,
 		donations:      donations,
 		messages:       messages,
-		pins:           pins,
+		personalizations: personalizations,
+		agents:           agents,
 		usage:          usage,
 		throttler:      throttler,
 		contextManager: contextManager,
@@ -111,8 +113,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleThisCommand(log, user, msg)
 		case "stats":
 			x.HandleStatsCommand(log, user, msg)
-		case "pinned":
-			x.HandlePinnedCommand(log, user, msg)
+		case "personalization":
+			x.HandlePersonalizationCommand(log, user, msg)
 		case "restart":
 			x.HandleRestartCommand(log, user, msg)
 		case "context":

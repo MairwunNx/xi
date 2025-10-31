@@ -110,17 +110,17 @@ func newDonation(db *gorm.DB, opts ...gen.DOOption) donation {
 		}{
 			RelationField: field.NewRelation("UserEntity.SelectedModes", "entities.SelectedMode"),
 		},
-		Pins: struct {
+		Personalizations: struct {
 			field.RelationField
-			UserEntity struct {
+			User struct {
 				field.RelationField
 			}
 		}{
-			RelationField: field.NewRelation("UserEntity.Pins", "entities.Pin"),
-			UserEntity: struct {
+			RelationField: field.NewRelation("UserEntity.Personalizations", "entities.Personalization"),
+			User: struct {
 				field.RelationField
 			}{
-				RelationField: field.NewRelation("UserEntity.Pins.UserEntity", "entities.User"),
+				RelationField: field.NewRelation("UserEntity.Personalizations.User", "entities.User"),
 			},
 		},
 		Usages: struct {
@@ -265,9 +265,9 @@ type donationBelongsToUserEntity struct {
 	SelectedModes struct {
 		field.RelationField
 	}
-	Pins struct {
+	Personalizations struct {
 		field.RelationField
-		UserEntity struct {
+		User struct {
 			field.RelationField
 		}
 	}

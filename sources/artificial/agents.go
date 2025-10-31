@@ -29,6 +29,11 @@ type ModelSelectionResponse struct {
 	Temperature         float32 `json:"temperature"`
 }
 
+// PersonalizationValidationResponse represents the response from personalization validation agent
+type PersonalizationValidationResponse struct {
+	Confidence float64 `json:"confidence"`
+}
+
 // AgentSystem handles the agent-based AI workflow
 type AgentSystem struct {
 	ai     *openrouter.Client
@@ -431,6 +436,92 @@ func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, us
 	}
 	
 	return response
+}
+
+func (a *AgentSystem) ValidatePersonalization(
+	log *tracing.Logger,
+	text string,
+) (*PersonalizationValidationResponse, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
+	defer cancel()
+
+	prompt := `You are a validation agent. Your task is to determine if the provided text is a self-description or personal information about the user.
+
+Examples of valid self-descriptions:
+- "I am a software engineer from Russia, I love coding and hiking"
+- "My name is Ivan, I'm 25 years old student"
+- "I work as a designer, passionate about art and music"
+- "I'm a teacher who loves reading books and traveling"
+
+Examples of invalid texts:
+- "How to cook pasta?" (question, not self-description)
+- "The weather is nice today" (general statement)
+- "Buy groceries tomorrow" (task/reminder)
+- "Python is a great language" (opinion about something else)
+
+Analyze the following text and determine if it's a valid self-description.
+Return your response in JSON format: {"confidence": 0.0-1.0}
+Where confidence is how certain you are that this is a self-description (1.0 = definitely self-description, 0.0 = definitely not).
+
+Text to analyze: %s
+
+Return ONLY JSON, nothing else.`
+
+	systemMessage := fmt.Sprintf(prompt, text)
+
+	messages := []openrouter.ChatCompletionMessage{
+		{
+			Role:    openrouter.ChatMessageRoleSystem,
+			Content: openrouter.Content{Text: systemMessage},
+		},
+		{
+			Role:    openrouter.ChatMessageRoleUser,
+			Content: openrouter.Content{Text: "Analyze the text and return the confidence score in JSON format."},
+		},
+	}
+
+	model := a.config.AgentContextModel
+
+	request := openrouter.ChatCompletionRequest{
+		Model:    model,
+		Messages: messages,
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
+		},
+		Temperature: 0.1,
+	}
+
+	log = log.With("ai_agent", "personalization_validator", tracing.AiModel, model)
+
+	startTime := time.Now()
+	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		log.E("Failed to validate personalization", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		return nil, err
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in personalization validation response")
+		return nil, fmt.Errorf("empty response from validation agent")
+	}
+
+	responseText := response.Choices[0].Message.Content.Text
+
+	var validationResponse PersonalizationValidationResponse
+	if err := json.Unmarshal([]byte(responseText), &validationResponse); err != nil {
+		log.E("Failed to parse personalization validation response", tracing.InnerError, err, "response_text", responseText)
+		return nil, fmt.Errorf("failed to parse validation response: %w", err)
+	}
+
+	log.I("personalization_validation_success",
+		"confidence", validationResponse.Confidence,
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	return &validationResponse, nil
 }
 
 // Prompt getters - these are loaded from configuration with base64 decoding
