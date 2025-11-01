@@ -862,3 +862,30 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
 }
+
+func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	grade, err := x.donations.GetUserGrade(log, user)
+	if err != nil {
+		log.W("Failed to get user grade, using bronze", tracing.InnerError, err)
+		grade = platform.GradeBronze
+	}
+
+	gradeEmoji := platform.GetGradeEmoji(grade)
+	gradeName := platform.GetGradeNameRu(grade)
+	accountAge := texting.Ageify(user.CreatedAt)
+
+	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(
+		texting.MsgThisInfo,
+		gradeEmoji,
+		gradeName,
+		accountAge,
+		user.UserID,
+		*user.Fullname,
+		*user.Username,
+		user.ID,
+		user.Rights,
+		msg.Chat.ID,
+		msg.Chat.Type,
+		msg.Chat.Title,
+	)))
+}

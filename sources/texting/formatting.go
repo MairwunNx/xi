@@ -2,6 +2,7 @@ package texting
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"golang.org/x/text/language"
@@ -27,4 +28,46 @@ func Decimalify(value decimal.Decimal) string {
 
 func DecimalifyFloat(value float64) string {
 	return ru.Sprintf("%.2f", value)
+}
+
+func Pluralify(count int, one, few, many string) string {
+	n := count % 100
+	if n >= 11 && n <= 19 {
+		return many
+	}
+	n = count % 10
+	if n == 1 {
+		return one
+	}
+	if n >= 2 && n <= 4 {
+		return few
+	}
+	return many
+}
+
+func Ageify(createdAt time.Time) string {
+	age := time.Since(createdAt)
+	
+	days := int(age.Hours() / 24)
+	
+	if days == 0 {
+		return "сегодня"
+	}
+	
+	if days < 7 {
+		return fmt.Sprintf("%d %s назад", days, Pluralify(days, "день", "дня", "дней"))
+	}
+	
+	weeks := days / 7
+	if weeks < 5 {
+		return fmt.Sprintf("%d %s назад", weeks, Pluralify(weeks, "неделю", "недели", "недель"))
+	}
+	
+	months := days / 30
+	if months < 12 {
+		return fmt.Sprintf("%d %s назад", months, Pluralify(months, "месяц", "месяца", "месяцев"))
+	}
+	
+	years := days / 365
+	return fmt.Sprintf("%d %s назад", years, Pluralify(years, "год", "года", "лет"))
 }

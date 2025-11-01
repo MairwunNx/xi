@@ -154,7 +154,7 @@ func (x *TelegramHandler) HandleDonationsCommand(log *tracing.Logger, user *enti
 }
 
 func (x *TelegramHandler) HandleThisCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgThisInfo, user.UserID, *user.Fullname, *user.Username, user.ID, user.Rights, msg.Chat.ID, msg.Chat.Type, msg.Chat.Title)))
+	x.ThisCommand(log, user, msg)
 }
 
 func (x *TelegramHandler) HandleStatsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
