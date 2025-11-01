@@ -14,5 +14,6 @@ var Module = fx.Module(
 		NewDialer,
 		NewWhisper,
 		NewVision,
+		NewAgentSystem,
 	),
 )
