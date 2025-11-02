@@ -870,8 +870,8 @@ func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, 
 		grade = platform.GradeBronze
 	}
 
-	gradeEmoji := platform.GetGradeEmoji(grade)
-	gradeName := platform.GetGradeNameRu(grade)
+	gradeEmoji := getGradeEmoji(grade)
+	gradeName := getGradeNameRu(grade)
 	accountAge := texting.Ageify(user.CreatedAt)
 
 	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(
@@ -888,4 +888,30 @@ func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, 
 		msg.Chat.Type,
 		msg.Chat.Title,
 	)))
+}
+
+func getGradeEmoji(grade platform.UserGrade) string {
+	switch grade {
+	case platform.GradeGold:
+		return "💎"
+	case platform.GradeSilver:
+		return "🥈"
+	case platform.GradeBronze:
+		return "🥉"
+	default:
+		return "❓"
+	}
+}
+
+func getGradeNameRu(grade platform.UserGrade) string {
+	switch grade {
+	case platform.GradeGold:
+		return "Золотой"
+	case platform.GradeSilver:
+		return "Серебряный"
+	case platform.GradeBronze:
+		return "Бронзовый"
+	default:
+		return "Неизвестный"
+	}
 }
