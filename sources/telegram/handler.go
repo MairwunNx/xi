@@ -145,8 +145,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 
 		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID == x.diplomat.bot.Self.ID {
 			msgText := strings.TrimSpace(msg.Text)
-			if strings.HasPrefix(msgText, "/noreply") || strings.HasPrefix(msgText, "!") {
-				log.I("Ignoring noreply/! command")
+			if strings.HasPrefix(msgText, "/noreply") || strings.HasPrefix(msgText, "!") || strings.HasPrefix(msgText, ">") || strings.HasPrefix(msgText, "^") {
+				log.I("Ignoring noreply/!/>/^ command")
 				return nil
 			}
 		}
