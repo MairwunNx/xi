@@ -15,9 +15,11 @@ type MessageRole = string
 const (
 	MessageRoleUser      MessageRole = "user"
 	MessageRoleAssistant MessageRole = "assistant"
+	MessageRoleSystem    MessageRole = "system"
 )
 
 type RedisMessage struct {
-	Role    MessageRole `json:"role"`
-	Content string      `json:"content"`
+	Role         MessageRole `json:"role"`
+	Content      string      `json:"content"`
+	IsCompressed bool        `json:"is_compressed,omitempty"`
 }

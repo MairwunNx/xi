@@ -22,13 +22,24 @@ type AIConfig struct {
 	SpendingLimits              SpendingLimits
 	GradeLimits                 map[platform.UserGrade]GradeLimits
 	
-	ContextSelectionPrompt string
-	ModelSelectionPrompt   string
+	ContextSelectionPrompt   string
+	ModelSelectionPrompt     string
+	ResponseLengthPrompt     string
 	
-	AgentContextModel        string
-	AgentModelSelectionModel string
-	AgentContextTimeout      int
-	AgentModelTimeout        int
+	AgentContextModel         string
+	AgentModelSelectionModel  string
+	AgentResponseLengthModel  string
+	AgentContextTimeout       int
+	AgentModelTimeout         int
+	AgentResponseLengthTimeout int
+
+	// Summarization settings (controlled by feature toggles)
+	SummarizationModel            string
+	SummarizationTimeout          int
+	SummarizationPrompt           string
+	SingleMessageTokenThreshold   int // Tokens threshold for single message summarization
+	ClusterTokenThreshold         int // Tokens threshold for cluster summarization
+	ClusterSize                   int // Number of message pairs per cluster
 	
 	TrollingModels []string
 }
@@ -87,6 +98,14 @@ func (c *AIConfig) Validate() error {
 		return err
 	}
 	
+	if err := platform.ValidateBase64(c.SummarizationPrompt, "SummarizationPrompt"); err != nil {
+		return err
+	}
+	
+	if err := platform.ValidateBase64(c.ResponseLengthPrompt, "ResponseLengthPrompt"); err != nil {
+		return err
+	}
+	
 	return nil
 }
 
@@ -140,11 +159,22 @@ func NewAIConfig() *AIConfig {
 		
 		ContextSelectionPrompt: platform.Get("AGENT_CONTEXT_SELECTION_PROMPT", ""),
 		ModelSelectionPrompt:   platform.Get("AGENT_MODEL_SELECTION_PROMPT", ""),
+		ResponseLengthPrompt:   platform.Get("AGENT_RESPONSE_LENGTH_PROMPT", ""),
 		
-		AgentContextModel:        platform.Get("AGENT_CONTEXT_MODEL", "openai/gpt-4o-mini"),
-		AgentModelSelectionModel: platform.Get("AGENT_MODEL_SELECTION_MODEL", "openai/gpt-4o-mini"),
-		AgentContextTimeout:      platform.GetAsInt("AGENT_CONTEXT_TIMEOUT_SECONDS", 45),
-		AgentModelTimeout:        platform.GetAsInt("AGENT_MODEL_TIMEOUT_SECONDS", 30),
+		AgentContextModel:          platform.Get("AGENT_CONTEXT_MODEL", "openai/gpt-4o-mini"),
+		AgentModelSelectionModel:   platform.Get("AGENT_MODEL_SELECTION_MODEL", "openai/gpt-4o-mini"),
+		AgentResponseLengthModel:   platform.Get("AGENT_RESPONSE_LENGTH_MODEL", "openai/gpt-4o-mini"),
+		AgentContextTimeout:        platform.GetAsInt("AGENT_CONTEXT_TIMEOUT_SECONDS", 45),
+		AgentModelTimeout:          platform.GetAsInt("AGENT_MODEL_TIMEOUT_SECONDS", 30),
+		AgentResponseLengthTimeout: platform.GetAsInt("AGENT_RESPONSE_LENGTH_TIMEOUT_SECONDS", 20),
+		
+		// Summarization settings
+		SummarizationModel:          platform.Get("SUMMARIZATION_MODEL", "openai/gpt-4o-mini"),
+		SummarizationTimeout:        platform.GetAsInt("SUMMARIZATION_TIMEOUT_SECONDS", 60),
+		SummarizationPrompt:         platform.Get("SUMMARIZATION_PROMPT", ""),
+		SingleMessageTokenThreshold: platform.GetAsInt("SINGLE_MESSAGE_TOKEN_THRESHOLD", 2100),
+		ClusterTokenThreshold:       platform.GetAsInt("CLUSTER_TOKEN_THRESHOLD", 10000),
+		ClusterSize:                 platform.GetAsInt("CLUSTER_SIZE", 10),
 		
 		TrollingModels: platform.GetAsSlice("TROLLING_MODELS", []string{"openai/gpt-4.1-mini", "x-ai/grok-4-fast", "x-ai/grok-4-fast:free"}),
 
@@ -306,6 +336,115 @@ Return **only** JSON in this exact format:
 {
   "relevant_indices": ["0", "3-7", "12"]
 }`
+}
+
+// GetSummarizationPrompt returns the decoded summarization prompt
+func (c *AIConfig) GetSummarizationPrompt() string {
+	decoded, err := base64.StdEncoding.DecodeString(c.SummarizationPrompt)
+	if err != nil {
+		return getDefaultSummarizationPrompt()
+	}
+	
+	return string(decoded)
+}
+
+// GetResponseLengthPrompt returns the decoded response length prompt
+func (c *AIConfig) GetResponseLengthPrompt() string {
+	decoded, err := base64.StdEncoding.DecodeString(c.ResponseLengthPrompt)
+	if err != nil {
+		return getDefaultResponseLengthPrompt()
+	}
+	
+	return string(decoded)
+}
+
+func getDefaultResponseLengthPrompt() string {
+	return `You are a response length classification agent.
+Your task is to analyze the user's message and choose how long the assistant's reply should be.
+
+The user message may be written in ANY language.
+
+User message:
+"""
+%s
+"""
+
+Response length categories:
+1. very_brief   - 1–2 short sentences. Minimal answer: a fact, yes/no, or one simple rule.
+2. brief        - 3–5 sentences. Short explanation without deep detail.
+3. medium       - Normal answer: clear explanation with main details, but not extremely long.
+4. detailed     - Extended explanation with examples, step-by-step reasoning, and important nuances.
+5. very_detailed - Very long and deep answer: thorough analysis, multiple options, pros/cons, edge cases.
+
+Detection guidelines (apply them in this order):
+
+1. Explicit instructions about length:
+   - If the user clearly asks for a short/brief/concise answer (in their language),
+     prefer "very_brief" or "brief".
+   - If the user clearly asks for a detailed/complete/in-depth answer (in their language),
+     prefer "detailed" or "very_detailed".
+   - If both short and detailed wishes appear, prefer the LONGER category.
+
+2. Task type:
+   - Simple factual questions like "who is...", "what is...", "when...", "where...",
+     with no extra context, usually expect "very_brief" or "brief".
+   - "Why" / "how" questions, requests for explanations, comparisons, analysis,
+     normally require at least "medium", often "detailed".
+   - Requests like "write code", "give a step-by-step tutorial", "design a plan"
+     usually need at least "detailed", unless the user explicitly asks for brevity.
+
+3. Message length and complexity:
+   - Very short and simple messages (a few words, one clear question)
+     usually expect "very_brief" or "brief", unless they clearly ask for deep detail.
+   - Long messages with a lot of context, description, or multiple questions
+     usually expect "medium" or "detailed".
+
+4. Default behavior:
+   - If there are no clear signals about the desired length and the message is not trivial,
+     choose "medium".
+   - Do NOT choose "very_detailed" unless the user explicitly or implicitly indicates
+     they want a very deep and comprehensive answer.
+
+Confidence calibration:
+- 0.9–1.0 — there are explicit signals (about length or task type) and the choice is obvious.
+- 0.7–0.89 — there are good indirect hints (question type, complexity, etc.).
+- 0.5–0.69 — no strong signals; you choose the safest default (usually "medium").
+- Do not use values below 0.5.
+
+Important:
+- Consider ONLY the text inside the triple quotes as the user message.
+- Do not invent additional user requirements that are not present in the message.
+- Do not output any explanation outside of the JSON.
+
+Return ONLY JSON in this exact format:
+{
+  "length": "very_brief|brief|medium|detailed|very_detailed",
+  "confidence": 0.0-1.0,
+  "reasoning": "short explanation in English why this length was chosen"
+}`
+}
+
+func getDefaultSummarizationPrompt() string {
+	return `You are a summarization agent. Your task is to condense the provided content while preserving all key information, context, and meaning.
+
+The content may be a single message or a multi-turn conversation between a user and an assistant.
+
+Content to summarize:
+"""
+%s
+"""
+
+Requirements:
+1. Preserve all essential facts, decisions, and conclusions.
+2. Keep important technical details, names, numbers, and specific references.
+3. Maintain the logical flow and relationships between topics.
+4. Remove redundancy, small talk, and irrelevant digressions.
+5. Use clear and concise language.
+6. The summary must be significantly shorter than the original (aim for about 30–50%% of the original length, unless the original text is already very short).
+7. The summary must be in the same language as the original content.
+8. Do NOT add any new information, examples, or assumptions that are not present in the original content.
+
+Return ONLY the summary text, with no preamble, no quotes, and no formatting.`
 }
 
 func getDefaultModelSelectionPrompt() string {

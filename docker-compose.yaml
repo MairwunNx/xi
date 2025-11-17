@@ -17,6 +17,8 @@ services:
         condition: service_healthy
       ximanager-redis:
         condition: service_healthy
+      ximanager-unleash:
+        condition: service_healthy
     env_file: .env
     environment:
       AGENT_CONTEXT_SELECTION_PROMPT: ${AGENT_CONTEXT_SELECTION_PROMPT}
@@ -41,6 +43,8 @@ services:
       REDIS_PORT: ${REDIS_PORT}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TZ: ${TZ}
+      UNLEASH_API_URL: ${UNLEASH_API_URL}
+      UNLEASH_INSTANCE_ID: ${UNLEASH_INSTANCE_ID}
     healthcheck:
       interval: 15s
       retries: 5
@@ -144,6 +148,41 @@ services:
     user: '0'
     volumes:
       - ximanager-redis-data:/data
+  ximanager-unleash:
+    container_name: ximanager-unleash
+    cpus: '0.5'
+    depends_on:
+      ximanager-postgres:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_HOST: ximanager-postgres
+      DATABASE_NAME: unleash
+      DATABASE_USERNAME: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_PORT: "5432"
+      DATABASE_SSL: "false"
+      LOG_LEVEL: "warn"
+      INIT_ADMIN_API_TOKENS: ${UNLEASH_ADMIN_TOKEN}
+      TZ: ${TZ}
+    healthcheck:
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4242/health"]
+      timeout: 5s
+    image: unleashorg/unleash-server:7.3.0
+    logging:
+      driver: local
+      options:
+        max-file: '3'
+        max-size: 10m
+    mem_limit: 384m
+    mem_reservation: 200m
+    networks: [ default ]
+    ports:
+      - "4242:4242"
+    restart: unless-stopped
 volumes:
   ximanager-postgres-data:
     driver: local

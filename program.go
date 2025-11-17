@@ -5,6 +5,7 @@ import (
 	"time"
 	"ximanager/sources/artificial"
 	"ximanager/sources/external"
+	"ximanager/sources/features"
 	"ximanager/sources/network"
 	"ximanager/sources/persistence"
 	"ximanager/sources/platform"
@@ -38,6 +39,7 @@ func main() {
 		persistence.Module,
 		repository.Module,
 		throttler.Module,
+		features.Module,
 		artificial.Module,
 		telegram.Module,
 	

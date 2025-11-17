@@ -34,6 +34,13 @@ type PersonalizationValidationResponse struct {
 	Confidence float64 `json:"confidence"`
 }
 
+// ResponseLengthResponse represents the response from response length detection agent
+type ResponseLengthResponse struct {
+	Length     string  `json:"length"`     // very_brief, brief, medium, detailed, very_detailed
+	Confidence float64 `json:"confidence"` // 0.0-1.0
+	Reasoning  string  `json:"reasoning"`  // Brief explanation
+}
+
 // AgentSystem handles the agent-based AI workflow
 type AgentSystem struct {
 	ai     *openrouter.Client
@@ -119,9 +126,52 @@ func (a *AgentSystem) SelectRelevantContext(
 	}
 
 	indices := texting.ExpandIndicesAndRanges(log, contextResponse.RelevantIndices, len(history)-1)
+	
+	// Ensure we select messages in pairs (user-assistant)
+	// Convert indices to a set for faster lookup
+	indicesSet := make(map[int]bool)
+	for _, idx := range indices {
+		indicesSet[idx] = true
+	}
+	
+	// Add missing pairs
+	for idx := range indicesSet {
+		if idx >= 0 && idx < len(history) {
+			msg := history[idx]
+			
+			// If this is a user message, ensure we have the following assistant message
+			if msg.Role == platform.MessageRoleUser && idx+1 < len(history) {
+				if history[idx+1].Role == platform.MessageRoleAssistant {
+					indicesSet[idx+1] = true
+				}
+			}
+			
+			// If this is an assistant message, ensure we have the preceding user message
+			if msg.Role == platform.MessageRoleAssistant && idx > 0 {
+				if history[idx-1].Role == platform.MessageRoleUser {
+					indicesSet[idx-1] = true
+				}
+			}
+		}
+	}
+	
+	// Convert back to sorted slice
+	var completedIndices []int
+	for idx := range indicesSet {
+		completedIndices = append(completedIndices, idx)
+	}
+	
+	// Sort indices
+	for i := 0; i < len(completedIndices); i++ {
+		for j := i + 1; j < len(completedIndices); j++ {
+			if completedIndices[i] > completedIndices[j] {
+				completedIndices[i], completedIndices[j] = completedIndices[j], completedIndices[i]
+			}
+		}
+	}
 
 	relevantMessages := []platform.RedisMessage{}
-	for _, index := range indices {
+	for _, index := range completedIndices {
 		if index >= 0 && index < len(history) {
 			relevantMessages = append(relevantMessages, history[index])
 		}
@@ -524,6 +574,80 @@ Return ONLY JSON, nothing else.`
 	return &validationResponse, nil
 }
 
+// SummarizeContent uses an agent to summarize conversation content
+func (a *AgentSystem) SummarizeContent(
+	log *tracing.Logger,
+	content string,
+	contentType string, // "message" or "cluster"
+) (string, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.SummarizationTimeout)*time.Second)
+	defer cancel()
+
+	prompt := a.getSummarizationPrompt()
+	systemMessage := fmt.Sprintf(prompt, content)
+
+	messages := []openrouter.ChatCompletionMessage{
+		{
+			Role:    openrouter.ChatMessageRoleSystem,
+			Content: openrouter.Content{Text: systemMessage},
+		},
+		{
+			Role:    openrouter.ChatMessageRoleUser,
+			Content: openrouter.Content{Text: "Summarize the provided content according to the requirements. Return only the summary text."},
+		},
+	}
+
+	model := a.config.SummarizationModel
+
+	request := openrouter.ChatCompletionRequest{
+		Model:    model,
+		Messages: messages,
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
+		},
+		Temperature: 0.3, // Lower temperature for consistent summarization
+	}
+
+	log = log.With("ai_agent", "summarizer", tracing.AiModel, model, "content_type", contentType)
+
+	startTime := time.Now()
+	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		log.E("Failed to summarize content", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_summarization_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "content_type", contentType)
+		// Return original content if summarization fails
+		return content, fmt.Errorf("summarization failed: %w", err)
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in summarization response")
+		log.I("agent_summarization_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "content_type", contentType)
+		return content, fmt.Errorf("empty response from summarization agent")
+	}
+
+	summarizedText := response.Choices[0].Message.Content.Text
+	
+	originalLength := len(content)
+	summarizedLength := len(summarizedText)
+	reductionPercent := 0
+	if originalLength > 0 {
+		reductionPercent = int(float64(originalLength-summarizedLength) / float64(originalLength) * 100)
+	}
+
+	log.I("agent_summarization_success",
+		"original_length", originalLength,
+		"summarized_length", summarizedLength,
+		"reduction_percent", reductionPercent,
+		"duration_ms", duration.Milliseconds(),
+		"content_type", contentType,
+	)
+
+	return summarizedText, nil
+}
+
 // Prompt getters - these are loaded from configuration with base64 decoding
 func (a *AgentSystem) getContextSelectionPrompt() string {
 	return a.config.GetContextSelectionPrompt()
@@ -531,4 +655,89 @@ func (a *AgentSystem) getContextSelectionPrompt() string {
 
 func (a *AgentSystem) getModelSelectionPrompt() string {
 	return a.config.GetModelSelectionPrompt()
+}
+
+func (a *AgentSystem) getSummarizationPrompt() string {
+	return a.config.GetSummarizationPrompt()
+}
+
+func (a *AgentSystem) getResponseLengthPrompt() string {
+	return a.config.GetResponseLengthPrompt()
+}
+
+func (a *AgentSystem) DetermineResponseLength(
+	log *tracing.Logger,
+	userMessage string,
+) (*ResponseLengthResponse, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentResponseLengthTimeout)*time.Second)
+	defer cancel()
+
+	prompt := a.getResponseLengthPrompt()
+	systemMessage := fmt.Sprintf(prompt, userMessage)
+
+	request := openrouter.ChatCompletionRequest{
+		Model: a.config.AgentResponseLengthModel,
+		Messages: []openrouter.ChatCompletionMessage{
+			{Role: openrouter.ChatMessageRoleSystem, Content: openrouter.Content{Text: systemMessage}},
+			{Role: openrouter.ChatMessageRoleUser, Content: openrouter.Content{Text: "Analyze the user's message and determine the expected response length. Return your response in JSON format."}},
+		},
+		Provider:    &openrouter.ChatProvider{DataCollection: openrouter.DataCollectionDeny, Sort: openrouter.ProviderSortingLatency},
+		Temperature: 0.2,
+	}
+
+	log = log.With("ai_agent", "response_length_detector", tracing.AiModel, a.config.AgentResponseLengthModel)
+
+	startTime := time.Now()
+	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		log.E("Failed to determine response length", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_response_length_failed", "reason", "api_error", "duration_ms", duration.Milliseconds())
+		return a.getDefaultResponseLength("API error"), nil
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in response length detection")
+		log.I("agent_response_length_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds())
+		return a.getDefaultResponseLength("empty response"), nil
+	}
+
+	var lengthResponse ResponseLengthResponse
+	if err := json.Unmarshal([]byte(response.Choices[0].Message.Content.Text), &lengthResponse); err != nil {
+		log.E("Failed to parse response length detection", tracing.InnerError, err, "response_text", response.Choices[0].Message.Content.Text)
+		log.I("agent_response_length_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds())
+		return a.getDefaultResponseLength("parse error"), nil
+	}
+
+	if !a.isValidResponseLength(lengthResponse.Length) {
+		log.W("Invalid length value returned, defaulting to medium", "returned_length", lengthResponse.Length)
+		lengthResponse.Length = "medium"
+		lengthResponse.Confidence = 0.5
+	}
+
+	log.I("agent_response_length_success",
+		"detected_length", lengthResponse.Length,
+		"confidence", lengthResponse.Confidence,
+		"reasoning", lengthResponse.Reasoning,
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	return &lengthResponse, nil
+}
+
+func (a *AgentSystem) getDefaultResponseLength(reason string) *ResponseLengthResponse {
+	return &ResponseLengthResponse{
+		Length:     "medium",
+		Confidence: 0.5,
+		Reasoning:  fmt.Sprintf("Defaulted to medium due to %s", reason),
+	}
+}
+
+func (a *AgentSystem) isValidResponseLength(length string) bool {
+	validLengths := map[string]bool{
+		"very_brief": true, "brief": true, "medium": true,
+		"detailed": true, "very_detailed": true,
+	}
+	return validLengths[length]
 }

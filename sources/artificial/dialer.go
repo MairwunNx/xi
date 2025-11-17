@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"ximanager/sources/features"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
@@ -31,6 +32,7 @@ type Dialer struct {
 	usageLimiter    *UsageLimiter
 	spendingLimiter *SpendingLimiter
 	agentSystem     *AgentSystem
+	features        FeatureChecker
 }
 
 func NewDialer(
@@ -46,6 +48,7 @@ func NewDialer(
 	contextManager *ContextManager,
 	usageLimiter *UsageLimiter,
 	spendingLimiter *SpendingLimiter,
+	features FeatureChecker,
 ) *Dialer {
 	return &Dialer{
 		ai:               ai,
@@ -61,6 +64,7 @@ func NewDialer(
 		usageLimiter:     usageLimiter,
 		spendingLimiter:  spendingLimiter,
 		agentSystem:      NewAgentSystem(ai, config),
+		features:         features,
 	}
 }
 
@@ -250,6 +254,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		"user_id", user.ID,
 	)
 
+	if x.features.IsEnabled(features.FeatureResponseLengthDetection) {
+		if guideline := x.getResponseLengthGuidelineFromAgent(log, req); guideline != "" {
+			prompt += guideline
+		}
+	}
+
 	messages := []openrouter.ChatCompletionMessage{
 		{
 			Role:    openrouter.ChatMessageRoleSystem,
@@ -265,7 +275,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				role = openrouter.ChatMessageRoleUser
 			case platform.MessageRoleAssistant:
 				role = openrouter.ChatMessageRoleAssistant
+			case platform.MessageRoleSystem:
+				role = openrouter.ChatMessageRoleSystem
 			default:
+				log.W("Unknown message role in context, skipping", "role", h.Role)
 				continue
 			}
 			messages = append(messages, openrouter.ChatCompletionMessage{
@@ -452,6 +465,39 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	return responseText, nil
+}
+
+func (x *Dialer) getResponseLengthGuidelineFromAgent(log *tracing.Logger, userMessage string) string {
+	lengthDetection, err := x.agentSystem.DetermineResponseLength(log, userMessage)
+	if err != nil {
+		log.W("Failed to determine response length", tracing.InnerError, err)
+		return ""
+	}
+	
+	log.I("response_length_detected",
+		"length", lengthDetection.Length,
+		"confidence", lengthDetection.Confidence,
+		"reasoning", lengthDetection.Reasoning,
+	)
+	
+	return x.getResponseLengthGuideline(lengthDetection.Length)
+}
+
+func (x *Dialer) getResponseLengthGuideline(length string) string {
+	switch length {
+	case "very_brief":
+		return "\n\n### Response Length Guideline\n\n**Very brief response required** (1-2 sentences maximum):\n- Answer directly and concisely\n- One key fact or yes/no\n- No elaboration unless critical\n- Skip examples and details"
+	case "brief":
+		return "\n\n### Response Length Guideline\n\n**Brief response required** (3-5 sentences):\n- Short and focused explanation\n- Core information only\n- Minimal examples if needed\n- Skip tangential details"
+	case "medium":
+		return "\n\n### Response Length Guideline\n\n**Standard response** (balanced length):\n- Provide a complete, well-structured answer\n- Include relevant context and examples\n- Balance thoroughness with brevity\n- Natural conversational length"
+	case "detailed":
+		return "\n\n### Response Length Guideline\n\n**Detailed response required**:\n- Comprehensive explanation with context\n- Include multiple examples and perspectives\n- Cover edge cases and nuances\n- Thorough but organized presentation"
+	case "very_detailed":
+		return "\n\n### Response Length Guideline\n\n**Very detailed response required** (in-depth analysis):\n- Exhaustive coverage of the topic\n- Multiple examples, comparisons, and perspectives\n- Historical context and implications\n- Step-by-step breakdowns where applicable\n- All relevant details and edge cases"
+	default:
+		return "" // No guideline for unknown length
+	}
 }
 
 func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
