@@ -25,6 +25,15 @@ func GetAsInt(key string, defaultValue int) int {
 	return defaultValue
 }
 
+func GetAsBool(key string, defaultValue bool) bool {
+	if valueStr := os.Getenv(key); valueStr != "" {
+		if value, err := strconv.ParseBool(valueStr); err == nil {
+			return value
+		}
+	}
+	return defaultValue
+}
+
 func GetDecimal(key, defaultValue string) decimal.Decimal {
 	if valueStr := Get(key, defaultValue); valueStr != "" {
 		if value, err := decimal.NewFromString(valueStr); err == nil {
