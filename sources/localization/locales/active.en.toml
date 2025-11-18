@@ -40,8 +40,8 @@ other = """🀄️ **Available commands of the Great Xi:**
 🚀 `/start` - Greeting and overview of Xi Manager
 🐉 `/xi` - Summon the Great Emperor Xi with your question or image
 🎭 `/mode` - Switch Xi's behavior modes (available to honored citizens)
-👥 `/users` - Manage users (administrators only)
-💰 `/donations` - Manage donations to the imperial treasury (administrators only)
+👥 `/users` - Manage subjects of the Celestial Empire (apparatus of the Great Xi only)
+💰 `/donations` - Manage donations to the imperial treasury (apparatus of the Great Xi only)
 👤 `/personalization` - Manage personalization for AI
 🔍 `/this` - Technical information about the current state from Xi
 📊 `/stats` - Statistics of the Great Ruler
@@ -174,7 +174,7 @@ other = "🈲 There are no modes configured for the Emperor Xi in this chat. Ple
 other = "🈲 Unknown user management command."
 
 [MsgUsersNoAccess]
-other = "🈲 You are not allowed to manage users. Your social credit **has been lowered**!"
+other = "🈲 You are not worthy to manage users. Your social credit **has been lowered**!"
 
 [MsgUsersErrorEdit]
 other = "💢 An error occurred while editing user rights."
