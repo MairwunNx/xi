@@ -519,3 +519,56 @@ other = """🈲 Неверный формат команды. Используй
 
 [MsgDonationsSupport]
 other = "💖 Поддержать проект"
+
+# Форматирование времени
+[AgeifyToday]
+other = "сегодня"
+
+[AgeifyDaysAgo]
+one = "{{.Count}} день назад"
+few = "{{.Count}} дня назад"
+many = "{{.Count}} дней назад"
+other = "{{.Count}} дней назад"
+
+[AgeifyWeeksAgo]
+one = "{{.Count}} неделю назад"
+few = "{{.Count}} недели назад"
+many = "{{.Count}} недель назад"
+other = "{{.Count}} недель назад"
+
+[AgeifyMonthsAgo]
+one = "{{.Count}} месяц назад"
+few = "{{.Count}} месяца назад"
+many = "{{.Count}} месяцев назад"
+other = "{{.Count}} месяцев назад"
+
+[AgeifyYearsAgo]
+one = "{{.Count}} год назад"
+few = "{{.Count}} года назад"
+many = "{{.Count}} лет назад"
+other = "{{.Count}} лет назад"
+
+# Форматирование банов
+[BanExpiryFormat]
+other = "02.01.2006 в 15:04"
+
+[BanRemainingExpired]
+other = "истек"
+
+[BanRemainingHours]
+one = "{{.Count}} час"
+few = "{{.Count}} часа"
+many = "{{.Count}} часов"
+other = "{{.Count}} часов"
+
+[BanRemainingMinutes]
+one = "{{.Count}} минута"
+few = "{{.Count}} минуты"
+many = "{{.Count}} минут"
+other = "{{.Count}} минут"
+
+[BanRemainingSeconds]
+one = "{{.Count}} секунда"
+few = "{{.Count}} секунды"
+many = "{{.Count}} секунд"
+other = "{{.Count}} секунд"
