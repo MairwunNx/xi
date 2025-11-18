@@ -2,8 +2,8 @@ package localization
 
 import (
 	"strings"
+	"unicode"
 	"ximanager/sources/features"
-	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
 	"github.com/pemistahl/lingua-go"
@@ -43,7 +43,7 @@ func (x *LanguageDetector) DetectLanguage(text string) string {
 		return "en"
 	}
 
-	truncatedText := texting.SmartTruncate(cleanText, MaxTextLengthForDetection)
+	truncatedText := SmartTruncate(cleanText, MaxTextLengthForDetection)
 
 	if language, exists := x.detector.DetectLanguageOf(truncatedText); exists {
 		langCode := x.linguaToCode(language)
@@ -66,4 +66,20 @@ func (x *LanguageDetector) linguaToCode(lang lingua.Language) string {
 	default:
 		return "en"
 	}
+}
+
+func SmartTruncate(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+
+	truncated := text[:maxLen]
+
+	for i := len(truncated) - 1; i >= 0; i-- {
+		if unicode.IsSpace(rune(truncated[i])) {
+			return truncated[:i]
+		}
+	}
+
+	return truncated
 }
