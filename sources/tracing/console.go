@@ -44,14 +44,11 @@ type Logger struct {
 }
 
 func NewConsoleLogger() *Logger {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	logger.InfoContext(ctx, "Initializing  logger")
+	logger.InfoContext(ctx, "Initializing console logger")
 	return &Logger{log: logger, ctx: ctx}
 }
 
