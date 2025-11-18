@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"os"
 	"time"
 	"ximanager/sources/artificial"
+	"ximanager/sources/configuration"
 	"ximanager/sources/external"
 	"ximanager/sources/features"
 	"ximanager/sources/localization"
@@ -29,14 +31,15 @@ var (
 func main() {
 	platform.SetAppManifest(version, buildTime, startTime)
 
-	if tz := platform.Get("TZ", "UTC"); tz != "" {
+	if tz := os.Getenv("TZ"); tz != "" {
 		if loc, err := time.LoadLocation(tz); err == nil {
 				time.Local = loc
 		}
 	}
 
 	fx.New(
-		tracing.Module,
+    tracing.Module,
+		configuration.Module,
 		external.Module,
 		network.Module,
 		persistence.Module,
