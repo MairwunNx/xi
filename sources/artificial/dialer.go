@@ -11,7 +11,6 @@ import (
 	"ximanager/sources/localization"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
-	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -120,9 +119,9 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	if limitResult.Exceeded {
 		if limitResult.IsDaily {
-			return texting.MsgDailyLimitExceeded, nil
+			return x.localization.LocalizeBy(msg, "MsgDailyLimitExceeded"), nil
 		}
-		return texting.MsgMonthlyLimitExceeded, nil
+		return x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
 	gradeLimits, ok := x.config.GradeLimits[userGrade]
@@ -249,11 +248,17 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 				"limit_amount", spendingErr.LimitAmount.String(),
 			)
 
-			limitTypeText := texting.MsgSpendingLimitExceededDaily
+			periodText := x.localization.LocalizeBy(msg, "MsgSpendingLimitExceededDaily")
 			if spendingErr.LimitType == LimitTypeMonthly {
-				limitTypeText = texting.MsgSpendingLimitExceededMonthly
+				periodText = x.localization.LocalizeBy(msg, "MsgSpendingLimitExceededMonthly")
 			}
-			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededDialer, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
+
+			limitWarning = x.localization.LocalizeByTd(msg, "MsgSpendingLimitExceededDialer", map[string]interface{}{
+				"Period": periodText,
+				"Grade":  spendingErr.UserGrade,
+				"Spent":  spendingErr.CurrentSpend.String(),
+				"Limit":  spendingErr.LimitAmount.String(),
+			})
 		}
 	}
 
@@ -392,7 +397,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		switch e := err.(type) {
 		case *openrouter.APIError:
 			if e.Code == 402 {
-				return texting.MsgInsufficientCredits, nil
+				return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 			}
 			log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 			return "", err

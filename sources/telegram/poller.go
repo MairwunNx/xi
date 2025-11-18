@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 	"time"
-	"ximanager/sources/texting"
+	"ximanager/sources/localization"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -16,11 +16,12 @@ type chatQueue struct {
 }
 
 type Poller struct {
-	bot      *tgbotapi.BotAPI
-	log      *tracing.Logger
-	config   *PollerConfig
-	diplomat *Diplomat
-	handler  *TelegramHandler
+	bot          *tgbotapi.BotAPI
+	log          *tracing.Logger
+	config       *PollerConfig
+	diplomat     *Diplomat
+	handler      *TelegramHandler
+	localization *localization.LocalizationManager
 
 	chatQueues map[int64]*chatQueue
 	queuesMux  sync.RWMutex
@@ -29,17 +30,18 @@ type Poller struct {
 	cancel     context.CancelFunc
 }
 
-func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *PollerConfig, handler *TelegramHandler) *Poller {
+func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *PollerConfig, handler *TelegramHandler, localization *localization.LocalizationManager) *Poller {
 	ctx, cancel := context.WithCancel(context.Background())
 	poller := &Poller{
-		bot:        bot,
-		log:        log,
-		diplomat:   diplomat,
-		config:     config,
-		handler:    handler,
-		chatQueues: make(map[int64]*chatQueue),
-		ctx:        ctx,
-		cancel:     cancel,
+		bot:          bot,
+		log:          log,
+		diplomat:     diplomat,
+		config:       config,
+		handler:      handler,
+		localization: localization,
+		chatQueues:   make(map[int64]*chatQueue),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 	
 	go poller.cleanupInactiveQueues()
@@ -140,7 +142,8 @@ func (x *Poller) handleMessage(update tgbotapi.Update) {
 	)
 
 	if err := x.handler.HandleMessage(log, msg); err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgXiError)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgXiError")
+		x.diplomat.Reply(log, msg, errorMsg)
 	}
 
 	log.D("Message handled")

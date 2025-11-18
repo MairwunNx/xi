@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"ximanager/sources/localization"
 	"ximanager/sources/platform"
 	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
@@ -11,6 +12,7 @@ import (
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/repository"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/shopspring/decimal"
 )
@@ -23,6 +25,7 @@ type Vision struct {
 	users           *repository.UsersRepository
 	donations       *repository.DonationsRepository
 	spendingLimiter *SpendingLimiter
+	localization    *localization.LocalizationManager
 }
 
 func NewVision(
@@ -33,6 +36,7 @@ func NewVision(
 	users *repository.UsersRepository,
 	donations *repository.DonationsRepository,
 	spendingLimiter *SpendingLimiter,
+	localization *localization.LocalizationManager,
 ) *Vision {
 	return &Vision{
 		ai:              ai,
@@ -42,10 +46,11 @@ func NewVision(
 		users:           users,
 		donations:       donations,
 		spendingLimiter: spendingLimiter,
+		localization:    localization,
 	}
 }
 
-func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.User, chatID int64, req string, persona string) (string, error) {
+func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl string, user *entities.User, chatID int64, req string, persona string) (string, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -63,9 +68,9 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 
 	if limitResult.Exceeded {
 		if limitResult.IsDaily {
-			return texting.MsgDailyLimitExceeded, nil
+			return v.localization.LocalizeBy(msg, "MsgDailyLimitExceeded"), nil
 		}
-		return texting.MsgMonthlyLimitExceeded, nil
+		return v.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
 	gradeLimits, ok := v.config.GradeLimits[userGrade]
@@ -88,11 +93,17 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 			fallbackModels = v.config.LimitExceededFallbackModels
 			modelDowngraded = true
 
-			limitTypeText := texting.MsgSpendingLimitExceededDaily
+			periodText := v.localization.LocalizeBy(msg, "MsgSpendingLimitExceededDaily")
 			if spendingErr.LimitType == LimitTypeMonthly {
-				limitTypeText = texting.MsgSpendingLimitExceededMonthly
+				periodText = v.localization.LocalizeBy(msg, "MsgSpendingLimitExceededMonthly")
 			}
-			limitWarning = fmt.Sprintf(texting.MsgSpendingLimitExceededVision, limitTypeText, spendingErr.UserGrade, spendingErr.CurrentSpend, spendingErr.LimitAmount)
+
+			limitWarning = v.localization.LocalizeByTd(msg, "MsgSpendingLimitExceededVision", map[string]interface{}{
+				"Period": periodText,
+				"Grade":  spendingErr.UserGrade,
+				"Spent":  spendingErr.CurrentSpend.String(),
+				"Limit":  spendingErr.LimitAmount.String(),
+			})
 		}
 	}
 
@@ -142,7 +153,7 @@ func (v *Vision) Visionify(logger *tracing.Logger, iurl string, user *entities.U
 		switch e := err.(type) {
 		case *openrouter.APIError:
 			if e.Code == 402 {
-				return texting.MsgInsufficientCredits, nil
+				return v.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 			}
 			logger.E("OpenRouter API error in vision", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 			return "", err

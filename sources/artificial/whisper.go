@@ -4,12 +4,13 @@ import (
 	"context"
 	"os"
 	"time"
+	"ximanager/sources/localization"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
-	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/sashabaranov/go-openai"
 )
 
@@ -18,6 +19,7 @@ type Whisper struct {
 	config       *AIConfig
 	usageLimiter *UsageLimiter
 	donations    *repository.DonationsRepository
+	localization *localization.LocalizationManager
 }
 
 func NewWhisper(
@@ -25,16 +27,18 @@ func NewWhisper(
 	ai *openai.Client,
 	usageLimiter *UsageLimiter,
 	donations *repository.DonationsRepository,
+	localization *localization.LocalizationManager,
 ) *Whisper {
 	return &Whisper{
 		ai:           ai,
 		config:       config,
 		usageLimiter: usageLimiter,
 		donations:    donations,
+		localization: localization,
 	}
 }
 
-func (w *Whisper) Whisperify(log *tracing.Logger, file *os.File, user *entities.User) (string, error) {
+func (w *Whisper) Whisperify(log *tracing.Logger, msg *tgbotapi.Message, file *os.File, user *entities.User) (string, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -52,9 +56,9 @@ func (w *Whisper) Whisperify(log *tracing.Logger, file *os.File, user *entities.
 
 	if limitResult.Exceeded {
 		if limitResult.IsDaily {
-			return texting.MsgDailyLimitExceeded, nil
+			return w.localization.LocalizeBy(msg, "MsgDailyLimitExceeded"), nil
 		}
-		return texting.MsgMonthlyLimitExceeded, nil
+		return w.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
 	log = log.With(tracing.AiKind, "openai/whisper", tracing.AiModel, w.config.WhisperModel)
@@ -66,7 +70,7 @@ func (w *Whisper) Whisperify(log *tracing.Logger, file *os.File, user *entities.
 		switch e := err.(type) {
 		case *openai.APIError:
 			if e.Code == 402 {
-				return texting.MsgInsufficientCredits, nil
+				return w.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 			}
 		}		
 		log.E("Failed to transcribe audio", tracing.InnerError, err)
