@@ -21,10 +21,10 @@ type LanguageDetector struct {
 }
 
 func NewLanguageDetector(features *features.FeatureManager, log *tracing.Logger) *LanguageDetector {
-	languages := []lingua.Language{lingua.Russian, lingua.English, lingua.Chinese}
+	languages := []lingua.Language{lingua.Russian, lingua.English, lingua.Chinese, lingua.Ukrainian, lingua.Belarusian, lingua.Latvian, lingua.Lithuanian}
 	detector := lingua.NewLanguageDetectorBuilder().FromLanguages(languages...).WithPreloadedLanguageModels().Build()
 
-	log.I("Language detector initialized", "supported_languages", []string{"ru", "en", "zh"})
+	log.I("Language detector initialized")
 	return &LanguageDetector{detector: detector, features: features, log: log}
 }
 
