@@ -3,6 +3,7 @@ package texting
 import (
 	"fmt"
 	"time"
+	"unicode"
 
 	"github.com/shopspring/decimal"
 	"golang.org/x/text/language"
@@ -70,4 +71,20 @@ func Ageify(createdAt time.Time) string {
 	
 	years := days / 365
 	return fmt.Sprintf("%d %s назад", years, Pluralify(years, "год", "года", "лет"))
+}
+
+func SmartTruncate(text string, maxLen int) string {
+	if len(text) <= maxLen {
+		return text
+	}
+
+	truncated := text[:maxLen]
+
+	for i := len(truncated) - 1; i >= 0; i-- {
+		if unicode.IsSpace(rune(truncated[i])) {
+			return truncated[:i]
+		}
+	}
+
+	return truncated
 }
