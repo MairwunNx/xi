@@ -65,6 +65,9 @@ proxy:
   user: ${PROXY_USER}
   password: ${PROXY_PASS}
 
+network:
+  timeout_seconds: 30
+
 throttler:
   limit: 5s
 

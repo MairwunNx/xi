@@ -11,6 +11,7 @@ type Config struct {
 	Telegram     TelegramConfig     `yaml:"telegram"`
 	AI           AIConfig           `yaml:"ai"`
 	Proxy        ProxyConfig        `yaml:"proxy"`
+	Network      NetworkConfig      `yaml:"network"`
 	Throttler    ThrottlerConfig    `yaml:"throttler"`
 	Features     FeaturesConfig     `yaml:"features"`
 	Localization LocalizationConfig `yaml:"localization"`
@@ -94,6 +95,10 @@ type ProxyConfig struct {
 	URL      string `yaml:"url"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
+}
+
+type NetworkConfig struct {
+	TimeoutSeconds int `yaml:"timeout_seconds"`
 }
 
 type ThrottlerConfig struct {
