@@ -6,19 +6,28 @@ import (
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-// todo: create new outsider for application level metrics under 10002 port.
 
 type Outsiders struct {
 	log    *tracing.Logger
 	config *OutsidersConfig
 	ss     *http.Server
-	ms     *http.Server
+	sms    *http.Server
+	as     *http.Server
 }
 
 func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
+	systemRegistry := prometheus.NewRegistry()
+	
+	systemRegistry.MustRegister(
+		collectors.NewGoCollector(),
+		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+		collectors.NewBuildInfoCollector(),
+	)
+
 	return &Outsiders{
 		log:    log,
 		config: config,
@@ -30,8 +39,14 @@ func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
 				})
 			}),
 		},
-		ms: &http.Server{
-			Addr: fmt.Sprintf(":%d", config.MetricsPort),
+		sms: &http.Server{
+			Addr: fmt.Sprintf(":%d", config.SystemMetricsPort),
+			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
+				m.Handle("/metrics", promhttp.HandlerFor(systemRegistry, promhttp.HandlerOpts{}))
+			}),
+		},
+		as: &http.Server{
+			Addr: fmt.Sprintf(":%d", config.ApplicationMetricsPort),
 			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
 				m.Handle("/metrics", promhttp.Handler())
 			}),
@@ -47,11 +62,19 @@ func (x *Outsiders) startup() {
 	}
 }
 
-func (x *Outsiders) metrics() {
-	x.log.I("Metrics server is starting", tracing.OutsiderKind, "metrics", "port", x.config.MetricsPort)
+func (x *Outsiders) systemMetrics() {
+	x.log.I("System metrics server is starting", tracing.OutsiderKind, "system_metrics", "port", x.config.SystemMetricsPort)
 
-	if err := x.ms.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		x.log.F("Failed to start metrics server", tracing.OutsiderKind, "metrics", tracing.InnerError, err)
+	if err := x.sms.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		x.log.F("Failed to start system metrics server", tracing.OutsiderKind, "system_metrics", tracing.InnerError, err)
+	}
+}
+
+func (x *Outsiders) applicationMetrics() {
+	x.log.I("Application metrics server is starting", tracing.OutsiderKind, "application_metrics", "port", x.config.ApplicationMetricsPort)
+
+	if err := x.as.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		x.log.F("Failed to start application metrics server", tracing.OutsiderKind, "application_metrics", tracing.InnerError, err)
 	}
 }
 
