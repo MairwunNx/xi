@@ -6,7 +6,6 @@ import (
 
 var Module = fx.Module("localization",
 	fx.Provide(
-		NewLocalizationConfig,
 		NewLanguageDetector,
 		NewLocalizationManager,
 	),
