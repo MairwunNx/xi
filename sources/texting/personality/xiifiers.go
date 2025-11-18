@@ -16,16 +16,16 @@ func NewXiPersonality(localization *localization.LocalizationManager) *XiPersona
 }
 
 func (x *XiPersonality) Xiify(msg *tgbotapi.Message, text string) string {
-	prefix := x.localization.LocalizeBy(msg, "MsgXiResponse", nil)
+	prefix := x.localization.LocalizeBy(msg, "MsgXiResponse")
 	return fmt.Sprintf("%s%s", prefix, text)
 }
 
 func (x *XiPersonality) XiifyManual(msg *tgbotapi.Message, text string) string {
-	prefix := x.localization.LocalizeBy(msg, "MsgXiManualResponse", nil)
+	prefix := x.localization.LocalizeBy(msg, "MsgXiManualResponse")
 	return fmt.Sprintf("%s%s", prefix, text)
 }
 
 func (x *XiPersonality) XiifyAudio(msg *tgbotapi.Message, text string) string {
-	prefix := x.localization.LocalizeBy(msg, "MsgAudioSuccess", nil)
+	prefix := x.localization.LocalizeBy(msg, "MsgAudioSuccess")
 	return fmt.Sprintf("%s%s", prefix, text)
 }
