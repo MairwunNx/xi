@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
@@ -12,12 +13,12 @@ import (
 
 type Throttler struct {
 	client *redis.Client
-	config *ThrottlerConfig
+	config *configuration.Config
 	log    *tracing.Logger
 	ctx    context.Context
 }
 
-func NewThrottler(client *redis.Client, config *ThrottlerConfig, log *tracing.Logger) *Throttler {
+func NewThrottler(client *redis.Client, config *configuration.Config, log *tracing.Logger) *Throttler {
 	ctx := context.Background()
 	return &Throttler{client: client, config: config, log: log, ctx: ctx}
 }
@@ -30,7 +31,7 @@ func (x *Throttler) IsAllowed(userId int64) bool {
 
 	key := fmt.Sprintf("throttle:%d", userId)
 
-	success, err := x.client.SetNX(ctx, key, time.Now().Unix(), x.config.Limit).Result()
+	success, err := x.client.SetNX(ctx, key, time.Now().Unix(), x.config.Throttler.Limit).Result()
 	if err != nil {
 		x.log.E("Error setting throttle key", tracing.InnerError, err)
 		return true
