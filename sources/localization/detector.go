@@ -2,8 +2,8 @@ package localization
 
 import (
 	"strings"
-	"unicode"
 	"ximanager/sources/features"
+	"ximanager/sources/texting/transform"
 	"ximanager/sources/tracing"
 
 	"github.com/pemistahl/lingua-go"
@@ -29,10 +29,10 @@ func NewLanguageDetector(features *features.FeatureManager, log *tracing.Logger)
 }
 
 func (x *LanguageDetector) DetectLanguage(text string) string {
-  defer tracing.ProfilePoint(x.log, "Language detection completed", "language.detect", "text_length", len(text))()
+	defer tracing.ProfilePoint(x.log, "Language detection completed", "language.detect", "text_length", len(text))()
 
 	if !x.features.IsEnabledOrDefault(features.FeatureLocalizationAuto, true) {
-    x.log.D("Language detection disabled by feature flag")
+		x.log.D("Language detection disabled by feature flag")
 		return "ru" // Именно русский, потому что такой язык был до введения этой фичи.
 	}
 
@@ -43,7 +43,7 @@ func (x *LanguageDetector) DetectLanguage(text string) string {
 		return "en"
 	}
 
-	truncatedText := SmartTruncate(cleanText, MaxTextLengthForDetection)
+	truncatedText := transform.SmartTruncate(cleanText, MaxTextLengthForDetection)
 
 	if language, exists := x.detector.DetectLanguageOf(truncatedText); exists {
 		langCode := x.linguaToCode(language)
@@ -66,20 +66,4 @@ func (x *LanguageDetector) linguaToCode(lang lingua.Language) string {
 	default:
 		return "en"
 	}
-}
-
-func SmartTruncate(text string, maxLen int) string {
-	if len(text) <= maxLen {
-		return text
-	}
-
-	truncated := text[:maxLen]
-
-	for i := len(truncated) - 1; i >= 0; i-- {
-		if unicode.IsSpace(rune(truncated[i])) {
-			return truncated[:i]
-		}
-	}
-
-	return truncated
 }
