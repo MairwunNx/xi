@@ -23,7 +23,9 @@ func NewThrottler(client *redis.Client, config *ThrottlerConfig, log *tracing.Lo
 }
 
 func (x *Throttler) IsAllowed(userId int64) bool {
-	ctx, cancel := platform.ContextTimeout(x.ctx)
+  defer tracing.ProfilePoint(x.log, "Throttler is allowed check completed", "throttler.is.allowed")()
+
+	ctx, cancel := platform.ContextTimeoutVal(x.ctx, 1*time.Second)
 	defer cancel()
 
 	key := fmt.Sprintf("throttle:%d", userId)
