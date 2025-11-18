@@ -7,19 +7,19 @@ import (
 	"net/url"
 	"runtime"
 	"time"
-
+	"ximanager/sources/configuration"
 	"ximanager/sources/tracing"
 
 	"golang.org/x/net/proxy"
 )
 
-func NewProxyClient(proxy proxy.Dialer, config *ProxyConfig, log *tracing.Logger) *http.Client {
+func NewProxyClient(proxy proxy.Dialer, config *configuration.Config, log *tracing.Logger) *http.Client {
 	dc := func(ctx context.Context, network, address string) (net.Conn, error) {
 		return proxy.Dial(network, address)
 	}
 
 	return &http.Client{
-		Timeout: time.Duration(config.TimeoutSeconds),
+		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           dc,
