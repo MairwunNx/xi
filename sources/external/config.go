@@ -6,14 +6,16 @@ import (
 )
 
 type OutsidersConfig struct {
-	StartupPort int
-	MetricsPort int
+	StartupPort          int
+	SystemMetricsPort   int
+	ApplicationMetricsPort int
 }
 
 func NewOutsidersConfig() *OutsidersConfig {
 	return &OutsidersConfig{
-		StartupPort: getEnvAsInt("OUTSIDERS_STARTUP_PORT", 10000),
-		MetricsPort: getEnvAsInt("OUTSIDERS_METRICS_PORT", 10001),
+		StartupPort:          getEnvAsInt("OUTSIDERS_STARTUP_PORT", 10000),
+		SystemMetricsPort:   getEnvAsInt("OUTSIDERS_SYSTEM_METRICS_PORT", 9090),
+		ApplicationMetricsPort: getEnvAsInt("OUTSIDERS_APPLICATION_METRICS_PORT", 9091),
 	}
 }
 
