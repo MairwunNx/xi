@@ -3,6 +3,7 @@ package external
 import (
 	"fmt"
 	"net/http"
+	"ximanager/sources/configuration"
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
@@ -13,13 +14,13 @@ import (
 
 type Outsiders struct {
 	log    *tracing.Logger
-	config *OutsidersConfig
+	config *configuration.Config
 	ss     *http.Server
 	sms    *http.Server
 	as     *http.Server
 }
 
-func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
+func NewOutsiders(log *tracing.Logger, config *configuration.Config) *Outsiders {
 	systemRegistry := prometheus.NewRegistry()
 	
 	systemRegistry.MustRegister(
@@ -32,7 +33,7 @@ func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
 		log:    log,
 		config: config,
 		ss: &http.Server{
-			Addr: fmt.Sprintf(":%d", config.StartupPort),
+			Addr: fmt.Sprintf(":%d", config.Service.StartupPort),
 			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
 				m.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 					startuphandler(log, w, r)
@@ -40,13 +41,13 @@ func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
 			}),
 		},
 		sms: &http.Server{
-			Addr: fmt.Sprintf(":%d", config.SystemMetricsPort),
+			Addr: fmt.Sprintf(":%d", config.Service.SystemMetricsPort),
 			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
 				m.Handle("/metrics", promhttp.HandlerFor(systemRegistry, promhttp.HandlerOpts{}))
 			}),
 		},
 		as: &http.Server{
-			Addr: fmt.Sprintf(":%d", config.ApplicationMetricsPort),
+			Addr: fmt.Sprintf(":%d", config.Service.ApplicationMetricsPort),
 			Handler: platform.Curry(http.NewServeMux, func(m *http.ServeMux) {
 				m.Handle("/metrics", promhttp.Handler())
 			}),
@@ -55,7 +56,7 @@ func NewOutsiders(log *tracing.Logger, config *OutsidersConfig) *Outsiders {
 }
 
 func (x *Outsiders) startup() {
-	x.log.I("Startup server is starting", tracing.OutsiderKind, "startup", "port", x.config.StartupPort)
+	x.log.I("Startup server is starting", tracing.OutsiderKind, "startup", "port", x.config.Service.StartupPort)
 
 	if err := x.ss.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		x.log.F("Failed to start startup server", tracing.OutsiderKind, "startup", tracing.InnerError, err)
@@ -63,7 +64,7 @@ func (x *Outsiders) startup() {
 }
 
 func (x *Outsiders) systemMetrics() {
-	x.log.I("System metrics server is starting", tracing.OutsiderKind, "system_metrics", "port", x.config.SystemMetricsPort)
+	x.log.I("System metrics server is starting", tracing.OutsiderKind, "system_metrics", "port", x.config.Service.SystemMetricsPort)
 
 	if err := x.sms.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		x.log.F("Failed to start system metrics server", tracing.OutsiderKind, "system_metrics", tracing.InnerError, err)
@@ -71,7 +72,7 @@ func (x *Outsiders) systemMetrics() {
 }
 
 func (x *Outsiders) applicationMetrics() {
-	x.log.I("Application metrics server is starting", tracing.OutsiderKind, "application_metrics", "port", x.config.ApplicationMetricsPort)
+	x.log.I("Application metrics server is starting", tracing.OutsiderKind, "application_metrics", "port", x.config.Service.ApplicationMetricsPort)
 
 	if err := x.as.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		x.log.F("Failed to start application metrics server", tracing.OutsiderKind, "application_metrics", tracing.InnerError, err)
