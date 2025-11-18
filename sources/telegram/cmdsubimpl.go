@@ -14,7 +14,7 @@ import (
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
-	"ximanager/sources/texting"
+	"ximanager/sources/texting/format"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -27,7 +27,7 @@ import (
 func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Message) {
 	req := x.GetRequestText(msg)
 	if req == "" {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgHelpText))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgHelpText")))
 		return
 	}
 
@@ -36,17 +36,17 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
   persona := msg.From.FirstName+" "+msg.From.LastName + " (@" + msg.From.UserName + ")"
 	response, err := x.dialer.Dial(log, msg, req, persona, true)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
 	if strings.TrimSpace(response) == "" {
 		log.W("Empty response from AI orchestrator", "response", response)
-		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.Xiify(response))
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
 }
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -58,7 +58,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 	file, err := x.diplomat.bot.GetFile(fileConfig)
 	if err != nil {
 		log.E("Error getting file", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
@@ -77,11 +77,11 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 	response, err := x.vision.Visionify(log, iurl, user, msg.Chat.ID, req, persona)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgErrorResponse)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.Xiify(response))
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
@@ -104,7 +104,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 		fileExt = ".mp4"
 	} else {
 		log.W("Unsupported audio/video file type")
-		x.diplomat.Reply(log, msg, texting.MsgAudioUnsupported)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioUnsupported"))
 		return
 	}
 
@@ -112,7 +112,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	file, err := x.diplomat.bot.GetFile(fileConfig)
 	if err != nil {
 		log.E("Error getting file", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.MsgAudioError)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
 		return
 	}
 
@@ -121,7 +121,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	tempFile, err := x.downloadAudioFile(log, fileURL, fileExt)
 	if err != nil {
 		log.E("Error downloading audio file", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.MsgAudioError)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
 		return
 	}
 	defer os.Remove(tempFile.Name())
@@ -131,7 +131,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	transcriptedText, err := x.whisper.Whisperify(log, tempFile, user)
 	if err != nil {
 		log.E("Error transcribing audio", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.MsgAudioError)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
 		return
 	}
 
@@ -140,12 +140,12 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 		response, err := x.dialer.Dial(log, msg, transcriptedText, persona, false)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
-			x.diplomat.Reply(log, msg, texting.MsgAudioError)
+			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
 			return
 		}
-		x.diplomat.Reply(log, msg, texting.XiifyAudio(response))
+		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, response))
 	} else {
-		x.diplomat.Reply(log, msg, texting.XiifyAudio(transcriptedText))
+		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, transcriptedText))
 	}
 }
 
@@ -178,58 +178,70 @@ func (x *TelegramHandler) downloadAudioFile(log *tracing.Logger, fileURL string,
 func (x *TelegramHandler) ModeCommandSwitch(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	mode, err := x.modes.SwitchMode(log, msg.Chat.ID, msg.From.ID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorSwitching)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorSwitching"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeChanged, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeChanged", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, chatID int64, modeType string, modeName string, configJSON string) {
 	var config repository.ModeConfig
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigParse))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgModeErrorConfigParse")))
 		return
 	}
 
 	if strings.TrimSpace(config.Prompt) == "" {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgModeErrorConfigPrompt")))
 		return
 	}
 
 	mode, err := x.modes.AddModeWithConfig(log, chatID, modeType, modeName, &config, msg.From.ID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorAdd)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorAdd"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeAdded, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeAdded", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Message, chatID int64) {
 	modes, err := x.modes.GetModesByChat(log, chatID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorGettingList)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorGettingList"))
 		return
 	}
 
 	if len(modes) == 0 {
-		x.diplomat.Reply(log, msg, texting.MsgModeNoModesAvailable)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeNoModesAvailable"))
 		return
 	}
 
 	currentMode, err := x.modes.GetModeByChat(log, chatID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorGettingList)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorGettingList"))
 		return
 	}
 
-	message := texting.MsgModeListHeader
+	message := x.localization.LocalizeBy(msg, "MsgModeListHeader")
 	for _, mode := range modes {
 		if mode.ID == currentMode.ID {
-			message += fmt.Sprintf(texting.MsgModeListItemCurrent, mode.Name, mode.Type)
+			message += x.localization.LocalizeByTd(msg, "MsgModeListItemCurrent", map[string]interface{}{
+				"Name": mode.Name,
+				"Type": mode.Type,
+			})
 		} else {
-			message += fmt.Sprintf(texting.MsgModeListItem, mode.Name, mode.Type)
+			message += x.localization.LocalizeByTd(msg, "MsgModeListItem", map[string]interface{}{
+				"Name": mode.Name,
+				"Type": mode.Type,
+			})
 		}
 	}
 
@@ -245,11 +257,14 @@ func (x *TelegramHandler) ModeCommandDisable(log *tracing.Logger, msg *tgbotapi.
 	mode.IsEnabled = platform.BoolPtr(false)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorDisable)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorDisable"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeDisabled, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeDisabled", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) ModeCommandEnable(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) {
@@ -261,11 +276,14 @@ func (x *TelegramHandler) ModeCommandEnable(log *tracing.Logger, msg *tgbotapi.M
 	mode.IsEnabled = platform.BoolPtr(true)
 	_, err := x.modes.UpdateMode(log, mode)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorEnable)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorEnable"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeEnabled, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeEnabled", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) ModeCommandDelete(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) {
@@ -276,11 +294,14 @@ func (x *TelegramHandler) ModeCommandDelete(log *tracing.Logger, msg *tgbotapi.M
 
 	err := x.modes.DeleteMode(log, mode)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorDelete)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorDelete"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeDeleted, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeDeleted", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string, configJSON string) {
@@ -291,28 +312,33 @@ func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Mes
 
 	var config repository.ModeConfig
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigParse))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgModeErrorConfigParse")))
 		return
 	}
 
 	if strings.TrimSpace(config.Prompt) == "" {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgModeErrorConfigPrompt))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgModeErrorConfigPrompt")))
 		return
 	}
 
 	err := x.modes.UpdateModeConfig(log, mode.ID, &config)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgModeErrorEdit)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgModeErrorEdit"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeEdited, mode.Name, mode.Type))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeEdited", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	}))
 }
 
 func (x *TelegramHandler) retrieveModeByChat(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) *entities.Mode {
 	mode, err := x.modes.GetModeByChat(log, chatID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgModeNotFoundGeneral, modeType))
+		x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgModeNotFoundGeneral", map[string]interface{}{
+			"Mode": modeType,
+		}))
 		return nil
 	}
 	return mode
@@ -328,11 +354,11 @@ func (x *TelegramHandler) UsersCommandRemove(log *tracing.Logger, msg *tgbotapi.
 
 	err := x.users.DeleteUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorRemove)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorRemove"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.MsgUsersRemoved)
+	x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersRemoved"))
 }
 
 func (x *TelegramHandler) UsersCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, username string, inputRights []string) {
@@ -343,18 +369,21 @@ func (x *TelegramHandler) UsersCommandEdit(log *tracing.Logger, msg *tgbotapi.Me
 
 	rights := x.treat(inputRights)
 	if len(rights) == 0 {
-		x.diplomat.Reply(log, msg, texting.MsgUsersInvalidRights)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersInvalidRights"))
 		return
 	}
 
 	user.Rights = rights
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorEdit)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorEdit"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUsersEdited, *user.Username, strings.Join(rights, ", ")))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUsersEdited", map[string]interface{}{
+		"Username": *user.Username,
+		"Rights":   strings.Join(rights, ", "),
+	}))
 }
 
 func (x *TelegramHandler) UsersCommandDisable(log *tracing.Logger, msg *tgbotapi.Message, username string) {
@@ -366,11 +395,13 @@ func (x *TelegramHandler) UsersCommandDisable(log *tracing.Logger, msg *tgbotapi
 	user.IsActive = platform.BoolPtr(false)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorDisable)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorDisable"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUsersDisabled, *user.Username))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUsersDisabled", map[string]interface{}{
+		"Username": *user.Username,
+	}))
 }
 
 func (x *TelegramHandler) UsersCommandEnable(log *tracing.Logger, msg *tgbotapi.Message, username string) {
@@ -382,11 +413,13 @@ func (x *TelegramHandler) UsersCommandEnable(log *tracing.Logger, msg *tgbotapi.
 	user.IsActive = platform.BoolPtr(true)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorEnable)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorEnable"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUsersEnabled, *user.Username))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUsersEnabled", map[string]interface{}{
+		"Username": *user.Username,
+	}))
 }
 
 func (x *TelegramHandler) UsersCommandWindow(log *tracing.Logger, msg *tgbotapi.Message, username string, limit int64) {
@@ -398,11 +431,14 @@ func (x *TelegramHandler) UsersCommandWindow(log *tracing.Logger, msg *tgbotapi.
 	user.WindowLimit = limit
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorWindow)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorWindow"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUsersWindowSet, *user.Username, limit))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUsersWindowSet", map[string]interface{}{
+		"Username": *user.Username,
+		"Window":   limit,
+	}))
 }
 
 func (x *TelegramHandler) UsersCommandStack(log *tracing.Logger, msg *tgbotapi.Message, username string, enabled bool) {
@@ -414,7 +450,7 @@ func (x *TelegramHandler) UsersCommandStack(log *tracing.Logger, msg *tgbotapi.M
 	user.IsStackAllowed = platform.BoolPtr(enabled)
 	_, err := x.users.UpdateUser(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.MsgUsersErrorStack)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorStack"))
 		return
 	}
 
@@ -422,19 +458,24 @@ func (x *TelegramHandler) UsersCommandStack(log *tracing.Logger, msg *tgbotapi.M
 	if !enabled {
 		status = "теперь недоступен"
 	}
-	x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUsersStackSet, *user.Username, status))
+	x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUsersStackSet", map[string]interface{}{
+		"Username": *user.Username,
+		"Status":   status,
+	}))
 }
 
 func (x *TelegramHandler) retrieveUserByName(log *tracing.Logger, msg *tgbotapi.Message, username string) *entities.User {
 	username = strings.TrimPrefix(username, "@")
 	if username == "" {
-		x.diplomat.Reply(log, msg, texting.MsgUserNotSpecified)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUserNotSpecified"))
 		return nil
 	}
 
 	user, err := x.users.GetUserByName(log, username)
 	if err != nil {
-		x.diplomat.Reply(log, msg, fmt.Sprintf(texting.MsgUserNotFound, username))
+		x.diplomat.Reply(log, msg, x.localization.LocalizeByTd(msg, "MsgUserNotFound", map[string]interface{}{
+			"Username": username,
+		}))
 		return nil
 	}
 
@@ -457,34 +498,39 @@ func (x *TelegramHandler) treat(rights []string) []string {
 func (x *TelegramHandler) DonationsCommandAdd(log *tracing.Logger, msg *tgbotapi.Message, username string, sum float64) {
 	username = strings.TrimPrefix(username, "@")
 	if username == "" {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgUserNotSpecified))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgUserNotSpecified")))
 		return
 	}
 
 	user, err := x.users.GetUserByName(log, username)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgUserNotFound, username)))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeByTd(msg, "MsgUserNotFound", map[string]interface{}{
+			"Username": username,
+		})))
 		return
 	}
 
 	_, err = x.donations.CreateDonation(log, user, sum)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgDonationsErrorAdd))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgDonationsErrorAdd")))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgDonationsAdded, *user.Username, texting.DecimalifyFloat(sum))))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeByTd(msg, "MsgDonationsAdded", map[string]interface{}{
+		"Username": *user.Username,
+		"Amount":   format.DecimalifyFloat(sum),
+	})))
 }
 
 func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
 	donations, err := x.donations.GetDonationsWithUsers(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgDonationsErrorList))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgDonationsErrorList")))
 		return
 	}
 
 	if len(donations) == 0 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgDonationsNoDonations))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgDonationsNoDonations")))
 		return
 	}
 
@@ -519,10 +565,10 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 	})
 
 	var builder strings.Builder
-	builder.WriteString(texting.MsgDonationsListHeader)
+	builder.WriteString(x.localization.LocalizeBy(msg, "MsgDonationsListHeader"))
 
 	if len(sortedDonations) > 0 {
-		builder.WriteString(texting.MsgDonationsListTopHeader)
+		builder.WriteString(x.localization.LocalizeBy(msg, "MsgDonationsListTopHeader"))
 	}
 
 	for i, ud := range sortedDonations {
@@ -532,29 +578,27 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 		}
 
 		if i < 3 {
-			var format string
+			var messageID string
 			switch i {
 			case 0:
-				format = texting.MsgDonationsListTop1Item
+				messageID = "MsgDonationsListTop1Item"
 			case 1:
-				format = texting.MsgDonationsListTop2Item
+				messageID = "MsgDonationsListTop2Item"
 			case 2:
-				format = texting.MsgDonationsListTop3Item
+				messageID = "MsgDonationsListTop3Item"
 			}
-			builder.WriteString(fmt.Sprintf(
-				format,
-				username,
-				texting.Decimalify(ud.Total),
-			))
+			builder.WriteString(x.localization.LocalizeByTd(msg, messageID, map[string]interface{}{
+				"Username": username,
+				"Amount":   format.Decimalify(ud.Total),
+			}))
 		} else {
 			if i == 3 {
-				builder.WriteString(texting.MsgDonationsListOthersHeader)
+				builder.WriteString(x.localization.LocalizeBy(msg, "MsgDonationsListOthersHeader"))
 			}
-			builder.WriteString(fmt.Sprintf(
-				texting.MsgDonationsListItem,
-				username,
-				texting.Decimalify(ud.Total),
-			))
+			builder.WriteString(x.localization.LocalizeByTd(msg, "MsgDonationsListItem", map[string]interface{}{
+				"Username": username,
+				"Amount":   format.Decimalify(ud.Total),
+			}))
 		}
 	}
 
@@ -566,201 +610,206 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	totalQuestions, err := x.messages.GetTotalUserQuestionsCount(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	chatQuestions, err := x.messages.GetUserQuestionsInChatCount(log, msg.Chat.ID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userQuestions, err := x.messages.GetUserPersonalQuestionsCount(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userChatQuestions, err := x.messages.GetUserPersonalQuestionsInChatCount(log, user, msg.Chat.ID)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalUsers, err := x.users.GetTotalUsersCount(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalChats, err := x.messages.GetUniqueChatCount(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalCost, err := x.usage.GetTotalCost(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalCostLastMonth, err := x.usage.GetTotalCostLastMonth(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	avgDailyCost, err := x.usage.GetAverageDailyCost(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalTokens, err := x.usage.GetTotalTokens(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	totalTokensLastMonth, err := x.usage.GetTotalTokensLastMonth(log)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userCost, err := x.usage.GetUserCost(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userCostLastMonth, err := x.usage.GetUserCostLastMonth(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userAvgDailyCost, err := x.usage.GetUserAverageDailyCost(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userTokens, err := x.usage.GetUserTokens(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
 	userTokensLastMonth, err := x.usage.GetUserTokensLastMonth(log, user)
 	if err != nil {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgStatsError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgStatsError")))
 		return
 	}
 
-	response := texting.MsgStatsTitle +
-		fmt.Sprintf(texting.MsgStatsGeneral,
-			texting.Numberify(totalQuestions),
-			texting.Numberify(chatQuestions),
-			texting.CurrencifyDecimal(totalCost),
-			texting.CurrencifyDecimal(totalCostLastMonth),
-			texting.CurrencifyDecimal(avgDailyCost),
-			texting.Numberify(totalTokens),
-			texting.Numberify(totalTokensLastMonth)) +
-		fmt.Sprintf(texting.MsgStatsPersonal,
-			texting.Numberify(userQuestions),
-			texting.Numberify(userChatQuestions),
-			texting.CurrencifyDecimal(userCost),
-			texting.CurrencifyDecimal(userCostLastMonth),
-			texting.CurrencifyDecimal(userAvgDailyCost),
-			texting.Numberify(userTokens),
-			texting.Numberify(userTokensLastMonth)) +
-		fmt.Sprintf(texting.MsgStatsUsers,
-			texting.Numberify(totalUsers),
-			texting.Numberify(totalChats))
+	response := x.localization.LocalizeBy(msg, "MsgStatsTitle") +
+		x.localization.LocalizeByTd(msg, "MsgStatsGeneral", map[string]interface{}{
+			"TotalQuestions": format.Numberify(totalQuestions),
+			"ChatQuestions":  format.Numberify(chatQuestions),
+			"TotalCost":       format.CurrencifyDecimal(totalCost),
+			"MonthlyCost":    format.CurrencifyDecimal(totalCostLastMonth),
+			"DailyCost":      format.CurrencifyDecimal(avgDailyCost),
+			"TotalTokens":    format.Numberify(totalTokens),
+			"MonthlyTokens":  format.Numberify(totalTokensLastMonth),
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgStatsPersonal", map[string]interface{}{
+			"TotalQuestions": format.Numberify(userQuestions),
+			"ChatQuestions":  format.Numberify(userChatQuestions),
+			"TotalCost":       format.CurrencifyDecimal(userCost),
+			"MonthlyCost":    format.CurrencifyDecimal(userCostLastMonth),
+			"DailyCost":      format.CurrencifyDecimal(userAvgDailyCost),
+			"TotalTokens":    format.Numberify(userTokens),
+			"MonthlyTokens":  format.Numberify(userTokensLastMonth),
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgStatsUsers", map[string]interface{}{
+			"Users": format.Numberify(totalUsers),
+			"Chats": format.Numberify(totalChats),
+		})
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
 func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, prompt string) {
 	promptRunes := []rune(prompt)
 	if len(promptRunes) < 12 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooShort))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationTooShort")))
 		return
 	}
 
 	if len(promptRunes) > 1024 {
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooLong))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationTooLong")))
 		return
 	}
 
 	validation, err := x.agents.ValidatePersonalization(log, prompt)
 	if err != nil {
 		log.E("Failed to validate personalization with agent", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationValidationError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationValidationError")))
 		return
 	}
 
 	if validation.Confidence <= 0.68 {
 		log.I("Personalization validation failed", "confidence", validation.Confidence)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationValidationFailed))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationValidationFailed")))
 		return
 	}
 
 	_, err = x.personalizations.CreateOrUpdatePersonalization(log, user, prompt)
 	if err != nil {
 		if errors.Is(err, repository.ErrPersonalizationTooShort) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooShort))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationTooShort")))
 			return
 		}
 
 		if errors.Is(err, repository.ErrPersonalizationTooLong) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationTooLong))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationTooLong")))
 			return
 		}
 
 		log.E("Failed to create personalization", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorAdd))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationErrorAdd")))
 		return
 	}
 
 	log.I("Personalization set successfully", "confidence", validation.Confidence)
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationAdded))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationAdded")))
 }
 
 func (x *TelegramHandler) PersonalizationCommandRemove(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	err := x.personalizations.DeletePersonalization(log, user)
 	if err != nil {
 		if errors.Is(err, repository.ErrPersonalizationNotFound) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationNotFound))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound")))
 			return
 		}
 
 		log.E("Failed to delete personalization", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorRemove))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationErrorRemove")))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationRemoved))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationRemoved")))
 }
 
 func (x *TelegramHandler) PersonalizationCommandPrint(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
 	if err != nil {
 		if errors.Is(err, repository.ErrPersonalizationNotFound) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationNotFound))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound")))
 			return
 		}
 
 		log.E("Failed to get personalization", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgPersonalizationErrorPrint))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgPersonalizationErrorPrint")))
 		return
 	}
 
-	response := fmt.Sprintf(texting.MsgPersonalizationPrint, personalization.Prompt)
-	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
+	response := x.localization.LocalizeByTd(msg, "MsgPersonalizationPrint", map[string]interface{}{
+		"Info": personalization.Prompt,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
 // =========================  /context command handlers  =========================
@@ -769,11 +818,11 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 	err := x.contextManager.Clear(log, platform.ChatID(msg.Chat.ID))
 	if err != nil {
 		log.E("Failed to clear context", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshError))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgContextRefreshError")))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgContextRefreshed))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgContextRefreshed")))
 }
 
 // =========================  /ban and /pardon command handlers  =========================
@@ -787,9 +836,9 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 	_, err := x.bans.ParseDuration(duration)
 	if err != nil {
 		if errors.Is(err, repository.ErrDurationTooLong) {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorTooLong))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgBanErrorTooLong")))
 		} else {
-			x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorInvalid))
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgBanErrorInvalid")))
 		}
 		return
 	}
@@ -797,12 +846,16 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 	_, err = x.bans.CreateBan(log, targetUser.ID, msg.Chat.ID, reason, duration)
 	if err != nil {
 		log.E("Failed to create ban", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorCreate))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgBanErrorCreate")))
 		return
 	}
 
 	displayName := *targetUser.Username
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanApplied, displayName, duration, reason)))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeByTd(msg, "MsgBanApplied", map[string]interface{}{
+		"Username": displayName,
+		"Duration": duration,
+		"Reason":   reason,
+	})))
 }
 
 func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string) {
@@ -814,53 +867,66 @@ func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.
 	_, err := x.bans.GetActiveBan(log, targetUser.ID)
 	if err != nil {
 		displayName := *targetUser.Username
-		x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanErrorNotFound, displayName)))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeByTd(msg, "MsgBanErrorNotFound", map[string]interface{}{
+			"Username": displayName,
+		})))
 		return
 	}
 
 	err = x.bans.DeleteBansByUser(log, targetUser.ID)
 	if err != nil {
 		log.E("Failed to pardon user", tracing.InnerError, err)
-		x.diplomat.Reply(log, msg, texting.XiifyManual(texting.MsgBanErrorRemove))
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeBy(msg, "MsgBanErrorRemove")))
 		return
 	}
 
 	displayName := *targetUser.Username
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(texting.MsgBanPardon, displayName)))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, x.localization.LocalizeByTd(msg, "MsgBanPardon", map[string]interface{}{
+		"Username": displayName,
+	})))
 }
 
 // =========================  /health command handlers  =========================
 
 func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	dbStatus := texting.MsgHealthStatusOk
+	dbStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
 	if err := x.health.CheckDatabaseHealth(log); err != nil {
-		dbStatus = texting.MsgHealthStatusFail
+		dbStatus = x.localization.LocalizeBy(msg, "MsgHealthStatusFail")
 	}
 
-	redisStatus := texting.MsgHealthStatusOk
+	redisStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
 	if err := x.health.CheckRedisHealth(log); err != nil {
-		redisStatus = texting.MsgHealthStatusFail
+		redisStatus = x.localization.LocalizeBy(msg, "MsgHealthStatusFail")
 	}
 
-	systemStatus := texting.MsgHealthStatusOk
+	systemStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
 
 	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
 
 	version := platform.GetAppVersion()
 	buildTime := platform.GetAppBuildTime()
 
-	response := fmt.Sprintf(
-		"%s%s%s%s%s%s%s",
-		texting.MsgHealthTitle,
-		fmt.Sprintf(texting.MsgHealthDatabase, dbStatus),
-		fmt.Sprintf(texting.MsgHealthRedis, redisStatus),
-		fmt.Sprintf(texting.MsgHealthSystem, systemStatus),
-		fmt.Sprintf(texting.MsgHealthUptime, uptime),
-		fmt.Sprintf(texting.MsgHealthVersion, version),
-		fmt.Sprintf(texting.MsgHealthBuildTime, buildTime),
-	)
+	response := x.localization.LocalizeBy(msg, "MsgHealthTitle") +
+		x.localization.LocalizeByTd(msg, "MsgHealthDatabase", map[string]interface{}{
+			"Status": dbStatus,
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgHealthRedis", map[string]interface{}{
+			"Status": redisStatus,
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgHealthSystem", map[string]interface{}{
+			"Status": systemStatus,
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgHealthUptime", map[string]interface{}{
+			"Uptime": uptime,
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgHealthVersion", map[string]interface{}{
+			"Version": version,
+		}) +
+		x.localization.LocalizeByTd(msg, "MsgHealthBuildTime", map[string]interface{}{
+			"BuildTime": buildTime,
+		})
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(response))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
 func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -872,22 +938,23 @@ func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, 
 
 	gradeEmoji := getGradeEmoji(grade)
 	gradeName := getGradeNameRu(grade)
-	accountAge := texting.Ageify(user.CreatedAt)
+	accountAge := format.Ageify(user.CreatedAt)
 
-	x.diplomat.Reply(log, msg, texting.XiifyManual(fmt.Sprintf(
-		texting.MsgThisInfo,
-		gradeEmoji,
-		gradeName,
-		accountAge,
-		user.UserID,
-		*user.Fullname,
-		*user.Username,
-		user.ID,
-		user.Rights,
-		msg.Chat.ID,
-		msg.Chat.Type,
-		msg.Chat.Title,
-	)))
+	response := x.localization.LocalizeByTd(msg, "MsgThisInfo", map[string]interface{}{
+		"Emoji":       gradeEmoji,
+		"Grade":       gradeName,
+		"AccountDate": accountAge,
+		"TelegramID":  user.UserID,
+		"Name":        *user.Fullname,
+		"Username":    *user.Username,
+		"InternalID":  user.ID,
+		"Rights":      user.Rights,
+		"ChatID":      msg.Chat.ID,
+		"ChatType":    msg.Chat.Type,
+		"ChatTitle":   msg.Chat.Title,
+	})
+
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
 func getGradeEmoji(grade platform.UserGrade) string {
