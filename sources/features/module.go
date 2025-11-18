@@ -9,7 +9,6 @@ import (
 
 var Module = fx.Module("features",
 	fx.Provide(
-		NewFeatureConfig,
 		NewFeatureManager,
 	),
 	fx.Invoke(func(lc fx.Lifecycle, fm *FeatureManager, log *tracing.Logger) {
