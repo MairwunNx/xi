@@ -2,7 +2,7 @@ package telegram
 
 import (
 	"strings"
-	"ximanager/sources/texting"
+	"ximanager/sources/texting/command"
 	"ximanager/sources/tracing"
 
 	"errors"
@@ -27,7 +27,7 @@ func (x *TelegramHandler) ParseCmd(cmd interface{}, args string) (*kong.Context,
 	if err != nil {
 		return nil, err
 	}
-	return parser.Parse(texting.ParseCmdArgs(args))
+	return parser.Parse(command.ParseArguments(args))
 }
 
 func (x *TelegramHandler) ParseKongCommand(log *tracing.Logger, msg *tgbotapi.Message, cmd interface{}) (*kong.Context, error) {
