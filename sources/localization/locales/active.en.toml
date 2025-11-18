@@ -1,0 +1,573 @@
+## English localization for Xi Manager
+
+# Internal messages for AI
+[InternalAIImageMessage]
+other = "Describe what is shown in the image. You must try to answer."
+
+# Xi responses
+[MsgXiResponse]
+other = "📜 The Great Xi said:\n\n"
+
+[MsgXiManualResponse]
+other = "📝 The Great Xi sent a personal telegram:\n\n"
+
+# Commands: Start & Help
+[MsgStartText]
+other = """🐉 **Welcome to Xi Manager!**
+
+🤖 I am the personal assistant of the Great Xi Jinping, ready to serve the people of the PRC!
+
+**What I can do:**
+🧠 Answer almost any question
+🖼️ Analyze images
+🎤 Transcribe audio
+📊 Track usage statistics
+🎭 Work in different behavior modes
+💰 Take donations into account
+👤 Personalize answers based on information about you
+
+**How to start:**
+• `/xi <your question>` — ask a question
+• Just send a text message without a command
+• Send a photo for analysis
+• `/personalization set '<about you>'` — add information about yourself
+
+❓ Need help? Use `/help`"""
+
+[MsgHelpText]
+other = """🀄️ **Available commands of the Great Xi:**
+
+🚀 `/start` - Greeting and overview of Xi Manager
+🐉 `/xi` - Summon the Great Emperor Xi with your question or image
+🎭 `/mode` - Switch Xi's behavior modes (available to honored citizens)
+👥 `/users` - Manage users (administrators only)
+💰 `/donations` - Manage donations to the imperial treasury (administrators only)
+👤 `/personalization` - Manage personalization for AI
+🔍 `/this` - Technical information about the current state from Xi
+📊 `/stats` - Statistics of the Great Ruler
+🏥 `/health` - System health check
+🧠 `/context` - Manage Xi's memory about conversations
+
+💡 **Tip:** You can simply send a message without a command — Xi will understand!"""
+
+[MsgUnknownCommand]
+other = "🤷‍♂️ Unknown command. The Great Xi does not understand your intent.\n\n💡 Use `/help` to see available commands."
+
+[MsgXiUserBlocked]
+other = "🈲 Your account is blocked. Please contact the administration of the PRC (@MairwunNx)."
+
+# Errors and limits
+[MsgThrottleExceeded]
+other = "⏳ Calm down. The Great Xi is meditating. Please repeat your request in 5 seconds."
+
+[MsgErrorResponse]
+other = "🥲 The Great Xi is meditating and is temporarily unavailable."
+
+[MsgXiError]
+other = "🤕 The imperial telegram could not pass through the Great Wall."
+
+# Audio
+[MsgAudioSuccess]
+other = "🎤 The Great Xi has transcribed your audio message:\n\n"
+
+[MsgAudioError]
+other = "💢 Xi could not process the audio message."
+
+[MsgAudioUnsupported]
+other = "🈲 Unsupported audio/video file type."
+
+# Statistics
+[MsgStatsTitle]
+other = "📊 Statistics of the Great Xi:\n\n"
+
+[MsgStatsGeneral]
+other = "🌍 **Global statistics:**\n📝 Total questions: **{{.TotalQuestions}}**\n💬 Questions in this chat: **{{.ChatQuestions}}**\n💵 Total cost: **{{.TotalCost}}**\n💵 Monthly cost: **{{.MonthlyCost}}**\n💵 Daily average: **{{.DailyCost}}**\n🪙 Total tokens: **{{.TotalTokens}}**\n🪙 Tokens this month: **{{.MonthlyTokens}}**\n\n"
+
+[MsgStatsPersonal]
+other = "👤 **Your statistics:**\n📝 Your questions: **{{.TotalQuestions}}**\n💬 Your questions in this chat: **{{.ChatQuestions}}**\n💵 Your total cost: **{{.TotalCost}}**\n💵 Your monthly cost: **{{.MonthlyCost}}**\n💵 Your daily average: **{{.DailyCost}}**\n🪙 Your total tokens: **{{.TotalTokens}}**\n🪙 Your tokens this month: **{{.MonthlyTokens}}**\n\n"
+
+[MsgStatsUsers]
+other = "👥 Users: **{{.Users}}**\n🏛️ Chats: **{{.Chats}}**"
+
+[MsgStatsError]
+other = "💢 Error while getting statistics."
+
+# Limits
+[MsgDailyLimitExceeded]
+other = "🈲 Your daily social credit has been exhausted. Audience with the Emperor will resume tomorrow."
+
+[MsgMonthlyLimitExceeded]
+other = "🈲 You have exceeded your monthly limit for this feature."
+
+[MsgInsufficientCredits]
+other = "💢 The imperial treasury is empty! Without your support (from $15/month) the Great Xi will not be able to continue serving the people. To support the project, contact @MairwunNx."
+
+# Modes
+[MsgModeNoAccess]
+other = "🈲 You do not have permission to switch modes. Your social credit **has been lowered**!"
+
+[MsgModeModifyNoAccess]
+other = "🈲 You do not have permission to edit modes. Your social credit **has been lowered**!"
+
+[MsgModeNotFoundGeneral]
+other = "🈲 Mode **{{.Mode}}** for the current chat was not found."
+
+[MsgModeErrorEdit]
+other = "💢 An error occurred while editing the mode configuration."
+
+[MsgModeErrorDelete]
+other = "💢 An error occurred while deleting the mode."
+
+[MsgModeErrorEnable]
+other = "💢 An error occurred while enabling the mode."
+
+[MsgModeErrorDisable]
+other = "💢 An error occurred while disabling the mode."
+
+[MsgModeErrorGettingList]
+other = "💢 An error occurred while getting the list of modes."
+
+[MsgModeErrorAdd]
+other = "💢 An error occurred while adding the mode."
+
+[MsgModeErrorSwitching]
+other = "💢 An error occurred while switching the mode."
+
+[MsgModeErrorConfigParse]
+other = "💢 An error occurred while parsing the mode JSON configuration."
+
+[MsgModeErrorConfigPrompt]
+other = "💢 The 'prompt' field is required in the mode configuration."
+
+[MsgModeEdited]
+other = "✅ Mode configuration **{{.Name}}** ({{.Type}}) has been updated."
+
+[MsgModeDeleted]
+other = "✅ Mode **{{.Name}}** ({{.Type}}) has been deleted."
+
+[MsgModeEnabled]
+other = "✅ Mode **{{.Name}}** ({{.Type}}) is now enabled."
+
+[MsgModeDisabled]
+other = "✅ Mode **{{.Name}}** ({{.Type}}) has been disabled."
+
+[MsgModeAdded]
+other = "✅ Mode **{{.Name}}** ({{.Type}}) has been added."
+
+[MsgModeChanged]
+other = "🎭 Xi's behavior mode has been changed to: **{{.Name}}** ({{.Type}})"
+
+[MsgModeListHeader]
+other = "🀄️ Available modes:\n\n"
+
+[MsgModeListItemCurrent]
+other = "▶️ **{{.Name}}** ({{.Type}})\n"
+
+[MsgModeListItem]
+other = "▶️ {{.Name}} ({{.Type}})\n"
+
+[MsgModeNoModesAvailable]
+other = "🈲 There are no modes configured for the Emperor Xi in this chat. Please contact @MairwunNx"
+
+# User management
+[MsgUsersUnknownCommand]
+other = "🈲 Unknown user management command."
+
+[MsgUsersNoAccess]
+other = "🈲 You are not allowed to manage users. Your social credit **has been lowered**!"
+
+[MsgUsersErrorEdit]
+other = "💢 An error occurred while editing user rights."
+
+[MsgUsersErrorDisable]
+other = "💢 An error occurred while disabling the user."
+
+[MsgUsersErrorEnable]
+other = "💢 An error occurred while enabling the user."
+
+[MsgUsersErrorWindow]
+other = "💢 An error occurred while setting the window limit."
+
+[MsgUsersErrorStack]
+other = "💢 An error occurred while updating the stack permission."
+
+[MsgUsersErrorRemove]
+other = "💢 An error occurred while removing the user."
+
+[MsgUsersEdited]
+other = "✅ Rights for user **@{{.Username}}** have been updated. New rights: **{{.Rights}}**."
+
+[MsgUsersDisabled]
+other = "✅ User **@{{.Username}}** has been disabled."
+
+[MsgUsersEnabled]
+other = "✅ User **@{{.Username}}** has been enabled."
+
+[MsgUsersWindowSet]
+other = "✅ Window size for user **@{{.Username}}** has been set to **{{.Window}}**."
+
+[MsgUsersStackSet]
+other = "✅ Stack for user **@{{.Username}}** is now {{.Status}}."
+
+[MsgUsersRemoved]
+other = "✅ User **@{{.Username}}** has been removed."
+
+# Donations
+[MsgDonationsUnknownCommand]
+other = "🈲 Unknown donations management command."
+
+[MsgDonationsNoAccess]
+other = "🈲 You are not allowed to manage donations. Your social credit **has been lowered**!"
+
+[MsgDonationsErrorAdd]
+other = "💢 An error occurred while adding the donation."
+
+[MsgDonationsAdded]
+other = "✅ Donation for user **@{{.Username}}** in the amount of **{{.Amount}}** has been added."
+
+[MsgDonationsErrorList]
+other = "💢 Error while getting the donations list."
+
+[MsgDonationsNoDonations]
+other = "🤷‍♂️ The imperial treasury is empty. No subject has shown loyalty yet!"
+
+[MsgDonationsListHeader]
+other = "📜 **List of benefactors of the Great Xi:**\n\n"
+
+[MsgDonationsListTopHeader]
+other = "🏆 **Top 3 most generous subjects:**\n"
+
+[MsgDonationsListTop1Item]
+other = "👑 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListTop2Item]
+other = "💎 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListTop3Item]
+other = "💠 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListOthersHeader]
+other = "\n📜 **Other benefactors:**\n"
+
+[MsgDonationsListItem]
+other = "❤️‍🔥 **{{.Username}}** — {{.Amount}} ₽\n"
+
+# Personalization
+[MsgPersonalizationAdded]
+other = "✅ Your personal information has been saved!"
+
+[MsgPersonalizationRemoved]
+other = "✅ Your personal information has been removed."
+
+[MsgPersonalizationNotFound]
+other = "🈲 You do not have any saved information."
+
+[MsgPersonalizationPrint]
+other = "👤 **Saved information about you:**\n\n{{.Info}}"
+
+[MsgPersonalizationTooShort]
+other = "🈲 The text is too short. Minimum length: **12** characters."
+
+[MsgPersonalizationTooLong]
+other = "🈲 The text is too long. Maximum length: **1024** characters."
+
+[MsgPersonalizationErrorAdd]
+other = "💢 An error occurred while saving your information."
+
+[MsgPersonalizationErrorRemove]
+other = "💢 An error occurred while removing your information."
+
+[MsgPersonalizationErrorPrint]
+other = "💢 An error occurred while retrieving your information."
+
+[MsgPersonalizationValidationFailed]
+other = "🈲 The text does not look like information about yourself. Please describe yourself.\n\n💡 **Example:** \"My name is John, I am a software developer, I live in the US and I enjoy sports and traveling.\""
+
+[MsgPersonalizationValidationError]
+other = "💢 An error occurred while processing your request. Please try again later."
+
+# Misc
+[MsgRestartText]
+other = "🔄 The Great Xi is restarting..."
+
+[MsgThisInfo]
+other = """🀄️ **Information about the user and chat**
+
+**👤 USER**
+━━━━━━━━━━━━━━━━━━━━━
+{{.Emoji}} **Grade: {{.Grade}}**
+📅 **Account:** {{.AccountDate}}
+🆔 **Telegram ID:** {{.TelegramID}}
+👤 **Name:** {{.Name}}
+🔖 **Username:** {{.Username}}
+🔑 **Internal ID:** {{.InternalID}}
+⚡ **Rights:** {{.Rights}}
+
+**💬 CHAT**
+━━━━━━━━━━━━━━━━━━━━━
+🆔 **ID:** {{.ChatID}}
+📂 **Type:** {{.ChatType}}
+🏷️ **Title:** {{.ChatTitle}}"""
+
+[MsgUserNotFound]
+other = "🈲 User **@{{.Username}}** was not found."
+
+[MsgUserNotSpecified]
+other = "🈲 Username **not specified**! Please provide a username in the format **@username**."
+
+# Help texts
+[MsgDonationsHelpText]
+other = """🈲 Invalid command format. Use:
+
+1️⃣ /donations add @username <sum> - add a donation"""
+
+[MsgUsersInvalidRights]
+other = """🈲 Invalid rights specified. Available rights:
+
+1️⃣ switch_mode (change modes in chats)
+2️⃣ edit_mode (edit modes, prompts, add and delete modes)
+3️⃣ manage_users (manage users, delete, block, change rights)"""
+
+[MsgUsersHelpText]
+other = """🈲 Invalid command format. Use:
+
+1️⃣ /users add @username '<rights,rights,...>' - add a user
+2️⃣ /users remove @username - remove a user
+3️⃣ /users edit @username '<rights,rights,...>' - change rights
+4️⃣ /users disable @username - block a user
+5️⃣ /users enable @username - unblock a user
+6️⃣ /users window @username <limit> - set the window size
+7️⃣ /users stack @username <true/false> - enable or disable stack"""
+
+[MsgModeHelpText]
+other = """🈲 Invalid command format. Use:
+
+1️⃣ /mode - switch mode
+2️⃣ /mode add <chatid> <type> '<name>' '<config>' - add a mode
+3️⃣ /mode list <chatid> - list modes
+4️⃣ /mode disable <chatid> <type> - disable a mode
+5️⃣ /mode enable <chatid> <type> - enable a mode
+6️⃣ /mode delete <chatid> <type> - delete a mode
+7️⃣ /mode edit <chatid> <type> '<config>' - edit a mode configuration
+
+**Where <config> is a JSON configuration in the format:**
+```json
+{"prompt": "<system prompt>"}
+```
+
+For more details about the format, use the mode configuration help command."""
+
+[MsgPersonalizationHelpText]
+other = """👤 **Managing Xi Manager personalization**
+
+**Available commands:**
+
+1️⃣ `/personalization set '<text about you>'` - save information about yourself
+2️⃣ `/personalization remove` - remove saved information
+3️⃣ `/personalization print` - show saved information
+4️⃣ `/personalization help` - show this help text
+
+**What does it give you?**
+Xi will understand you better and give more personalized answers based on your saved information.
+
+**Requirements:**
+• Minimum length: **12** characters
+• Maximum length: **1024** characters
+• The text must contain information about you
+
+**Example:**
+`/personalization set 'My name is John, I am a software developer, I live in the US and I enjoy sports and traveling.'`"""
+
+[MsgContextHelpText]
+other = """🧠 **Managing Xi Manager memory**
+
+**Available commands:**
+
+🔄 `/context refresh` - Clear memory about the current conversation
+❓ `/context help` - Show this help text
+
+**What is context?**
+The Great Xi remembers previous messages in the conversation to keep it coherent. Memory is limited in time and length depending on your status.
+
+**When should you clear memory?**
+• When changing the topic of the conversation
+• If Xi gets confused by the context
+• When starting a new task
+
+⚠️ **Warning:** Clearing the memory is irreversible!"""
+
+# Context
+[MsgContextNoAccess]
+other = "🈲 You do not have permission to manage context. Please contact the administration of the PRC (@MairwunNx)."
+
+[MsgContextRefreshed]
+other = "🔄 **Xi's memory has been cleared!**\n\nThe Great Xi has forgotten all previous messages in this conversation. You can start with a clean slate now! 🧠✨"
+
+[MsgContextRefreshError]
+other = "💢 An error occurred while clearing Xi's memory. Please try again later."
+
+# System health
+[MsgHealthTitle]
+other = "🏥 **Xi Manager system status:**\n\n"
+
+[MsgHealthDatabase]
+other = "🗄️ **Database:** {{.Status}}\n"
+
+[MsgHealthRedis]
+other = "🔴 **Redis:** {{.Status}}\n"
+
+[MsgHealthSystem]
+other = "⚙️ **System:** {{.Status}}\n"
+
+[MsgHealthUptime]
+other = "⏰ **Uptime:** {{.Uptime}}\n"
+
+[MsgHealthVersion]
+other = "🏷️ **Version:** {{.Version}}\n"
+
+[MsgHealthBuildTime]
+other = "🔨 **Build time:** {{.BuildTime}}\n\n"
+
+[MsgHealthStatusOk]
+other = "✅ Healthy"
+
+[MsgHealthStatusFail]
+other = "❌ Needs party attention"
+
+[MsgHealthError]
+other = "💢 Error while checking system health."
+
+# Mode config format
+[MsgModeConfigFormat]
+other = """🔧 **JSON mode configuration format:**
+
+```json
+{
+	"prompt": "<system prompt>",
+	"params": {
+		"top_p": 0.9,
+		"top_k": 40,
+		"presence_penalty": 0.1,
+		"frequency_penalty": 0.1,
+		"temperature": 1.0
+	}
+}
+```
+
+**Quality parameters:**
+• `final` (boolean) - whether the mode overrides topic analysis (default: false)
+• `top_p` (0.1-1.0) - nucleus sampling, lower values = more focused answers
+• `top_k` (1-100) - top-K sampling, number of most probable tokens
+• `presence_penalty` (0.0-2.0) - penalty for repeating topics
+• `frequency_penalty` (0.0-2.0) - penalty for repeating words
+• `temperature` (0.0-2.0) - creativity temperature
+
+**All fields are optional except prompt!**"""
+
+# Spending limits exceeded
+[MsgSpendingLimitExceededDialer]
+other = "\n\n>⚠️ The **{{.Period}}** limit for the **{{.Grade}}** plan has been exceeded (spent **{{.Spent}}** out of **{{.Limit}}**). A simplified model was used 🤧. To increase the limit, contact @MairwunNx."
+
+[MsgSpendingLimitExceededVision]
+other = "\n\n>⚠️ The **{{.Period}}** limit for the **{{.Grade}}** plan has been exceeded (spent **{{.Spent}}** out of **{{.Limit}}**). A simplified model was used for image analysis 🤧. To increase the limit, contact @MairwunNx."
+
+[MsgSpendingLimitExceededDaily]
+other = "daily"
+
+[MsgSpendingLimitExceededMonthly]
+other = "monthly"
+
+# Bans
+[MsgBanActive]
+other = "⏳ You have a temporary cooldown until **{{.ExpiresAt}}** for the reason: **{{.Reason}}**\n\n⏰ Time left: **{{.Remaining}}**"
+
+[MsgBanApplied]
+other = "🚫 User **@{{.Username}}** has been temporarily banned for **{{.Duration}}** for the reason: **{{.Reason}}**"
+
+[MsgBanPardon]
+other = "✅ User **@{{.Username}}** has been unbanned."
+
+[MsgBanErrorNotFound]
+other = "🈲 User **@{{.Username}}** has no active bans."
+
+[MsgBanErrorInvalid]
+other = "💢 Invalid ban duration. Use format: 1d, 4h, 10m, 60s"
+
+[MsgBanErrorTooLong]
+other = "💢 Ban duration exceeds the maximum (12 hours)."
+
+[MsgBanErrorCreate]
+other = "💢 Error while creating a ban."
+
+[MsgBanErrorRemove]
+other = "💢 Error while removing a ban."
+
+[MsgBanHelpText]
+other = """🈲 Invalid command format. Use:
+
+1️⃣ /ban @username '<reason>' <duration> - ban a user
+2️⃣ /pardon @username - unban a user
+
+**Duration format:** 1d (day), 4h (hours), 10m (minutes), 60s (seconds)
+**Maximum duration:** 12 hours"""
+
+[MsgPardonHelpText]
+other = """🈲 Invalid command format. Use:
+
+/pardon @username - unban a user"""
+
+[MsgDonationsSupport]
+other = "💖 Support the project"
+
+# Time formatting
+[AgeifyToday]
+other = "today"
+
+[AgeifyDaysAgo]
+one = "{{.Count}} day ago"
+few = "{{.Count}} days ago"
+many = "{{.Count}} days ago"
+other = "{{.Count}} days ago"
+
+[AgeifyWeeksAgo]
+one = "{{.Count}} week ago"
+few = "{{.Count}} weeks ago"
+many = "{{.Count}} weeks ago"
+other = "{{.Count}} weeks ago"
+
+[AgeifyMonthsAgo]
+one = "{{.Count}} month ago"
+few = "{{.Count}} months ago"
+many = "{{.Count}} months ago"
+other = "{{.Count}} months ago"
+
+[AgeifyYearsAgo]
+one = "{{.Count}} year ago"
+few = "{{.Count}} years ago"
+many = "{{.Count}} years ago"
+other = "{{.Count}} years ago"
+
+# Ban formatting
+[BanExpiryFormat]
+other = "01/02/2006 at 15:04"
+
+[BanRemainingExpired]
+other = "expired"
+
+[BanRemainingHours]
+one = "{{.Count}} hour"
+few = "{{.Count}} hours"
+many = "{{.Count}} hours"
+other = "{{.Count}} hours"
+
+[BanRemainingMinutes]
+one = "{{.Count}} minute"
+few = "{{.Count}} minutes"
+many = "{{.Count}} minutes"
+other = "{{.Count}} minutes"
+
+[BanRemainingSeconds]
+one = "{{.Count}} second"
+few = "{{.Count}} seconds"
+many = "{{.Count}} seconds"
+other = "{{.Count}} seconds"

@@ -1,0 +1,573 @@
+## 简体中文本地化 - Xi Manager
+
+# AI 内部消息
+[InternalAIImageMessage]
+other = "请描述图片中出现的内容，并尽量给出有意义的回答。"
+
+# Xi 的回复
+[MsgXiResponse]
+other = "📜 伟大的习主席说：\n\n"
+
+[MsgXiManualResponse]
+other = "📝 伟大的习主席发来一封特别电报：\n\n"
+
+# 命令：Start & Help
+[MsgStartText]
+other = """🐉 **欢迎使用 Xi Manager！**
+
+🤖 我是伟大习近平主席的贴身助手，随时准备为中华人民共和国人民服务！
+
+**我能为你做什么：**
+🧠 回答各种问题
+🖼️ 分析图片内容
+🎤 转写语音消息
+📊 统计使用情况
+🎭 支持多种行为模式
+💰 考虑捐赠和使用额度
+👤 根据你的个人信息进行个性化回答
+
+**如何开始：**
+• `/xi <你的问题>` — 向习主席请教问题
+• 直接发送文字消息，无需命令
+• 发送照片进行分析
+• `/personalization set '<关于你自己的信息>'` — 保存你的个人信息
+
+❓ 需要帮助？使用 `/help` 查看说明"""
+
+[MsgHelpText]
+other = """🀄️ **伟大习主席的可用命令：**
+
+🚀 `/start` - 欢迎信息与功能介绍
+🐉 `/xi` - 召唤伟大习主席回答你的问题或分析图片
+🎭 `/mode` - 切换习主席的行为模式（仅对荣誉公民开放）
+👥 `/users` - 管理用户（仅管理员可用）
+💰 `/donations` - 管理捐赠到帝国国库（仅管理员可用）
+👤 `/personalization` - 管理个性化设置
+🔍 `/this` - 查看当前用户和聊天的技术信息
+📊 `/stats` - 查看伟大统治者的统计数据
+🏥 `/health` - 检查 Xi Manager 系统健康状态
+🧠 `/context` - 管理习主席对对话的记忆
+
+💡 **提示：** 你也可以直接发送消息，不带任何命令 —— 习主席也能理解！"""
+
+[MsgUnknownCommand]
+other = "🤷‍♂️ 未知命令。伟大习主席无法理解你的意图。\n\n💡 使用 `/help` 查看可用命令。"
+
+[MsgXiUserBlocked]
+other = "🈲 你的账号已被封禁。请联系中华人民共和国管理部门 (@MairwunNx)。"
+
+# 错误与限制
+[MsgThrottleExceeded]
+other = "⏳ 请稍安勿躁，伟大习主席正在闭关思考。请在 5 秒后再次发送请求。"
+
+[MsgErrorResponse]
+other = "🥲 伟大习主席正在冥想，暂时无法回应。"
+
+[MsgXiError]
+other = "🤕 帝国电报未能成功穿越长城。"
+
+# 音频
+[MsgAudioSuccess]
+other = "🎤 伟大习主席已成功转写你的语音消息：\n\n"
+
+[MsgAudioError]
+other = "💢 习主席未能处理这条语音消息。"
+
+[MsgAudioUnsupported]
+other = "🈲 不支持的音频/视频文件类型。"
+
+# 统计
+[MsgStatsTitle]
+other = "📊 伟大习主席的统计数据：\n\n"
+
+[MsgStatsGeneral]
+other = "🌍 **全局统计：**\n📝 总问题数：**{{.TotalQuestions}}**\n💬 本聊天中的问题数：**{{.ChatQuestions}}**\n💵 历史总花费：**{{.TotalCost}}**\n💵 本月花费：**{{.MonthlyCost}}**\n💵 日均花费：**{{.DailyCost}}**\n🪙 历史总 Token 数：**{{.TotalTokens}}**\n🪙 本月 Token 数：**{{.MonthlyTokens}}**\n\n"
+
+[MsgStatsPersonal]
+other = "👤 **你的统计：**\n📝 你的总问题数：**{{.TotalQuestions}}**\n💬 你在本聊天中的问题数：**{{.ChatQuestions}}**\n💵 你的历史总花费：**{{.TotalCost}}**\n💵 你本月花费：**{{.MonthlyCost}}**\n💵 你的日均花费：**{{.DailyCost}}**\n🪙 你的历史总 Token 数：**{{.TotalTokens}}**\n🪙 你本月的 Token 数：**{{.MonthlyTokens}}**\n\n"
+
+[MsgStatsUsers]
+other = "👥 用户数：**{{.Users}}**\n🏛️ 聊天数：**{{.Chats}}**"
+
+[MsgStatsError]
+other = "💢 获取统计数据时发生错误。"
+
+# 限制
+[MsgDailyLimitExceeded]
+other = "🈲 你今日的“社会信用额度”已用尽。明天再来觐见伟大习主席吧。"
+
+[MsgMonthlyLimitExceeded]
+other = "🈲 你本月已超过该功能的使用上限。"
+
+[MsgInsufficientCredits]
+other = "💢 帝国国库已见底！如果没有你的支持（每月 15 美元起），伟大习主席将无法继续为人民服务。支持项目请联系 @MairwunNx。"
+
+# 模式（Modes）
+[MsgModeNoAccess]
+other = "🈲 你无权切换模式，你的社会信用已被**降低**！"
+
+[MsgModeModifyNoAccess]
+other = "🈲 你无权修改模式配置，你的社会信用已被**降低**！"
+
+[MsgModeNotFoundGeneral]
+other = "🈲 当前聊天中未找到模式 **{{.Mode}}**。"
+
+[MsgModeErrorEdit]
+other = "💢 修改模式配置时发生错误。"
+
+[MsgModeErrorDelete]
+other = "💢 删除模式时发生错误。"
+
+[MsgModeErrorEnable]
+other = "💢 启用模式时发生错误。"
+
+[MsgModeErrorDisable]
+other = "💢 禁用模式时发生错误。"
+
+[MsgModeErrorGettingList]
+other = "💢 获取模式列表时发生错误。"
+
+[MsgModeErrorAdd]
+other = "💢 添加模式时发生错误。"
+
+[MsgModeErrorSwitching]
+other = "💢 切换模式时发生错误。"
+
+[MsgModeErrorConfigParse]
+other = "💢 解析模式配置 JSON 时发生错误。"
+
+[MsgModeErrorConfigPrompt]
+other = "💢 模式配置中必须包含字段 'prompt'。"
+
+[MsgModeEdited]
+other = "✅ 模式 **{{.Name}}** ({{.Type}}) 的配置已更新。"
+
+[MsgModeDeleted]
+other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已删除。"
+
+[MsgModeEnabled]
+other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已启用。"
+
+[MsgModeDisabled]
+other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已禁用。"
+
+[MsgModeAdded]
+other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已成功添加。"
+
+[MsgModeChanged]
+other = "🎭 伟大习主席的行为模式已切换为：**{{.Name}}** ({{.Type}})"
+
+[MsgModeListHeader]
+other = "🀄️ 可用模式：\n\n"
+
+[MsgModeListItemCurrent]
+other = "▶️ **{{.Name}}** ({{.Type}})\n"
+
+[MsgModeListItem]
+other = "▶️ {{.Name}} ({{.Type}})\n"
+
+[MsgModeNoModesAvailable]
+other = "🈲 此处尚未为伟大习主席配置任何模式。请联系 @MairwunNx。"
+
+# 用户管理
+[MsgUsersUnknownCommand]
+other = "🈲 未知的用户管理命令。"
+
+[MsgUsersNoAccess]
+other = "🈲 你无权管理用户，你的社会信用已被**降低**！"
+
+[MsgUsersErrorEdit]
+other = "💢 修改用户权限时发生错误。"
+
+[MsgUsersErrorDisable]
+other = "💢 封禁用户时发生错误。"
+
+[MsgUsersErrorEnable]
+other = "💢 解封用户时发生错误。"
+
+[MsgUsersErrorWindow]
+other = "💢 设置窗口限制时发生错误。"
+
+[MsgUsersErrorStack]
+other = "💢 设置堆栈权限时发生错误。"
+
+[MsgUsersErrorRemove]
+other = "💢 删除用户时发生错误。"
+
+[MsgUsersEdited]
+other = "✅ 用户 **@{{.Username}}** 的权限已更新，新权限：**{{.Rights}}**。"
+
+[MsgUsersDisabled]
+other = "✅ 用户 **@{{.Username}}** 已被封禁。"
+
+[MsgUsersEnabled]
+other = "✅ 用户 **@{{.Username}}** 已被解封。"
+
+[MsgUsersWindowSet]
+other = "✅ 用户 **@{{.Username}}** 的窗口大小已设置为 **{{.Window}}**。"
+
+[MsgUsersStackSet]
+other = "✅ 用户 **@{{.Username}}** 的堆栈功能已设置为 {{.Status}}。"
+
+[MsgUsersRemoved]
+other = "✅ 用户 **@{{.Username}}** 已被删除。"
+
+# 捐赠
+[MsgDonationsUnknownCommand]
+other = "🈲 未知的捐赠管理命令。"
+
+[MsgDonationsNoAccess]
+other = "🈲 你无权管理捐赠，你的社会信用已被**降低**！"
+
+[MsgDonationsErrorAdd]
+other = "💢 添加捐赠记录时发生错误。"
+
+[MsgDonationsAdded]
+other = "✅ 已为用户 **@{{.Username}}** 添加捐赠金额 **{{.Amount}}**。"
+
+[MsgDonationsErrorList]
+other = "💢 获取捐赠列表时发生错误。"
+
+[MsgDonationsNoDonations]
+other = "🤷‍♂️ 帝国国库依然空空如也，还没有任何子民表达忠诚！"
+
+[MsgDonationsListHeader]
+other = "📜 **伟大习主席的捐赠者名单：**\n\n"
+
+[MsgDonationsListTopHeader]
+other = "🏆 **最慷慨的前三位子民：**\n"
+
+[MsgDonationsListTop1Item]
+other = "👑 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListTop2Item]
+other = "💎 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListTop3Item]
+other = "💠 **{{.Username}}** — {{.Amount}} ₽\n"
+
+[MsgDonationsListOthersHeader]
+other = "\n📜 **其他捐赠者：**\n"
+
+[MsgDonationsListItem]
+other = "❤️‍🔥 **{{.Username}}** — {{.Amount}} ₽\n"
+
+# 个性化
+[MsgPersonalizationAdded]
+other = "✅ 你的个人信息已成功保存！"
+
+[MsgPersonalizationRemoved]
+other = "✅ 你的个人信息已删除。"
+
+[MsgPersonalizationNotFound]
+other = "🈲 你还没有保存任何个人信息。"
+
+[MsgPersonalizationPrint]
+other = "👤 **已保存的个人信息：**\n\n{{.Info}}"
+
+[MsgPersonalizationTooShort]
+other = "🈲 文本太短。最少需要 **12** 个字符。"
+
+[MsgPersonalizationTooLong]
+other = "🈲 文本太长。最多允许 **1024** 个字符。"
+
+[MsgPersonalizationErrorAdd]
+other = "💢 保存信息时发生错误。"
+
+[MsgPersonalizationErrorRemove]
+other = "💢 删除信息时发生错误。"
+
+[MsgPersonalizationErrorPrint]
+other = "💢 获取信息时发生错误。"
+
+[MsgPersonalizationValidationFailed]
+other = "🈲 文本看起来不像是关于你自己的信息。请简单介绍一下自己。\n\n💡 **示例：**“我叫小李，是一名程序员，住在中国，喜欢运动和旅行。”"
+
+[MsgPersonalizationValidationError]
+other = "💢 处理请求时发生错误，请稍后再试。"
+
+# 其他
+[MsgRestartText]
+other = "🔄 伟大习主席正在重启中……"
+
+[MsgThisInfo]
+other = """🀄️ **用户与聊天信息**
+
+**👤 用户**
+━━━━━━━━━━━━━━━━━━━━━
+{{.Emoji}} **等级：{{.Grade}}**
+📅 **账号创建时间：** {{.AccountDate}}
+🆔 **Telegram ID：** {{.TelegramID}}
+👤 **姓名：** {{.Name}}
+🔖 **用户名：** {{.Username}}
+🔑 **内部 ID：** {{.InternalID}}
+⚡ **权限：** {{.Rights}}
+
+**💬 聊天**
+━━━━━━━━━━━━━━━━━━━━━
+🆔 **ID：** {{.ChatID}}
+📂 **类型：** {{.ChatType}}
+🏷️ **标题：** {{.ChatTitle}}"""
+
+[MsgUserNotFound]
+other = "🈲 未找到用户 **@{{.Username}}**。"
+
+[MsgUserNotSpecified]
+other = "🈲 未指定用户名！请使用 **@username** 的格式。"
+
+# 帮助文本
+[MsgDonationsHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+1️⃣ /donations add @username <sum> - 添加捐赠记录"""
+
+[MsgUsersInvalidRights]
+other = """🈲 权限值不正确。可用权限：
+
+1️⃣ switch_mode（在聊天中切换模式）
+2️⃣ edit_mode（编辑模式、修改提示、添加和删除模式）
+3️⃣ manage_users（管理用户：删除、封禁、修改权限）"""
+
+[MsgUsersHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+1️⃣ /users add @username '<rights,rights,...>' - 添加用户
+2️⃣ /users remove @username - 删除用户
+3️⃣ /users edit @username '<rights,rights,...>' - 修改权限
+4️⃣ /users disable @username - 封禁用户
+5️⃣ /users enable @username - 解封用户
+6️⃣ /users window @username <limit> - 设置窗口大小
+7️⃣ /users stack @username <true/false> - 启用或禁用堆栈"""
+
+[MsgModeHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+1️⃣ /mode - 切换模式
+2️⃣ /mode add <chatid> <type> '<name>' '<config>' - 添加模式
+3️⃣ /mode list <chatid> - 查看模式列表
+4️⃣ /mode disable <chatid> <type> - 禁用模式
+5️⃣ /mode enable <chatid> <type> - 启用模式
+6️⃣ /mode delete <chatid> <type> - 删除模式
+7️⃣ /mode edit <chatid> <type> '<config>' - 修改模式配置
+
+**其中 <config> 为如下格式的 JSON 配置：**
+```json
+{"prompt": "<system prompt>"}
+```
+
+关于配置格式的更多说明，请使用模式配置帮助命令。"""
+
+[MsgPersonalizationHelpText]
+other = """👤 **Xi Manager 个性化设置管理**
+
+**可用命令：**
+
+1️⃣ `/personalization set '<关于你自己的文本>'` - 保存你的个人信息
+2️⃣ `/personalization remove` - 删除已保存的信息
+3️⃣ `/personalization print` - 显示已保存的信息
+4️⃣ `/personalization help` - 显示本帮助文本
+
+**有什么用？**
+习主席会更了解你，并根据你保存的信息给出更加贴合你的回答。
+
+**要求：**
+• 最少长度：**12** 个字符
+• 最多长度：**1024** 个字符
+• 文本内容必须是关于你自己的信息
+
+**示例：**
+`/personalization set '我叫小李，是一名程序员，住在中国，喜欢运动和旅行。'`"""
+
+[MsgContextHelpText]
+other = """🧠 **Xi Manager 上下文记忆管理**
+
+**可用命令：**
+
+🔄 `/context refresh` - 清空当前对话记忆
+❓ `/context help` - 显示本帮助文本
+
+**什么是“上下文”？**
+伟大习主席会记住对话中的上一些消息，以保证对话连贯。可记忆的时间与长度会根据你的身份等级而变化。
+
+**什么时候需要清空记忆？**
+• 更换话题时
+• 当习主席开始混淆上下文时
+• 开始一个全新任务时
+
+⚠️ **注意：** 清空记忆是不可逆操作！"""
+
+# 上下文
+[MsgContextNoAccess]
+other = "🈲 你无权管理上下文。请联系中华人民共和国管理部门 (@MairwunNx)。"
+
+[MsgContextRefreshed]
+other = "🔄 **习主席的记忆已清空！**\n\n伟大习主席已忘记本次对话中的所有历史消息，现在可以从头开始了！🧠✨"
+
+[MsgContextRefreshError]
+other = "💢 清空习主席记忆时发生错误，请稍后重试。"
+
+# 系统健康
+[MsgHealthTitle]
+other = "🏥 **Xi Manager 系统状态：**\n\n"
+
+[MsgHealthDatabase]
+other = "🗄️ **数据库：** {{.Status}}\n"
+
+[MsgHealthRedis]
+other = "🔴 **Redis：** {{.Status}}\n"
+
+[MsgHealthSystem]
+other = "⚙️ **系统：** {{.Status}}\n"
+
+[MsgHealthUptime]
+other = "⏰ **运行时间：** {{.Uptime}}\n"
+
+[MsgHealthVersion]
+other = "🏷️ **版本：** {{.Version}}\n"
+
+[MsgHealthBuildTime]
+other = "🔨 **构建时间：** {{.BuildTime}}\n\n"
+
+[MsgHealthStatusOk]
+other = "✅ 运行良好"
+
+[MsgHealthStatusFail]
+other = "❌ 需要党组织关注"
+
+[MsgHealthError]
+other = "💢 检查系统状态时发生错误。"
+
+# 模式配置格式
+[MsgModeConfigFormat]
+other = """🔧 **模式 JSON 配置格式：**
+
+```json
+{
+	"prompt": "<system prompt>",
+	"params": {
+		"top_p": 0.9,
+		"top_k": 40,
+		"presence_penalty": 0.1,
+		"frequency_penalty": 0.1,
+		"temperature": 1.0
+	}
+}
+```
+
+**质量参数说明：**
+• `final`（布尔值）- 此模式是否覆盖主题分析（默认 false）
+• `top_p`（0.1–1.0）- Nucleus 采样值，越小越保守
+• `top_k`（1–100）- Top-K 采样，候选 token 数量
+• `presence_penalty`（0.0–2.0）- 主题重复惩罚
+• `frequency_penalty`（0.0–2.0）- 词语重复惩罚
+• `temperature`（0.0–2.0）- 创造性温度
+
+**除 prompt 外，其余字段均为可选！**"""
+
+# 超出花费限制
+[MsgSpendingLimitExceededDialer]
+other = "\n\n>⚠️ 你的 **{{.Grade}}** 套餐已超出 **{{.Period}}** 使用限额（已用 **{{.Spent}}** / **{{.Limit}}**）。本次使用了简化模型 🤧。如需提高限额，请联系 @MairwunNx。"
+
+[MsgSpendingLimitExceededVision]
+other = "\n\n>⚠️ 你的 **{{.Grade}}** 套餐已超出 **{{.Period}}** 图像分析限额（已用 **{{.Spent}}** / **{{.Limit}}**）。本次使用了简化图像模型 🤧。如需提高限额，请联系 @MairwunNx。"
+
+[MsgSpendingLimitExceededDaily]
+other = "每日"
+
+[MsgSpendingLimitExceededMonthly]
+other = "每月"
+
+# 封禁
+[MsgBanActive]
+other = "⏳ 你目前处于临时冷却状态，截止时间：**{{.ExpiresAt}}**，原因：**{{.Reason}}**\n\n⏰ 剩余时间：**{{.Remaining}}**"
+
+[MsgBanApplied]
+other = "🚫 已对用户 **@{{.Username}}** 进行临时封禁，时长 **{{.Duration}}**，原因：**{{.Reason}}**"
+
+[MsgBanPardon]
+other = "✅ 用户 **@{{.Username}}** 已解除封禁。"
+
+[MsgBanErrorNotFound]
+other = "🈲 用户 **@{{.Username}}** 当前没有有效封禁。"
+
+[MsgBanErrorInvalid]
+other = "💢 封禁时长格式不正确，请使用：1d、4h、10m、60s。"
+
+[MsgBanErrorTooLong]
+other = "💢 封禁时长超过最大限制（12 小时）。"
+
+[MsgBanErrorCreate]
+other = "💢 创建封禁记录时发生错误。"
+
+[MsgBanErrorRemove]
+other = "💢 删除封禁记录时发生错误。"
+
+[MsgBanHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+1️⃣ /ban @username '<reason>' <duration> - 封禁用户
+2️⃣ /pardon @username - 解除封禁
+
+**时长格式示例：** 1d（一日）、4h（小时）、10m（分钟）、60s（秒）
+**最长封禁时长：** 12 小时"""
+
+[MsgPardonHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+/pardon @username - 解除封禁"""
+
+[MsgDonationsSupport]
+other = "💖 支持本项目"
+
+# 时间格式
+[AgeifyToday]
+other = "今天"
+
+[AgeifyDaysAgo]
+one = "{{.Count}} 天前"
+few = "{{.Count}} 天前"
+many = "{{.Count}} 天前"
+other = "{{.Count}} 天前"
+
+[AgeifyWeeksAgo]
+one = "{{.Count}} 周前"
+few = "{{.Count}} 周前"
+many = "{{.Count}} 周前"
+other = "{{.Count}} 周前"
+
+[AgeifyMonthsAgo]
+one = "{{.Count}} 个月前"
+few = "{{.Count}} 个月前"
+many = "{{.Count}} 个月前"
+other = "{{.Count}} 个月前"
+
+[AgeifyYearsAgo]
+one = "{{.Count}} 年前"
+few = "{{.Count}} 年前"
+many = "{{.Count}} 年前"
+other = "{{.Count}} 年前"
+
+# 封禁时间格式
+[BanExpiryFormat]
+other = "2006-01-02 15:04"
+
+[BanRemainingExpired]
+other = "已结束"
+
+[BanRemainingHours]
+one = "{{.Count}} 小时"
+few = "{{.Count}} 小时"
+many = "{{.Count}} 小时"
+other = "{{.Count}} 小时"
+
+[BanRemainingMinutes]
+one = "{{.Count}} 分钟"
+few = "{{.Count}} 分钟"
+many = "{{.Count}} 分钟"
+other = "{{.Count}} 分钟"
+
+[BanRemainingSeconds]
+one = "{{.Count}} 秒"
+few = "{{.Count}} 秒"
+many = "{{.Count}} 秒"
+other = "{{.Count}} 秒"
