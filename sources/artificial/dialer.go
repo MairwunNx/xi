@@ -19,6 +19,19 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+const (
+	MsgEnvironmentBlock = `
+
+⸻
+
+📅 Environment
+	• Date & time: %s (UTC+3)
+	• Chat title: %s
+	• Chat description: %s
+	• Bot version: %s
+	• Bot uptime: %s`
+)
+
 type Dialer struct {
 	ai              *openrouter.Client
 	config          *AIConfig
@@ -525,7 +538,7 @@ func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
 	version := platform.GetAppVersion()
 	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
 
-	return fmt.Sprintf(texting.MsgEnvironmentBlock,
+	return fmt.Sprintf(MsgEnvironmentBlock,
 		dateTimeStr,
 		chatTitle,
 		chatDescription,
