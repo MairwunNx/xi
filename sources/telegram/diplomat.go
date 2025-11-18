@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"strings"
+	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -14,20 +15,20 @@ import (
 
 type Diplomat struct {
 	bot       *tgbotapi.BotAPI
-	config    *DiplomatConfig
+	config    *configuration.Config
 	users     *repository.UsersRepository
 	donations *repository.DonationsRepository
 	localization *localization.LocalizationManager
 }
 
-func NewDiplomat(bot *tgbotapi.BotAPI, config *DiplomatConfig, users *repository.UsersRepository, donations *repository.DonationsRepository) *Diplomat {
-	return &Diplomat{bot: bot, config: config, users: users, donations: donations}
+func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager) *Diplomat {
+	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization}
 }
 
 func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
   defer tracing.ProfilePoint(logger, "Diplomat reply completed", "diplomat.reply")()
 
-	for _, chunk := range transform.Chunks(text, x.config.ChunkSize) {
+	for _, chunk := range transform.Chunks(text, x.config.Telegram.DiplomatChunkSize) {
 		chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(chunk))
 		chattable.ReplyToMessageID = msg.MessageID
 		chattable.ParseMode = tgbotapi.ModeMarkdownV2
