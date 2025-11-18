@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"ximanager/sources/configuration"
 	"ximanager/sources/tracing"
 
 	"github.com/BurntSushi/toml"
@@ -19,20 +20,19 @@ var localesFS embed.FS
 type LocalizationManager struct {
 	bundle   *i18n.Bundle
 	detector *LanguageDetector
-	config   *LocalizationConfig
 	log      *tracing.Logger
 	locbuff  sync.Map
 }
 
 func NewLocalizationManager(
-	config *LocalizationConfig,
+	config *configuration.Config,
 	detector *LanguageDetector,
 	log *tracing.Logger,
 ) (*LocalizationManager, error) {
 	bundle := i18n.NewBundle(language.Russian)
 	bundle.RegisterUnmarshalFunc("toml", toml.Unmarshal)
 
-	for _, lang := range config.SupportedLanguages {
+	for _, lang := range config.Localization.SupportedLanguages {
 		filename := fmt.Sprintf("locales/active.%s.toml", lang)
 
 		data, err := localesFS.ReadFile(filename)
@@ -50,7 +50,7 @@ func NewLocalizationManager(
 	}
 
 	log.I("LocalizationManager initialized successfully")
-	return &LocalizationManager{bundle: bundle, detector: detector, config: config, log: log}, nil
+	return &LocalizationManager{bundle: bundle, detector: detector, log: log}, nil
 }
 
 func (x *LocalizationManager) GetLocalizer(userText string) *i18n.Localizer {
