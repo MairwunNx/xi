@@ -61,7 +61,8 @@ services:
     networks: [ default ]
     ports:
       - ${OUTSIDERS_STARTUP_PORT}:10000
-      - ${OUTSIDERS_METRICS_PORT}:10001
+      - ${OUTSIDERS_SYSTEM_METRICS_PORT:-9090}:9090
+      - ${OUTSIDERS_APPLICATION_METRICS_PORT:-9091}:9091
     restart: unless-stopped
   ximanager-flyway:
     command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate'
