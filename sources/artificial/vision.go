@@ -50,6 +50,7 @@ func NewVision(
 }
 
 func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl string, user *entities.User, chatID int64, req string, persona string) (string, error) {
+	defer tracing.ProfilePoint(logger, "Vision visionify completed", "artificial.vision.visionify")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 

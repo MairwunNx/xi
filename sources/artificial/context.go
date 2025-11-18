@@ -61,6 +61,7 @@ func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
 }
 
 func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, error) {
+	defer tracing.ProfilePoint(logger, "Context fetch completed", "artificial.context.fetch", "chat_id", chatID, "user_grade", userGrade)()
 	startTime := time.Now()
 	limits := x.getContextLimits(userGrade)
 	key := x.getChatHistoryKey(chatID)
@@ -128,6 +129,7 @@ func (x *ContextManager) Store(
 	userGrade platform.UserGrade,
 	message platform.RedisMessage,
 ) error {
+	defer tracing.ProfilePoint(logger, "Context store completed", "artificial.context.store", "chat_id", chatID, "user_grade", userGrade, "message_role", message.Role)()
 	startTime := time.Now()
 	limits := x.getContextLimits(userGrade)
 	key := x.getChatHistoryKey(chatID)
@@ -169,6 +171,7 @@ func (x *ContextManager) Store(
 }
 
 func (x *ContextManager) Clear(logger *tracing.Logger, chatID platform.ChatID) error {
+	defer tracing.ProfilePoint(logger, "Context clear completed", "artificial.context.clear", "chat_id", chatID)()
 	key := x.getChatHistoryKey(chatID)
 
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)

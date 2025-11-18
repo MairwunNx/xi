@@ -61,7 +61,9 @@ func (a *AgentSystem) SelectRelevantContext(
 	newUserMessage string,
 	userGrade platform.UserGrade,
 ) ([]platform.RedisMessage, error) {
-	if len(history) <= 4 {
+  defer tracing.ProfilePoint(log, "Agent select relevant context completed", "artificial.agents.select.relevant.context", "history_count", len(history), "user_grade", userGrade)()
+
+  if len(history) <= 4 {
 		return history, nil
 	}
 
@@ -202,6 +204,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	newUserMessage string,
 	userGrade platform.UserGrade,
 ) (*ModelSelectionResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent select model and effort completed", "artificial.agents.select.model.and.effort", "context_count", len(selectedContext), "user_grade", userGrade)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentModelTimeout)*time.Second)
 	defer cancel()
 
@@ -492,6 +495,7 @@ func (a *AgentSystem) ValidatePersonalization(
 	log *tracing.Logger,
 	text string,
 ) (*PersonalizationValidationResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent validate personalization completed", "artificial.agents.validate.personalization", "text_length", len(text))()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -580,6 +584,7 @@ func (a *AgentSystem) SummarizeContent(
 	content string,
 	contentType string, // "message" or "cluster"
 ) (string, error) {
+	defer tracing.ProfilePoint(log, "Agent summarize content completed", "artificial.agents.summarize.content", "content_type", contentType, "content_length", len(content))()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.SummarizationTimeout)*time.Second)
 	defer cancel()
 
@@ -669,6 +674,7 @@ func (a *AgentSystem) DetermineResponseLength(
 	log *tracing.Logger,
 	userMessage string,
 ) (*ResponseLengthResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent determine response length completed", "artificial.agents.determine.response.length", "message_length", len(userMessage))()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AgentResponseLengthTimeout)*time.Second)
 	defer cancel()
 

@@ -39,6 +39,7 @@ func NewWhisper(
 }
 
 func (w *Whisper) Whisperify(log *tracing.Logger, msg *tgbotapi.Message, file *os.File, user *entities.User) (string, error) {
+	defer tracing.ProfilePoint(log, "Whisper whisperify completed", "artificial.whisper.whisperify")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Minute)
 	defer cancel()
 

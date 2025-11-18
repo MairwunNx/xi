@@ -25,6 +25,7 @@ import (
 // =========================  /xi command handlers  =========================
 
 func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Xi command text completed", "telegram.command.xi.text", "chat_id", msg.Chat.ID)()
 	req := x.GetRequestText(msg)
 	if req == "" {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgHelpText")
@@ -53,6 +54,7 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 }
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Xi command photo completed", "telegram.command.xi.photo", "chat_id", msg.Chat.ID)()
 	x.diplomat.SendTyping(log, msg.Chat.ID)
 
 	photo := msg.Photo[len(msg.Photo)-1]
@@ -88,6 +90,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Xi command audio completed", "telegram.command.xi.audio", "chat_id", msg.Chat.ID)()
 	x.diplomat.SendTyping(log, msg.Chat.ID)
 
 	var fileID string
@@ -651,6 +654,7 @@ func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotap
 // =========================  /stats command handlers  =========================
 
 func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Stats command completed", "telegram.command.stats", "chat_id", msg.Chat.ID)()
 	statsErrorMsg := x.localization.LocalizeBy(msg, "MsgStatsError")
 
 	totalQuestions, err := x.messages.GetTotalUserQuestionsCount(log)

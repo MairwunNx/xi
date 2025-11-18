@@ -63,6 +63,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 }
 
 func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Message) error {
+	defer tracing.ProfilePoint(log, "Telegram handler message completed", "telegram.handler.message")()
 	log.I("Got message")
 
 	user, err := x.user(log, msg)
