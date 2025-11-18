@@ -18,8 +18,8 @@ func (x *TelegramHandler) HandleXiCommand(log *tracing.Logger, user *entities.Us
 	ban, expiresAt, err := x.bans.GetActiveBanWithExpiry(log, user.ID)
 	if err == nil {
 		remaining := x.bans.GetRemainingDuration(expiresAt)
-		formattedExpiry := x.bans.FormatBanExpiry(expiresAt)
-		formattedRemaining := x.bans.FormatRemainingTime(remaining)
+		formattedExpiry := x.bans.FormatBanExpiry(msg, expiresAt)
+		formattedRemaining := x.bans.FormatRemainingTime(msg, remaining)
 
 		log.W("User is banned", "user_id", user.ID, "expires_at", expiresAt, "reason", ban.Reason)
 
