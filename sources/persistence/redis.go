@@ -18,6 +18,5 @@ func NewRedis(config *RedisConfig, log *tracing.Logger) *redis.Client {
 	})
 
 	log.I("Redis client initialized successfully")
-
 	return rdb
 }
