@@ -23,9 +23,9 @@ func NewProxyClient(proxy proxy.Dialer, config *ProxyConfig, log *tracing.Logger
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           dc,
-			MaxIdleConns:          20,
-			IdleConnTimeout:       10 * time.Minute,
-			TLSHandshakeTimeout:   10 * time.Second,
+			MaxIdleConns:          60,
+			IdleConnTimeout:       5 * time.Minute,
+			TLSHandshakeTimeout:   5 * time.Second,
 			ExpectContinueTimeout: 5 * time.Second,
 			MaxIdleConnsPerHost:   runtime.GOMAXPROCS(0) + 1,
 			OnProxyConnectResponse: func(ctx context.Context, proxyURL *url.URL, connectReq *http.Request, connectRes *http.Response) error {
