@@ -1,16 +1,17 @@
 package network
 
 import (
+	"ximanager/sources/configuration"
 	"ximanager/sources/tracing"
 
 	"golang.org/x/net/proxy"
 )
 
-func NewProxyDialer(config *ProxyConfig, log *tracing.Logger) proxy.Dialer {
+func NewProxyDialer(config *configuration.Config, log *tracing.Logger) proxy.Dialer {
 	dialer, err := proxy.SOCKS5(
 		"tcp",
-		config.ProxyAddress,
-		&proxy.Auth{User: config.ProxyUser, Password: config.ProxyPass},
+		config.Proxy.URL,
+		&proxy.Auth{User: config.Proxy.User, Password: config.Proxy.Password},
 		proxy.Direct,
 	)
 
