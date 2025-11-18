@@ -1,34 +1,45 @@
 package format
 
 import (
-	"fmt"
 	"time"
+	"ximanager/sources/localization"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-// todo: localize.
-func Ageify(createdAt time.Time) string {
+type DateTimeFormatter struct {
+	localization *localization.LocalizationManager
+}
+
+func NewDateTimeFormatter(localization *localization.LocalizationManager) *DateTimeFormatter {
+	return &DateTimeFormatter{
+		localization: localization,
+	}
+}
+
+func (f *DateTimeFormatter) Ageify(msg *tgbotapi.Message, createdAt time.Time) string {
 	age := time.Since(createdAt)
 	
 	days := int(age.Hours() / 24)
 	
 	if days == 0 {
-		return "сегодня"
+		return f.localization.LocalizeBy(msg, "AgeifyToday")
 	}
 	
 	if days < 7 {
-		return fmt.Sprintf("%d %s назад", days, Pluralify(days, "день", "дня", "дней"))
+		return f.localization.LocalizeByTd(msg, "AgeifyDaysAgo", map[string]interface{}{"Count": days})
 	}
 	
 	weeks := days / 7
 	if weeks < 5 {
-		return fmt.Sprintf("%d %s назад", weeks, Pluralify(weeks, "неделю", "недели", "недель"))
+		return f.localization.LocalizeByTd(msg, "AgeifyWeeksAgo", map[string]interface{}{"Count": weeks})
 	}
 	
 	months := days / 30
 	if months < 12 {
-		return fmt.Sprintf("%d %s назад", months, Pluralify(months, "месяц", "месяца", "месяцев"))
+		return f.localization.LocalizeByTd(msg, "AgeifyMonthsAgo", map[string]interface{}{"Count": months})
 	}
 	
 	years := days / 365
-	return fmt.Sprintf("%d %s назад", years, Pluralify(years, "год", "года", "лет"))
+	return f.localization.LocalizeByTd(msg, "AgeifyYearsAgo", map[string]interface{}{"Count": years})
 }
