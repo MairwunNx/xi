@@ -23,6 +23,7 @@ var (
 	Mode            *mode
 	Personalization *personalization
 	SelectedMode    *selectedMode
+	Tariff          *tariff
 	Usage           *usage
 	User            *user
 )
@@ -35,6 +36,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Mode = &Q.Mode
 	Personalization = &Q.Personalization
 	SelectedMode = &Q.SelectedMode
+	Tariff = &Q.Tariff
 	Usage = &Q.Usage
 	User = &Q.User
 }
@@ -48,6 +50,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Mode:            newMode(db, opts...),
 		Personalization: newPersonalization(db, opts...),
 		SelectedMode:    newSelectedMode(db, opts...),
+		Tariff:          newTariff(db, opts...),
 		Usage:           newUsage(db, opts...),
 		User:            newUser(db, opts...),
 	}
@@ -62,6 +65,7 @@ type Query struct {
 	Mode            mode
 	Personalization personalization
 	SelectedMode    selectedMode
+	Tariff          tariff
 	Usage           usage
 	User            user
 }
@@ -77,6 +81,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Mode:            q.Mode.clone(db),
 		Personalization: q.Personalization.clone(db),
 		SelectedMode:    q.SelectedMode.clone(db),
+		Tariff:          q.Tariff.clone(db),
 		Usage:           q.Usage.clone(db),
 		User:            q.User.clone(db),
 	}
@@ -99,6 +104,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Mode:            q.Mode.replaceDB(db),
 		Personalization: q.Personalization.replaceDB(db),
 		SelectedMode:    q.SelectedMode.replaceDB(db),
+		Tariff:          q.Tariff.replaceDB(db),
 		Usage:           q.Usage.replaceDB(db),
 		User:            q.User.replaceDB(db),
 	}
@@ -111,6 +117,7 @@ type queryCtx struct {
 	Mode            IModeDo
 	Personalization IPersonalizationDo
 	SelectedMode    ISelectedModeDo
+	Tariff          ITariffDo
 	Usage           IUsageDo
 	User            IUserDo
 }
@@ -123,6 +130,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Mode:            q.Mode.WithContext(ctx),
 		Personalization: q.Personalization.WithContext(ctx),
 		SelectedMode:    q.SelectedMode.WithContext(ctx),
+		Tariff:          q.Tariff.WithContext(ctx),
 		Usage:           q.Usage.WithContext(ctx),
 		User:            q.User.WithContext(ctx),
 	}
