@@ -12,6 +12,7 @@ import (
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/telegram"
+	"ximanager/sources/texting/format"
 	"ximanager/sources/texting/personality"
 	"ximanager/sources/throttler"
 	"ximanager/sources/tracing"
@@ -43,7 +44,8 @@ func main() {
 		throttler.Module,
 		features.Module,
 		localization.Module,
-    personality.Module,
+		format.Module,
+		personality.Module,
 		artificial.Module,
 		telegram.Module,
 	
