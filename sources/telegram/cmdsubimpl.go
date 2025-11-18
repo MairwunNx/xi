@@ -1015,7 +1015,7 @@ func (x *TelegramHandler) ThisCommand(log *tracing.Logger, user *entities.User, 
 
 	gradeEmoji := getGradeEmoji(grade)
 	gradeName := getGradeNameRu(grade)
-	accountAge := format.Ageify(user.CreatedAt)
+	accountAge := x.dateTimeFormatter.Ageify(msg, user.CreatedAt)
 
 	infoData := map[string]interface{}{
 		"Emoji":       gradeEmoji,
