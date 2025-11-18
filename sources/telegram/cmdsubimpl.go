@@ -78,7 +78,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
-	response, err := x.vision.Visionify(log, iurl, user, msg.Chat.ID, req, persona)
+	response, err := x.vision.Visionify(log, msg, iurl, user, msg.Chat.ID, req, persona)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
@@ -131,7 +131,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	defer tempFile.Close()
 
 	userPrompt := strings.TrimSpace(msg.CommandArguments())
-	transcriptedText, err := x.whisper.Whisperify(log, tempFile, user)
+	transcriptedText, err := x.whisper.Whisperify(log, msg, tempFile, user)
 	if err != nil {
 		log.E("Error transcribing audio", tracing.InnerError, err)
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
