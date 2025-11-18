@@ -4,10 +4,11 @@ import (
 	"errors"
 	"strings"
 	"ximanager/sources/artificial"
+	"ximanager/sources/localization"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
-	"ximanager/sources/texting"
+	"ximanager/sources/texting/personality"
 	"ximanager/sources/throttler"
 	"ximanager/sources/tracing"
 
@@ -15,42 +16,46 @@ import (
 )
 
 type TelegramHandler struct {
-	diplomat       *Diplomat
-	users          *repository.UsersRepository
-	rights         *repository.RightsRepository
-	dialer         *artificial.Dialer
-	whisper        *artificial.Whisper
-	vision         *artificial.Vision
-	modes          *repository.ModesRepository
-	donations      *repository.DonationsRepository
-	messages       *repository.MessagesRepository
+	diplomat         *Diplomat
+	users            *repository.UsersRepository
+	rights           *repository.RightsRepository
+	dialer           *artificial.Dialer
+	whisper          *artificial.Whisper
+	vision           *artificial.Vision
+	modes            *repository.ModesRepository
+	donations        *repository.DonationsRepository
+	messages         *repository.MessagesRepository
 	personalizations *repository.PersonalizationsRepository
 	agents           *artificial.AgentSystem
-	usage          *repository.UsageRepository
-	throttler      *throttler.Throttler
-	contextManager *artificial.ContextManager
-	health         *repository.HealthRepository
-	bans           *repository.BansRepository
+	usage            *repository.UsageRepository
+	throttler        *throttler.Throttler
+	contextManager   *artificial.ContextManager
+	health           *repository.HealthRepository
+	bans             *repository.BansRepository
+	localization     *localization.LocalizationManager
+	personality      *personality.XiPersonality
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality) *TelegramHandler {
 	return &TelegramHandler{
-		diplomat:       diplomat,
-		users:          users,
-		rights:         rights,
-		dialer:         dialer,
-		whisper:        whisper,
-		vision:         vision,
-		modes:          modes,
-		donations:      donations,
-		messages:       messages,
+		diplomat:         diplomat,
+		users:            users,
+		rights:           rights,
+		dialer:           dialer,
+		whisper:          whisper,
+		vision:           vision,
+		modes:            modes,
+		donations:        donations,
+		messages:         messages,
 		personalizations: personalizations,
 		agents:           agents,
-		usage:          usage,
-		throttler:      throttler,
-		contextManager: contextManager,
-		health:         health,
-		bans:           bans,
+		usage:            usage,
+		throttler:        throttler,
+		contextManager:   contextManager,
+		health:           health,
+		bans:             bans,
+		localization:     localization,
+		personality:      personality,
 	}
 }
 
@@ -71,7 +76,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 	)
 
 	if !platform.BoolValue(user.IsActive, true) {
-		x.diplomat.Reply(log, msg, texting.MsgXiUserBlocked)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgXiUserBlocked"))
 		return nil
 	}
 
@@ -126,7 +131,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 		case "pardon":
 			x.HandlePardonCommand(log, user, msg)
 		default:
-			x.diplomat.Reply(log, msg, texting.MsgUnknownCommand)
+			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUnknownCommand"))
 		}
 	} else {
 		if msg.GroupChatCreated || msg.SuperGroupChatCreated || msg.ChannelChatCreated ||
