@@ -16,9 +16,8 @@ type DiplomatConfig struct {
 }
 
 type PollerConfig struct {
-	Timeout           int
-	AllowedUpdates    []string
-	MaxConcurrency    int
+	Timeout        int
+	AllowedUpdates []string
 }
 
 func (c *BotConfig) Validate() error {
@@ -47,6 +46,5 @@ func NewPollerConfig() *PollerConfig {
 	return &PollerConfig{
 		Timeout:        platform.GetAsInt("TELEGRAM_POLLER_TIMEOUT", 120),
 		AllowedUpdates: platform.GetAsSlice("TELEGRAM_POLLER_ALLOWED_UPDATES", []string{tgbotapi.UpdateTypeMessage}),
-		MaxConcurrency: platform.GetAsInt("TELEGRAM_POLLER_MAX_CONCURRENCY", 10),
 	}
 }
