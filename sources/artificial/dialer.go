@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 	"ximanager/sources/features"
+	"ximanager/sources/localization"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting"
@@ -33,6 +34,7 @@ type Dialer struct {
 	spendingLimiter *SpendingLimiter
 	agentSystem     *AgentSystem
 	features        FeatureChecker
+	localization    *localization.LocalizationManager
 }
 
 func NewDialer(
@@ -49,6 +51,7 @@ func NewDialer(
 	usageLimiter *UsageLimiter,
 	spendingLimiter *SpendingLimiter,
 	features FeatureChecker,
+	localization *localization.LocalizationManager,
 ) *Dialer {
 	return &Dialer{
 		ai:               ai,
@@ -65,6 +68,7 @@ func NewDialer(
 		spendingLimiter:  spendingLimiter,
 		agentSystem:      NewAgentSystem(ai, config),
 		features:         features,
+		localization:     localization,
 	}
 }
 
