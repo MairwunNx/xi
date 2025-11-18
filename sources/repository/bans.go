@@ -197,6 +197,7 @@ func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID)
 	return bans, nil
 }
 
+// todo: localize.
 func (x *BansRepository) FormatBanExpiry(expiresAt time.Time) string {
 	moscowTime := expiresAt.UTC().Add(3 * time.Hour)
 	return moscowTime.Format("02.01.2006 в 15:04")
@@ -210,6 +211,7 @@ func (x *BansRepository) GetRemainingDuration(expiresAt time.Time) time.Duration
 	return remaining
 }
 
+// todo: localize.
 func (x *BansRepository) FormatRemainingTime(duration time.Duration) string {
 	if duration <= 0 {
 		return "истек"
