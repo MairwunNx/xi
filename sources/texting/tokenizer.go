@@ -14,19 +14,3 @@ func Tokens(log *tracing.Logger, text string) int {
 		func(l *tracing.Logger, tokens int) { l.I("Tokens counted", tracing.AiTokens, tokens) },
 	)
 }
-
-const (
-	tokenCalculationBias   = 50
-	minimumAvailableTokens = 1000
-)
-
-func TokensInfer(log *tracing.Logger, prompt, req, persona string, mt int) int {
-	tokens := Tokens(log, prompt)
-	reqTokens := Tokens(log, req)
-
-	availableTokens := mt - tokens - reqTokens - tokenCalculationBias
-	if availableTokens < minimumAvailableTokens {
-		return minimumAvailableTokens
-	}
-	return availableTokens
-}
