@@ -9,7 +9,6 @@ import (
 
 var Module = fx.Module("external", 
 	fx.Provide(
-		NewOutsidersConfig,
 		NewOutsiders,
 	),
 
