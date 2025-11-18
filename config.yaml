@@ -1,0 +1,78 @@
+service:
+  startup_port: 10000
+  system_metrics_port: 9090
+  application_metrics_port: 9091
+
+database:
+  host: ${POSTGRES_HOST:ximanager-postgres}
+  port: ${POSTGRES_PORT:5432}
+  user: ${POSTGRES_USER:ximanager}
+  password: ${POSTGRES_PASSWORD:dev123}
+  dbname: ${POSTGRES_DB:ximanager}
+  ssl_mode: ${POSTGRES_SSLMODE:disable}
+  time_zone: ${POSTGRES_TIMEZONE:Europe/Moscow}
+
+redis:
+  host: ${REDIS_HOST:ximanager-redis}
+  port: ${REDIS_PORT:6379}
+  password: ${REDIS_PASSWORD:dev123}
+  db: ${REDIS_DB:0}
+  max_retries: ${REDIS_MAX_RETRIES:5}
+  dial_timeout: ${REDIS_DIAL_TIMEOUT:5s}
+
+telegram:
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  poller_timeout: 120
+  allowed_updates: [message]
+  diplomat_chunk_size: 4096
+
+ai:
+  open_router_token: ${OPENROUTER_API_KEY}
+  openai_token: ${OPENAI_API_KEY}
+  
+  whisper_model: ${WHISPER_MODEL:whisper-1}
+  
+  limit_exceeded_model: ${SPENDINGS_LIMIT_EXCEEDED_MODEL:openai/gpt-4o-mini}
+  limit_exceeded_fallback_models: [deepseek/deepseek-chat]
+
+  placebo_models: [openai/gpt-4.1-mini, x-ai/grok-4-fast, x-ai/grok-4-fast:free]
+
+  agents:
+    context:
+      model: ${AGENT_CONTEXT_MODEL:openai/gpt-4o-mini}
+      timeout: 45
+    model_selection:
+      model: ${AGENT_MODEL_SELECTION_MODEL:openai/gpt-4o-mini}
+      timeout: 30
+    response_length:
+      model: ${AGENT_RESPONSE_LENGTH_MODEL:openai/gpt-4o-mini}
+      timeout: 20
+    summarization:
+      model: ${SUMMARIZATION_MODEL:openai/gpt-4o-mini}
+      timeout: 60
+      single_message_token_threshold: 2100
+      cluster_token_threshold: 10000
+      cluster_size: 10
+
+  prompts:
+    context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
+    model_selection: ${AGENT_MODEL_SELECTION_PROMPT}
+    response_length: ${AGENT_RESPONSE_LENGTH_PROMPT}
+    summarization: ${SUMMARIZATION_PROMPT}
+
+proxy:
+  url: ${PROXY_ADDRESS}
+  user: ${PROXY_USER}
+  password: ${PROXY_PASS}
+
+throttler:
+  limit: 5s
+
+features:
+  unleash_api_url: ${UNLEASH_API_URL:http://localhost:4242/api/}
+  unleash_app_name: ${UNLEASH_APP_NAME:default}
+  unleash_instance_id: ${UNLEASH_INSTANCE_ID:default}
+  refresh_interval: ${UNLEASH_REFRESH_INTERVAL:15}
+
+localization:
+  supported_languages: [en, ru, zh]
