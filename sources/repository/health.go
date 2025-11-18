@@ -21,7 +21,7 @@ func NewHealthRepository(redis *redis.Client) *HealthRepository {
 }
 
 func (x *HealthRepository) CheckDatabaseHealth(logger *tracing.Logger) error {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
@@ -36,7 +36,7 @@ func (x *HealthRepository) CheckDatabaseHealth(logger *tracing.Logger) error {
 }
 
 func (x *HealthRepository) CheckRedisHealth(logger *tracing.Logger) error {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Second)
 	defer cancel()
 
 	err := x.redis.Ping(ctx).Err()
