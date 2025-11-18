@@ -9,11 +9,8 @@ import (
 
 var Module = fx.Module("telegram",
 	fx.Provide(
-		NewBotConfig,
 		NewBotAPI,
-		NewDiplomatConfig,
 		NewDiplomat,
-		NewPollerConfig,
 		NewTelegramHandler,
 		NewPoller,
 	),
