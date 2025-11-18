@@ -33,5 +33,5 @@ COPY --from=pydeps /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 COPY --from=builder /app/ximanager /usr/local/bin/ximanager
 USER ximanager
-EXPOSE 10000 10001
+EXPOSE 10000 9090 9091
 ENTRYPOINT ["/usr/local/bin/ximanager"]
