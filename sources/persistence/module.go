@@ -11,7 +11,7 @@ import (
 )
 
 var Module = fx.Module("persistence",
-	fx.Provide(NewDatabaseConfig, NewPostgresDatabase, NewRedisConfig, NewRedis),
+	fx.Provide(NewPostgresDatabase, NewRedis),
 	fx.Invoke(func(db *gorm.DB, redis *redis.Client, lc fx.Lifecycle, log *tracing.Logger) {
 		lc.Append(fx.Hook{
 			OnStart: func(ctx context.Context) error {
