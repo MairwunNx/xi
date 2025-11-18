@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"ximanager/sources/configuration"
+	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
+	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
 
 	"github.com/redis/go-redis/v9"
@@ -19,14 +22,16 @@ const (
 )
 
 type UsageLimiter struct {
-	redis  *redis.Client
-	config *AIConfig
+	redis   *redis.Client
+	config  *configuration.Config
+	tariffs repository.Tariffs
 }
 
-func NewUsageLimiter(redis *redis.Client, config *AIConfig) *UsageLimiter {
+func NewUsageLimiter(redis *redis.Client, config *configuration.Config, tariffs repository.Tariffs) *UsageLimiter {
 	return &UsageLimiter{
-		redis:  redis,
-		config: config,
+		redis:   redis,
+		config:  config,
+		tariffs: tariffs,
 	}
 }
 
@@ -35,11 +40,12 @@ type LimitCheckResult struct {
 	IsDaily  bool
 }
 
-func (x *UsageLimiter) getUsageLimits(grade platform.UserGrade) UsageLimits {
-	if limits, ok := x.config.GradeLimits[grade]; ok {
-		return limits.Usage
+func (x *UsageLimiter) getUsageLimits(ctx context.Context, grade platform.UserGrade) (*entities.Tariff, error) {
+	tariff, err := x.tariffs.GetLatestByKey(ctx, string(grade))
+	if err != nil {
+		return x.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
 	}
-	return x.config.GradeLimits[platform.GradeBronze].Usage
+	return tariff, nil
 }
 
 func (x *UsageLimiter) getUsageKey(usageType UsageType, period string, userID int64) string {
@@ -60,23 +66,27 @@ func (x *UsageLimiter) checkAndIncrement(
 	userGrade platform.UserGrade,
 	usageType UsageType,
 ) (*LimitCheckResult, error) {
-	limits := x.getUsageLimits(userGrade)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	limits, err := x.getUsageLimits(ctx, userGrade)
+	if err != nil {
+		logger.E("Failed to get usage limits", tracing.InnerError, err)
+		return nil, err
+	}
 
 	var dailyLimit, monthlyLimit int
 	switch usageType {
 	case UsageTypeVision:
-		dailyLimit = limits.VisionDaily
-		monthlyLimit = limits.VisionMonthly
+		dailyLimit = limits.UsageVisionDaily
+		monthlyLimit = limits.UsageVisionMonthly
 	case UsageTypeDialer:
-		dailyLimit = limits.DialerDaily
-		monthlyLimit = limits.DialerMonthly
+		dailyLimit = limits.UsageDialerDaily
+		monthlyLimit = limits.UsageDialerMonthly
 	case UsageTypeWhisper:
-		dailyLimit = limits.WhisperDaily
-		monthlyLimit = limits.WhisperMonthly
+		dailyLimit = limits.UsageWhisperDaily
+		monthlyLimit = limits.UsageWhisperMonthly
 	}
-
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
-	defer cancel()
 
 	monthlyKey := x.getUsageKey(usageType, "monthly", userID)
 	monthlyCount, err := x.redis.Get(ctx, monthlyKey).Int()
@@ -86,7 +96,6 @@ func (x *UsageLimiter) checkAndIncrement(
 	}
 	
 	monthlyUsagePercent := 0
-	monthlyRemaining := monthlyLimit - monthlyCount
 	if monthlyLimit > 0 {
 		monthlyUsagePercent = int(float64(monthlyCount) / float64(monthlyLimit) * 100)
 	}
@@ -112,7 +121,6 @@ func (x *UsageLimiter) checkAndIncrement(
 	}
 	
 	dailyUsagePercent := 0
-	dailyRemaining := dailyLimit - dailyCount
 	if dailyLimit > 0 {
 		dailyUsagePercent = int(float64(dailyCount) / float64(dailyLimit) * 100)
 	}
@@ -147,8 +155,8 @@ func (x *UsageLimiter) checkAndIncrement(
 	monthlyCount++
 	dailyUsagePercent = int(float64(dailyCount) / float64(dailyLimit) * 100)
 	monthlyUsagePercent = int(float64(monthlyCount) / float64(monthlyLimit) * 100)
-	dailyRemaining = dailyLimit - dailyCount
-	monthlyRemaining = monthlyLimit - monthlyCount
+	dailyRemaining := dailyLimit - dailyCount
+	monthlyRemaining := monthlyLimit - monthlyCount
 
 	logger.I("usage_check_success",
 		"user_id", userID,
