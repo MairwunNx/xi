@@ -19,7 +19,7 @@ func NewProxyClient(proxy proxy.Dialer, config *configuration.Config, log *traci
 	}
 
 	return &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: time.Duration(config.Network.TimeoutSeconds) * time.Second,
 		Transport: &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           dc,
