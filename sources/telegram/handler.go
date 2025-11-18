@@ -8,6 +8,7 @@ import (
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
+	"ximanager/sources/texting/format"
 	"ximanager/sources/texting/personality"
 	"ximanager/sources/throttler"
 	"ximanager/sources/tracing"
@@ -34,9 +35,10 @@ type TelegramHandler struct {
 	bans             *repository.BansRepository
 	localization     *localization.LocalizationManager
 	personality      *personality.XiPersonality
+	dateTimeFormatter *format.DateTimeFormatter
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:         diplomat,
 		users:            users,
@@ -56,6 +58,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		bans:             bans,
 		localization:     localization,
 		personality:      personality,
+		dateTimeFormatter: dateTimeFormatter,
 	}
 }
 
