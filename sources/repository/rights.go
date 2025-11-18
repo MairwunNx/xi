@@ -23,7 +23,8 @@ func NewRightsRepository(users *UsersRepository) *RightsRepository {
 }
 
 func (x *RightsRepository) IsUserHasRight(logger *tracing.Logger, user *entities.User, scope string) bool {
-	if !platform.BoolValue(user.IsActive, true) {
+	defer tracing.ProfilePoint(logger, "Rights is user has right completed", "repository.rights.is.user.has.right", "user_id", user.ID, "scope", scope)()
+  if !platform.BoolValue(user.IsActive, true) {
 		logger.E("User is not active, fallback to denied")
 		return false
 	}
@@ -40,6 +41,7 @@ func (x *RightsRepository) IsUserHasRight(logger *tracing.Logger, user *entities
 }
 
 func (x *RightsRepository) AddRightForUser(logger *tracing.Logger, user *entities.User, scope string) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Rights add right for user completed", "repository.rights.add.right.for.user", "user_id", user.ID, "scope", scope)()
 	if !slices.Contains(AvailableRights, scope) {
 		logger.E("Right not found", tracing.Scope, scope)
 		return nil, ErrRightNotFound
@@ -55,6 +57,7 @@ func (x *RightsRepository) AddRightForUser(logger *tracing.Logger, user *entitie
 }
 
 func (x *RightsRepository) RemoveRightForUser(logger *tracing.Logger, user *entities.User, scope string) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Rights remove right for user completed", "repository.rights.remove.right.for.user", "user_id", user.ID, "scope", scope)()
 	if !slices.Contains(AvailableRights, scope) {
 		logger.E("Right not found", tracing.Scope, scope)
 		return nil, ErrRightNotFound

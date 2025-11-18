@@ -75,6 +75,7 @@ func NewModesRepository(users *UsersRepository) *ModesRepository {
 }
 
 func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userID int64) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes switch mode completed", "repository.modes.switch.mode", "chat_id", chatID, "user_id", userID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -164,6 +165,7 @@ func (x *ModesRepository) MustUpdateMode(logger *tracing.Logger, mode *entities.
 }
 
 func (x *ModesRepository) GetModesByChat(logger *tracing.Logger, cid int64) ([]*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get modes by chat completed", "repository.modes.get.modes.by.chat", "chat_id", cid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -184,6 +186,7 @@ func (x *ModesRepository) GetModesByChat(logger *tracing.Logger, cid int64) ([]*
 }
 
 func (x *ModesRepository) AddModeForChat(logger *tracing.Logger, cid int64, modeType string, name string, prompt string, euid int64) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes add mode for chat completed", "repository.modes.add.mode.for.chat", "chat_id", cid, "mode_type", modeType, "name", name, "euid", euid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -215,6 +218,7 @@ func (x *ModesRepository) AddModeForChat(logger *tracing.Logger, cid int64, mode
 }
 
 func (r *ModesRepository) GetModeByChat(logger *tracing.Logger, cid int64) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get mode by chat completed", "repository.modes.get.mode.by.chat", "chat_id", cid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -273,6 +277,7 @@ func (r *ModesRepository) GetModeByChat(logger *tracing.Logger, cid int64) (*ent
 }
 
 func (r *ModesRepository) GetDefaultMode(logger *tracing.Logger) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get default mode completed", "repository.modes.get.default.mode")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -298,6 +303,7 @@ func (r *ModesRepository) GetDefaultMode(logger *tracing.Logger) (*entities.Mode
 }
 
 func (r *ModesRepository) DeleteMode(logger *tracing.Logger, mode *entities.Mode) error {
+	defer tracing.ProfilePoint(logger, "Modes delete mode completed", "repository.modes.delete.mode", "mode_id", mode.ID, "mode_name", mode.Name)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -321,6 +327,7 @@ func (r *ModesRepository) MustDeleteMode(logger *tracing.Logger, mode *entities.
 }
 
 func (x *ModesRepository) ParseModeConfig(mode *entities.Mode, logger *tracing.Logger) *ModeConfig {
+	defer tracing.ProfilePoint(logger, "Modes parse mode config completed", "repository.modes.parse.mode.config", "mode_id", mode.ID)()
 	if mode.Config != nil && *mode.Config != "" {
 		var config ModeConfig
 		if err := json.Unmarshal([]byte(*mode.Config), &config); err != nil {
@@ -356,6 +363,7 @@ func (x *ModesRepository) SerializeModeConfig(config *ModeConfig) (string, error
 }
 
 func (x *ModesRepository) GetModeConfigByChat(logger *tracing.Logger, chatID int64) (*ModeConfig, error) {
+	defer tracing.ProfilePoint(logger, "Modes get mode config by chat completed", "repository.modes.get.mode.config.by.chat", "chat_id", chatID)()
 	mode, err := x.GetModeByChat(logger, chatID)
 	if err != nil {
 		return nil, err
@@ -368,6 +376,7 @@ func (x *ModesRepository) GetModeConfigByChat(logger *tracing.Logger, chatID int
 }
 
 func (x *ModesRepository) UpdateModeConfig(logger *tracing.Logger, modeID uuid.UUID, config *ModeConfig) error {
+	defer tracing.ProfilePoint(logger, "Modes update mode config completed", "repository.modes.update.mode.config", "mode_id", modeID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -420,7 +429,8 @@ func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSetting
 }
 
 func (x *ModesRepository) AddModeWithConfig(logger *tracing.Logger, cid int64, modeType string, name string, config *ModeConfig, euid int64) (*entities.Mode, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer tracing.ProfilePoint(logger, "Modes add mode with config completed", "repository.modes.add.mode.with.config", "chat_id", cid, "mode_type", modeType, "name", name, "euid", euid)()
+  ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)

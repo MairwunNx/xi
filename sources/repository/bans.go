@@ -88,6 +88,7 @@ func (x *BansRepository) ParseDuration(durationStr string) (time.Duration, error
 }
 
 func (x *BansRepository) CreateBan(logger *tracing.Logger, userID uuid.UUID, chatID int64, reason string, duration string) (*entities.Ban, error) {
+	defer tracing.ProfilePoint(logger, "Bans create ban completed", "repository.bans.create.ban", "user_id", userID, "chat_id", chatID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -118,6 +119,7 @@ func (x *BansRepository) CreateBan(logger *tracing.Logger, userID uuid.UUID, cha
 }
 
 func (x *BansRepository) GetActiveBan(logger *tracing.Logger, userID uuid.UUID) (*entities.Ban, error) {
+	defer tracing.ProfilePoint(logger, "Bans get active ban completed", "repository.bans.get.active.ban", "user_id", userID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -172,6 +174,7 @@ func (x *BansRepository) IsUserBanned(logger *tracing.Logger, userID uuid.UUID) 
 }
 
 func (x *BansRepository) DeleteBansByUser(logger *tracing.Logger, userID uuid.UUID) error {
+	defer tracing.ProfilePoint(logger, "Bans delete bans by user completed", "repository.bans.delete.bans.by.user", "user_id", userID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -188,6 +191,7 @@ func (x *BansRepository) DeleteBansByUser(logger *tracing.Logger, userID uuid.UU
 }
 
 func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID) ([]*entities.Ban, error) {
+	defer tracing.ProfilePoint(logger, "Bans get bans by user completed", "repository.bans.get.bans.by.user", "user_id", userID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 

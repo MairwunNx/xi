@@ -41,6 +41,7 @@ func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, ch
 }
 
 func (x *UsageRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total cost completed", "repository.usage.get.total.cost")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -64,6 +65,7 @@ func (x *UsageRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decimal,
 }
 
 func (x *UsageRepository) GetTotalCostLastMonth(logger *tracing.Logger) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total cost last month completed", "repository.usage.get.total.cost.last.month")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -89,6 +91,7 @@ func (x *UsageRepository) GetTotalCostLastMonth(logger *tracing.Logger) (decimal
 }
 
 func (x *UsageRepository) GetUserCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user cost completed", "repository.usage.get.user.cost", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -113,6 +116,7 @@ func (x *UsageRepository) GetUserCost(logger *tracing.Logger, user *entities.Use
 }
 
 func (x *UsageRepository) GetUserCostLastMonth(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user cost last month completed", "repository.usage.get.user.cost.last.month", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -139,6 +143,7 @@ func (x *UsageRepository) GetUserCostLastMonth(logger *tracing.Logger, user *ent
 }
 
 func (x *UsageRepository) GetUserCostSince(logger *tracing.Logger, user *entities.User, since time.Time) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user cost since completed", "repository.usage.get.user.cost.since", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -164,6 +169,7 @@ func (x *UsageRepository) GetUserCostSince(logger *tracing.Logger, user *entitie
 }
 
 func (x *UsageRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total tokens completed", "repository.usage.get.total.tokens")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -187,6 +193,7 @@ func (x *UsageRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) 
 }
 
 func (x *UsageRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total tokens last month completed", "repository.usage.get.total.tokens.last.month")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -212,6 +219,7 @@ func (x *UsageRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (int64
 }
 
 func (x *UsageRepository) GetUserTokens(logger *tracing.Logger, user *entities.User) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user tokens completed", "repository.usage.get.user.tokens", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -236,6 +244,7 @@ func (x *UsageRepository) GetUserTokens(logger *tracing.Logger, user *entities.U
 }
 
 func (x *UsageRepository) GetUserTokensLastMonth(logger *tracing.Logger, user *entities.User) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user tokens last month completed", "repository.usage.get.user.tokens.last.month", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -262,6 +271,7 @@ func (x *UsageRepository) GetUserTokensLastMonth(logger *tracing.Logger, user *e
 }
 
 func (x *UsageRepository) GetAverageDailyCost(logger *tracing.Logger) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get average daily cost completed", "repository.usage.get.average.daily.cost")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -292,6 +302,7 @@ func (x *UsageRepository) GetAverageDailyCost(logger *tracing.Logger) (decimal.D
 }
 
 func (x *UsageRepository) GetUserAverageDailyCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user average daily cost completed", "repository.usage.get.user.average.daily.cost", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -323,6 +334,7 @@ func (x *UsageRepository) GetUserAverageDailyCost(logger *tracing.Logger, user *
 }
 
 func (x *UsageRepository) GetUserDailyCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user daily cost completed", "repository.usage.get.user.daily.cost", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -351,6 +363,7 @@ func (x *UsageRepository) GetUserDailyCost(logger *tracing.Logger, user *entitie
 }
 
 func (x *UsageRepository) GetUserMonthlyCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user monthly cost completed", "repository.usage.get.user.monthly.cost", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 

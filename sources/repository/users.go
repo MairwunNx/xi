@@ -25,6 +25,7 @@ func NewUsersRepository() *UsersRepository {
 }
 
 func (x *UsersRepository) CreateUser(logger *tracing.Logger, euid int64, uname *string, ufullname *string) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Users create user completed", "repository.users.create.user", "user_id", euid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -59,6 +60,7 @@ func (x *UsersRepository) MustCreateUser(logger *tracing.Logger, euid int64, una
 }
 
 func (x *UsersRepository) GetUserByEid(logger *tracing.Logger, euid int64) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Users get user by eid completed", "repository.users.get.user.by.eid", "user_id", euid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -89,6 +91,7 @@ func (x *UsersRepository) MustGetUserByEid(logger *tracing.Logger, euid int64) *
 }
 
 func (x *UsersRepository) GetUserByName(logger *tracing.Logger, uname string) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Users get user by name completed", "repository.users.get.user.by.name", "username", uname)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -125,6 +128,7 @@ func (x *UsersRepository) MustGetUserByName(logger *tracing.Logger, uname string
 }
 
 func (x *UsersRepository) UpdateUser(logger *tracing.Logger, user *entities.User) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Users update user completed", "repository.users.update.user", "user_id", user.UserID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -150,6 +154,7 @@ func (x *UsersRepository) MustUpdateUser(logger *tracing.Logger, user *entities.
 }
 
 func (x *UsersRepository) DeleteUserByEid(logger *tracing.Logger, euid int64) error {
+	defer tracing.ProfilePoint(logger, "Users delete user by eid completed", "repository.users.delete.user.by.eid", "user_id", euid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -173,6 +178,7 @@ func (x *UsersRepository) MustDeleteUserByEid(logger *tracing.Logger, euid int64
 }
 
 func (x *UsersRepository) DeleteUserByName(logger *tracing.Logger, uname string) error {
+	defer tracing.ProfilePoint(logger, "Users delete user by name completed", "repository.users.delete.user.by.name", "username", uname)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -196,6 +202,7 @@ func (x *UsersRepository) MustDeleteUserByName(logger *tracing.Logger, uname str
 }
 
 func (x *UsersRepository) DeleteUser(logger *tracing.Logger, user *entities.User) error {
+	defer tracing.ProfilePoint(logger, "Users delete user completed", "repository.users.delete.user", "user_id", user.UserID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -219,6 +226,7 @@ func (x *UsersRepository) MustDeleteUser(logger *tracing.Logger, user *entities.
 }
 
 func (x *UsersRepository) GetTotalUsersCount(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Users get total users count completed", "repository.users.get.total.users.count")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 

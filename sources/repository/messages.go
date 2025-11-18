@@ -22,6 +22,7 @@ func NewMessagesRepository(users *UsersRepository) *MessagesRepository {
 }
 
 func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.Message, isXiResponse bool) error {
+	defer tracing.ProfilePoint(logger, "Messages save message completed", "repository.messages.save.message", "chat_id", msg.Chat.ID, "user_id", msg.From.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -50,6 +51,7 @@ func (x *MessagesRepository) SaveMessage(logger *tracing.Logger, msg *tgbotapi.M
 }
 
 func (x *MessagesRepository) GetTotalUserQuestionsCount(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get total user questions count completed", "repository.messages.get.total.user.questions.count")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -67,6 +69,7 @@ func (x *MessagesRepository) GetTotalUserQuestionsCount(logger *tracing.Logger) 
 }
 
 func (x *MessagesRepository) GetUserQuestionsInChatCount(logger *tracing.Logger, chatID int64) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get user questions in chat count completed", "repository.messages.get.user.questions.in.chat.count", "chat_id", chatID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -85,6 +88,7 @@ func (x *MessagesRepository) GetUserQuestionsInChatCount(logger *tracing.Logger,
 }
 
 func (x *MessagesRepository) GetUserPersonalQuestionsCount(logger *tracing.Logger, user *entities.User) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get user personal questions count completed", "repository.messages.get.user.personal.questions.count", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -103,6 +107,7 @@ func (x *MessagesRepository) GetUserPersonalQuestionsCount(logger *tracing.Logge
 }
 
 func (x *MessagesRepository) GetUserPersonalQuestionsInChatCount(logger *tracing.Logger, user *entities.User, chatID int64) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get user personal questions in chat count completed", "repository.messages.get.user.personal.questions.in.chat.count", "user_id", user.ID, "chat_id", chatID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -122,6 +127,7 @@ func (x *MessagesRepository) GetUserPersonalQuestionsInChatCount(logger *tracing
 }
 
 func (x *MessagesRepository) GetUniqueChatCount(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get unique chat count completed", "repository.messages.get.unique.chat.count")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 

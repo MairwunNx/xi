@@ -19,6 +19,7 @@ func NewDonationsRepository() *DonationsRepository {
 }
 
 func (x *DonationsRepository) GetUserGrade(logger *tracing.Logger, user *entities.User) (platform.UserGrade, error) {
+	defer tracing.ProfilePoint(logger, "Donations get user grade completed", "repository.donations.get.user.grade", "user_id", user.ID)()
 	if strings.HasSuffix(*user.Username, "ximanager") {
 		return platform.GradeSilver, nil
 	}
@@ -63,7 +64,8 @@ func (x *DonationsRepository) GetUserGrade(logger *tracing.Logger, user *entitie
 }
 
 func (x *DonationsRepository) GetDonationsByUser(logger *tracing.Logger, user *entities.User) ([]*entities.Donation, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer tracing.ProfilePoint(logger, "Donations get donations by user completed", "repository.donations.get.donations.by.user", "user_id", user.ID)()
+  ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
@@ -79,6 +81,7 @@ func (x *DonationsRepository) GetDonationsByUser(logger *tracing.Logger, user *e
 }
 
 func (x *DonationsRepository) GetDonationsWithUsers(logger *tracing.Logger) ([]*entities.Donation, error) {
+	defer tracing.ProfilePoint(logger, "Donations get donations with users completed", "repository.donations.get.donations.with.users")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -95,7 +98,8 @@ func (x *DonationsRepository) GetDonationsWithUsers(logger *tracing.Logger) ([]*
 }
 
 func (x *DonationsRepository) CreateDonation(logger *tracing.Logger, user *entities.User, sum float64) (*entities.Donation, error) {
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer tracing.ProfilePoint(logger, "Donations create donation completed", "repository.donations.create.donation", "user_id", user.ID, "sum", sum)()
+  ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)

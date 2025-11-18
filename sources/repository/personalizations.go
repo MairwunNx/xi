@@ -26,6 +26,7 @@ func NewPersonalizationsRepository() *PersonalizationsRepository {
 }
 
 func (x *PersonalizationsRepository) CreateOrUpdatePersonalization(logger *tracing.Logger, user *entities.User, prompt string) (*entities.Personalization, error) {
+	defer tracing.ProfilePoint(logger, "Personalizations create or update completed", "repository.personalizations.create.or.update", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -78,6 +79,7 @@ func (x *PersonalizationsRepository) CreateOrUpdatePersonalization(logger *traci
 }
 
 func (x *PersonalizationsRepository) GetPersonalizationByUser(logger *tracing.Logger, user *entities.User) (*entities.Personalization, error) {
+	defer tracing.ProfilePoint(logger, "Personalizations get personalization by user completed", "repository.personalizations.get.personalization.by.user", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -98,6 +100,7 @@ func (x *PersonalizationsRepository) GetPersonalizationByUser(logger *tracing.Lo
 }
 
 func (x *PersonalizationsRepository) DeletePersonalization(logger *tracing.Logger, user *entities.User) error {
+	defer tracing.ProfilePoint(logger, "Personalizations delete personalization completed", "repository.personalizations.delete.personalization", "user_id", user.ID)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 

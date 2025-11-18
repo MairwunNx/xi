@@ -21,6 +21,7 @@ func NewHealthRepository(redis *redis.Client) *HealthRepository {
 }
 
 func (x *HealthRepository) CheckDatabaseHealth(logger *tracing.Logger) error {
+	defer tracing.ProfilePoint(logger, "Health check database completed", "repository.health.check.database")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Second)
 	defer cancel()
 
@@ -36,6 +37,7 @@ func (x *HealthRepository) CheckDatabaseHealth(logger *tracing.Logger) error {
 }
 
 func (x *HealthRepository) CheckRedisHealth(logger *tracing.Logger) error {
+	defer tracing.ProfilePoint(logger, "Health check redis completed", "repository.health.check.redis")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 1*time.Second)
 	defer cancel()
 
