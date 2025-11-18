@@ -6,6 +6,7 @@ import (
 	"ximanager/sources/artificial"
 	"ximanager/sources/external"
 	"ximanager/sources/features"
+	"ximanager/sources/localization"
 	"ximanager/sources/network"
 	"ximanager/sources/persistence"
 	"ximanager/sources/platform"
@@ -40,6 +41,7 @@ func main() {
 		repository.Module,
 		throttler.Module,
 		features.Module,
+		localization.Module,
 		artificial.Module,
 		telegram.Module,
 	
