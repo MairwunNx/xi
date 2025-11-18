@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 	"ximanager/sources/platform"
-	"ximanager/sources/texting"
+	"ximanager/sources/texting/indices"
 	"ximanager/sources/tracing"
 
 	openrouter "github.com/revrost/go-openrouter"
@@ -125,7 +125,7 @@ func (a *AgentSystem) SelectRelevantContext(
 		return history, nil
 	}
 
-	indices := texting.ExpandIndicesAndRanges(log, contextResponse.RelevantIndices, len(history)-1)
+	indices := indices.Expand(log, contextResponse.RelevantIndices, len(history)-1)
 	
 	// Ensure we select messages in pairs (user-assistant)
 	// Convert indices to a set for faster lookup
