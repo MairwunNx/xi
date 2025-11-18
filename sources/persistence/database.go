@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"ximanager/sources/configuration"
 	"ximanager/sources/tracing"
 
 	"go.uber.org/fx"
@@ -12,10 +13,10 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func NewPostgresDatabase(lc fx.Lifecycle, config *DatabaseConfig, log *tracing.Logger) *gorm.DB {
+func NewPostgresDatabase(lc fx.Lifecycle, config *configuration.Config, log *tracing.Logger) *gorm.DB {
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
-		config.Host, config.User, config.Password, config.DBName, config.Port, config.SSLMode, config.TimeZone,
+		config.Database.Host, config.Database.User, config.Database.Password, config.Database.DBName, config.Database.Port, config.Database.SSLMode, config.Database.TimeZone,
 	)
 
 	gormlogger := logger.New(
