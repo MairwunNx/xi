@@ -1,5 +1,7 @@
 package texting
 
+// todo: remove after localize.
+
 const (
 	InternalAIImageMessage    = "Опиши что изображено на картинке. Обязательно попытайся ответить."
 	InternalAIAudioMessage    = "Транскрибируй аудио файл максимально точно."
