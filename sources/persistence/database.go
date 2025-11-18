@@ -44,6 +44,5 @@ func NewPostgresDatabase(lc fx.Lifecycle, config *DatabaseConfig, log *tracing.L
 	sqldb.SetConnMaxIdleTime(30 * time.Minute)
 
 	log.I("Database initialized successfully")
-
 	return db
 }
