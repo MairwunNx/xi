@@ -9,6 +9,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// todo: create new outsider for application level metrics under 10002 port.
+
 type Outsiders struct {
 	log    *tracing.Logger
 	config *OutsidersConfig
