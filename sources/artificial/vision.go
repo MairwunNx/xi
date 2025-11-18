@@ -6,7 +6,6 @@ import (
 	"time"
 	"ximanager/sources/localization"
 	"ximanager/sources/platform"
-	"ximanager/sources/texting"
 	"ximanager/sources/tracing"
 
 	"ximanager/sources/persistence/entities"
@@ -116,7 +115,7 @@ func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl s
 	)
 
 	if req == "" {
-		req = texting.InternalAIImageMessage
+		req = v.localization.LocalizeBy(msg, "InternalAIImageMessage")
 	}
 
 	req = UserReq(persona, req)
