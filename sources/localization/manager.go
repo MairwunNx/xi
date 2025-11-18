@@ -76,7 +76,11 @@ func (x *LocalizationManager) LocalizeTd(localizer *i18n.Localizer, messageID st
 	return msg
 }
 
-func (x *LocalizationManager) LocalizeBy(msg *tgbotapi.Message, messageID string, templateData map[string]interface{}) string {
+func (x *LocalizationManager) LocalizeBy(msg *tgbotapi.Message, messageID string) string {
+	return x.LocalizeByTd(msg, messageID, nil)
+}
+
+func (x *LocalizationManager) LocalizeByTd(msg *tgbotapi.Message, messageID string, templateData map[string]interface{}) string {
 	defer tracing.ProfilePoint(x.log, "LocalizeBy completed", "localization.localize.by")()
 
 	userText := msg.Text
