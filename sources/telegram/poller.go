@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
 	"ximanager/sources/tracing"
 
@@ -18,7 +19,7 @@ type chatQueue struct {
 type Poller struct {
 	bot          *tgbotapi.BotAPI
 	log          *tracing.Logger
-	config       *PollerConfig
+	config       *configuration.Config
 	diplomat     *Diplomat
 	handler      *TelegramHandler
 	localization *localization.LocalizationManager
@@ -30,7 +31,7 @@ type Poller struct {
 	cancel     context.CancelFunc
 }
 
-func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *PollerConfig, handler *TelegramHandler, localization *localization.LocalizationManager) *Poller {
+func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *configuration.Config, handler *TelegramHandler, localization *localization.LocalizationManager) *Poller {
 	ctx, cancel := context.WithCancel(context.Background())
 	poller := &Poller{
 		bot:          bot,
@@ -50,8 +51,8 @@ func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, co
 
 func (x *Poller) Start() {
 	update := tgbotapi.NewUpdate(0)
-	update.Timeout = x.config.Timeout
-	update.AllowedUpdates = x.config.AllowedUpdates
+	update.Timeout = x.config.Telegram.PollerTimeout
+	update.AllowedUpdates = x.config.Telegram.AllowedUpdates
 
 	x.log.I("Starting poller with per-chat sequential processing")
 
