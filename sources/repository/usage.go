@@ -376,4 +376,4 @@ func (x *UsageRepository) GetUserMonthlyCost(logger *tracing.Logger, user *entit
 	}
 
 	return *totalCost, nil
-} 
+}
