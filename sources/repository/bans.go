@@ -3,15 +3,16 @@ package repository
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
+	"ximanager/sources/localization"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/persistence/gormdao/query"
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/uuid"
 )
 
@@ -23,10 +24,14 @@ var (
 	ErrDurationTooShort  = errors.New("ban duration is too short")
 )
 
-type BansRepository struct{}
+type BansRepository struct {
+	localization *localization.LocalizationManager
+}
 
-func NewBansRepository() *BansRepository {
-	return &BansRepository{}
+func NewBansRepository(localization *localization.LocalizationManager) *BansRepository {
+	return &BansRepository{
+		localization: localization,
+	}
 }
 
 func (x *BansRepository) ParseDuration(durationStr string) (time.Duration, error) {
@@ -197,10 +202,10 @@ func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID)
 	return bans, nil
 }
 
-// todo: localize.
-func (x *BansRepository) FormatBanExpiry(expiresAt time.Time) string {
+func (x *BansRepository) FormatBanExpiry(msg *tgbotapi.Message, expiresAt time.Time) string {
 	moscowTime := expiresAt.UTC().Add(3 * time.Hour)
-	return moscowTime.Format("02.01.2006 в 15:04")
+	format := x.localization.LocalizeBy(msg, "BanExpiryFormat")
+	return moscowTime.Format(format)
 }
 
 func (x *BansRepository) GetRemainingDuration(expiresAt time.Time) time.Duration {
@@ -211,10 +216,9 @@ func (x *BansRepository) GetRemainingDuration(expiresAt time.Time) time.Duration
 	return remaining
 }
 
-// todo: localize.
-func (x *BansRepository) FormatRemainingTime(duration time.Duration) string {
+func (x *BansRepository) FormatRemainingTime(msg *tgbotapi.Message, duration time.Duration) string {
 	if duration <= 0 {
-		return "истек"
+		return x.localization.LocalizeBy(msg, "BanRemainingExpired")
 	}
 
 	hours := int(duration.Hours())
@@ -224,13 +228,16 @@ func (x *BansRepository) FormatRemainingTime(duration time.Duration) string {
 	var parts []string
 	
 	if hours > 0 {
-		parts = append(parts, fmt.Sprintf("%d ч", hours))
+		hoursStr := x.localization.LocalizeByTd(msg, "BanRemainingHours", map[string]interface{}{"Count": hours})
+		parts = append(parts, hoursStr)
 	}
 	if minutes > 0 {
-		parts = append(parts, fmt.Sprintf("%d мин", minutes))
+		minutesStr := x.localization.LocalizeByTd(msg, "BanRemainingMinutes", map[string]interface{}{"Count": minutes})
+		parts = append(parts, minutesStr)
 	}
 	if seconds > 0 || len(parts) == 0 {
-		parts = append(parts, fmt.Sprintf("%d сек", seconds))
+		secondsStr := x.localization.LocalizeByTd(msg, "BanRemainingSeconds", map[string]interface{}{"Count": seconds})
+		parts = append(parts, secondsStr)
 	}
 
 	return strings.Join(parts, " ")
