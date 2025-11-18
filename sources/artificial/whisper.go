@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
@@ -16,14 +17,14 @@ import (
 
 type Whisper struct {
 	ai           *openai.Client
-	config       *AIConfig
+	config       *configuration.Config
 	usageLimiter *UsageLimiter
 	donations    *repository.DonationsRepository
 	localization *localization.LocalizationManager
 }
 
 func NewWhisper(
-	config *AIConfig,
+	config *configuration.Config,
 	ai *openai.Client,
 	usageLimiter *UsageLimiter,
 	donations *repository.DonationsRepository,
@@ -62,10 +63,10 @@ func (w *Whisper) Whisperify(log *tracing.Logger, msg *tgbotapi.Message, file *o
 		return w.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
-	log = log.With(tracing.AiKind, "openai/whisper", tracing.AiModel, w.config.WhisperModel)
+	log = log.With(tracing.AiKind, "openai/whisper", tracing.AiModel, w.config.AI.WhisperModel)
 	log.I("stt requested")
 
-	request := openai.AudioRequest{Model: w.config.WhisperModel, FilePath: file.Name(), Language: "ru"}
+	request := openai.AudioRequest{Model: w.config.AI.WhisperModel, FilePath: file.Name(), Language: "ru"}
 	response, err := w.ai.CreateTranscription(ctx, request)
 	if err != nil {
 		switch e := err.(type) {
