@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/features"
 	"ximanager/sources/localization"
 	"ximanager/sources/platform"
@@ -32,25 +33,26 @@ const (
 )
 
 type Dialer struct {
-	ai              *openrouter.Client
-	config          *AIConfig
+	ai               *openrouter.Client
+	config           *configuration.Config
 	modes            *repository.ModesRepository
 	users            *repository.UsersRepository
 	personalizations *repository.PersonalizationsRepository
 	usage            *repository.UsageRepository
 	donations        *repository.DonationsRepository
-	messages        *repository.MessagesRepository
-	bans            *repository.BansRepository
-	contextManager  *ContextManager
-	usageLimiter    *UsageLimiter
-	spendingLimiter *SpendingLimiter
-	agentSystem     *AgentSystem
-	features        FeatureChecker
-	localization    *localization.LocalizationManager
+	messages         *repository.MessagesRepository
+	bans             *repository.BansRepository
+	contextManager   *ContextManager
+	usageLimiter     *UsageLimiter
+	spendingLimiter  *SpendingLimiter
+	agentSystem      *AgentSystem
+	features         FeatureChecker
+	localization     *localization.LocalizationManager
+	tariffs          repository.Tariffs
 }
 
 func NewDialer(
-	config *AIConfig,
+	config *configuration.Config,
 	ai *openrouter.Client,
 	modes *repository.ModesRepository,
 	users *repository.UsersRepository,
@@ -64,6 +66,7 @@ func NewDialer(
 	spendingLimiter *SpendingLimiter,
 	features FeatureChecker,
 	localization *localization.LocalizationManager,
+	tariffs repository.Tariffs,
 ) *Dialer {
 	return &Dialer{
 		ai:               ai,
@@ -78,9 +81,10 @@ func NewDialer(
 		contextManager:   contextManager,
 		usageLimiter:     usageLimiter,
 		spendingLimiter:  spendingLimiter,
-		agentSystem:      NewAgentSystem(ai, config),
+		agentSystem:      NewAgentSystem(ai, config, tariffs),
 		features:         features,
 		localization:     localization,
+		tariffs:          tariffs,
 	}
 }
 
@@ -125,10 +129,16 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
-	gradeLimits, ok := x.config.GradeLimits[userGrade]
-	if !ok {
-		log.W("No grade limits config for user grade, using bronze as default", "user_grade", userGrade)
-		gradeLimits = x.config.GradeLimits[platform.GradeBronze]
+	tariff, err := getTariffWithFallback(ctx, x.tariffs, userGrade)
+	if err != nil {
+		log.E("Failed to get tariff", tracing.InnerError, err)
+		return "", err
+	}
+
+	var tierModels []ModelMeta
+	if err := json.Unmarshal(tariff.DialerModels, &tierModels); err != nil {
+		log.E("Failed to unmarshal tariff models", tracing.InnerError, err)
+		return "", err
 	}
 
 	req = UserReq(persona, req)
@@ -172,15 +182,15 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 	if err != nil {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
-		if len(gradeLimits.DialerModels) > 1 {
-			modelToUse = gradeLimits.DialerModels[1].Name
-		} else if len(gradeLimits.DialerModels) > 0 {
-			modelToUse = gradeLimits.DialerModels[0].Name
+		if len(tierModels) > 1 {
+			modelToUse = tierModels[1].Name
+		} else if len(tierModels) > 0 {
+			modelToUse = tierModels[0].Name
 		}
-		reasoningEffort = gradeLimits.DialerReasoningEffort
+		reasoningEffort = tariff.DialerReasoningEffort
 		temperature = 1.0 // Fallback temperature
-		if len(gradeLimits.DialerModels) > 2 {
-			fallbackModels = extractModelNames(gradeLimits.DialerModels[2:])
+		if len(tierModels) > 2 {
+			fallbackModels = extractModelNames(tierModels[2:])
 		} else {
 			fallbackModels = []string{}
 		}
@@ -205,19 +215,18 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 
 		if modelSelection.IsTrolling {
 			// For trolling, use remaining trolling models as fallback
-			for i, model := range x.config.TrollingModels {
+			for i, model := range x.config.AI.PlaceboModels {
 				if model == modelToUse {
-					if i+1 < len(x.config.TrollingModels) {
-						fallbackModels = x.config.TrollingModels[i+1:]
+					if i+1 < len(x.config.AI.PlaceboModels) {
+						fallbackModels = x.config.AI.PlaceboModels[i+1:]
 					}
 					break
 				}
 			}
-			if len(fallbackModels) == 0 && len(x.config.TrollingModels) > 1 {
-				fallbackModels = x.config.TrollingModels[1:]
+			if len(fallbackModels) == 0 && len(x.config.AI.PlaceboModels) > 1 {
+				fallbackModels = x.config.AI.PlaceboModels[1:]
 			}
 		} else {
-			tierModels := gradeLimits.DialerModels
 			for i, model := range tierModels {
 				if model.Name == modelToUse {
 					fallbackModels = extractModelNames(tierModels[i+1:])
@@ -236,8 +245,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			log.W("Spending limit exceeded, overriding model selection", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
 
-			modelToUse = x.config.LimitExceededModel
-			fallbackModels = x.config.LimitExceededFallbackModels
+			modelToUse = x.config.AI.LimitExceededModel
+			fallbackModels = x.config.AI.LimitExceededFallbackModels
 			reasoningEffort = "low"
 
 			log.I("spending_limit_override",
@@ -321,7 +330,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	sort := openrouter.ProviderSortingLatency
-	if modelSelection.RequiresSpeed {
+	if modelSelection != nil && modelSelection.RequiresSpeed {
 		sort = openrouter.ProviderSortingThroughput
 	}
 
@@ -418,11 +427,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return "", fmt.Errorf("empty choices in AI response")
 	}
 
-	var responseText string
-
-	if len(response.Choices) > 0 {
-		responseText = response.Choices[0].Message.Content.Text
-	}
+	responseText := response.Choices[0].Message.Content.Text
 
 	var banNotice string
 
@@ -488,6 +493,14 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	}
 
 	return responseText, nil
+}
+
+func extractModelNames(models []ModelMeta) []string {
+	names := make([]string, len(models))
+	for i, model := range models {
+		names[i] = model.Name
+	}
+	return names
 }
 
 func (x *Dialer) getResponseLengthGuidelineFromAgent(log *tracing.Logger, userMessage string) string {
