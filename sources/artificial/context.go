@@ -6,22 +6,23 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/features"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
+	"ximanager/sources/texting/tokenizer"
 	"ximanager/sources/tracing"
 
-	"github.com/pkoukk/tiktoken-go"
 	"github.com/redis/go-redis/v9"
 )
 
 type ContextManager struct {
 	redis       *redis.Client
-	config      *AIConfig
+	config      *configuration.Config
 	donations   *repository.DonationsRepository
-	tokenizer   *tiktoken.Tiktoken
 	agentSystem *AgentSystem
 	features    FeatureChecker
+	tariffs     repository.Tariffs
 }
 
 type FeatureChecker interface {
@@ -30,30 +31,35 @@ type FeatureChecker interface {
 
 func NewContextManager(
 	redis *redis.Client,
-	config *AIConfig,
+	config *configuration.Config,
 	donations *repository.DonationsRepository,
 	agentSystem *AgentSystem,
 	features FeatureChecker,
+	tariffs repository.Tariffs,
 ) (*ContextManager, error) {
-	tokenizer, err := tiktoken.GetEncoding("cl100k_base")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get tokenizer encoding: %w", err)
-	}
 	return &ContextManager{
 		redis:       redis,
 		config:      config,
 		donations:   donations,
-		tokenizer:   tokenizer,
 		agentSystem: agentSystem,
 		features:    features,
+		tariffs:     tariffs,
 	}, nil
 }
 
-func (x *ContextManager) getContextLimits(grade platform.UserGrade) ContextLimits {
-	if limits, ok := x.config.GradeLimits[grade]; ok {
-		return limits.Context
+func (x *ContextManager) getContextLimits(ctx context.Context, grade platform.UserGrade) (ContextLimits, error) {
+	tariff, err := x.tariffs.GetLatestByKey(ctx, string(grade))
+	if err != nil {
+		tariff, err = x.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
+		if err != nil {
+			return ContextLimits{}, err
+		}
 	}
-	return x.config.GradeLimits[platform.GradeBronze].Context
+	return ContextLimits{
+		TTL:         tariff.ContextTTLSeconds,
+		MaxMessages: tariff.ContextMaxMessages,
+		MaxTokens:   tariff.ContextMaxTokens,
+	}, nil
 }
 
 func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
@@ -63,11 +69,17 @@ func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
 func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, error) {
 	defer tracing.ProfilePoint(logger, "Context fetch completed", "artificial.context.fetch", "chat_id", chatID, "user_grade", userGrade)()
 	startTime := time.Now()
-	limits := x.getContextLimits(userGrade)
-	key := x.getChatHistoryKey(chatID)
-
+	
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
 	defer cancel()
+
+	limits, err := x.getContextLimits(ctx, userGrade)
+	if err != nil {
+		logger.E("Failed to get context limits", tracing.InnerError, err)
+		return nil, err
+	}
+
+	key := x.getChatHistoryKey(chatID)
 
 	messageStrings, err := x.redis.LRange(ctx, key, 0, int64(limits.MaxMessages-1)).Result()
 	redisLatency := time.Since(startTime)
@@ -93,7 +105,12 @@ func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, u
 
 	x.reverseMessages(allMessages)
 
-	if len(allMessages) <= 4 {
+	recentCount := x.config.AI.Agents.Summarization.RecentMessagesCount
+	if recentCount <= 0 {
+		recentCount = 4 // Fallback to default
+	}
+
+	if len(allMessages) <= recentCount {
 		x.logFetchSuccess(logger, chatID, userGrade, rawMessageCount, allMessages, skippedMessages, false, redisLatency, time.Since(startTime), limits.MaxTokens)
 		return allMessages, nil
 	}
@@ -102,8 +119,8 @@ func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, u
 	var olderMessages []platform.RedisMessage
 	summarizationOccurred := false
 	
-	lastFourMessages = allMessages[len(allMessages)-4:]
-	olderMessages = allMessages[:len(allMessages)-4]
+	lastFourMessages = allMessages[len(allMessages)-recentCount:]
+	olderMessages = allMessages[:len(allMessages)-recentCount]
 	
 	processedOlderMessages, summarizationOccurred, err := x.processMessagesWithSummarization(logger, olderMessages)
 	if err != nil {
@@ -131,7 +148,16 @@ func (x *ContextManager) Store(
 ) error {
 	defer tracing.ProfilePoint(logger, "Context store completed", "artificial.context.store", "chat_id", chatID, "user_grade", userGrade, "message_role", message.Role)()
 	startTime := time.Now()
-	limits := x.getContextLimits(userGrade)
+	
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	limits, err := x.getContextLimits(ctx, userGrade)
+	if err != nil {
+		logger.E("Failed to get context limits", tracing.InnerError, err)
+		return err
+	}
+
 	key := x.getChatHistoryKey(chatID)
 
 	messageStr, err := json.Marshal(message)
@@ -140,10 +166,7 @@ func (x *ContextManager) Store(
 		return err
 	}
 
-	messageTokens := len(x.tokenizer.Encode(message.Content, nil, nil))
-
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
-	defer cancel()
+	messageTokens := tokenizer.Tokens(logger, message.Content)
 
 	pipe := x.redis.TxPipeline()
 	pipe.LPush(ctx, key, messageStr)
@@ -198,7 +221,7 @@ func (x *ContextManager) applyTokenLimit(logger *tracing.Logger, messages []plat
 	totalTokens := 0
 	
 	for _, msg := range messages {
-		msgTokens := len(x.tokenizer.Encode(msg.Content, nil, nil))
+		msgTokens := tokenizer.Tokens(logger, msg.Content)
 		if totalTokens+msgTokens > maxTokens {
 			logger.I("Token limit exceeded, truncating chat history",
 				"total_tokens", totalTokens,
@@ -246,7 +269,7 @@ func (x *ContextManager) logFetchSuccess(
 	totalDuration time.Duration,
 	maxTokens int,
 ) {
-	totalTokens := x.countTotalTokens(messages)
+	totalTokens := x.countTotalTokens(logger, messages)
 	tokenUsagePercent := 0
 	if maxTokens > 0 {
 		tokenUsagePercent = int(float64(totalTokens) / float64(maxTokens) * 100)
@@ -267,10 +290,10 @@ func (x *ContextManager) logFetchSuccess(
 	)
 }
 
-func (x *ContextManager) countTotalTokens(messages []platform.RedisMessage) int {
+func (x *ContextManager) countTotalTokens(logger *tracing.Logger, messages []platform.RedisMessage) int {
 	total := 0
 	for _, msg := range messages {
-		total += len(x.tokenizer.Encode(msg.Content, nil, nil))
+		total += tokenizer.Tokens(logger, msg.Content)
 	}
 	return total
 }
@@ -282,12 +305,12 @@ func (x *ContextManager) processMessagesWithSummarization(
 	messageFeatureEnabled := x.features.IsEnabled(features.FeatureMessageSummarization)
 	clusterFeatureEnabled := x.features.IsEnabled(features.FeatureClusterSummarization)
 	
-	if !messageFeatureEnabled && !clusterFeatureEnabled || len(messages) == 0 {
+	if (!messageFeatureEnabled && !clusterFeatureEnabled) || len(messages) == 0 {
 		return messages, false, nil
 	}
 	
 	startTime := time.Now()
-	originalTokens := x.countTotalTokens(messages)
+	originalTokens := x.countTotalTokens(logger, messages)
 	
 	messagesAfterFirstPass, firstPassCount := messages, 0
 	if messageFeatureEnabled {
@@ -316,7 +339,7 @@ func (x *ContextManager) logSummarizationStats(
 	originalTokens int,
 	duration time.Duration,
 ) {
-	finalTokens := x.countTotalTokens(finalMessages)
+	finalTokens := x.countTotalTokens(logger, finalMessages)
 	tokenReduction := originalTokens - finalTokens
 	reductionPercent := 0
 	if originalTokens > 0 {
@@ -350,9 +373,9 @@ func (x *ContextManager) summarizeIndividualMessages(
 			continue
 		}
 		
-		tokens := len(x.tokenizer.Encode(msg.Content, nil, nil))
+		tokens := tokenizer.Tokens(logger, msg.Content)
 		
-		if tokens > x.config.SingleMessageTokenThreshold {
+		if tokens > x.config.AI.Agents.Summarization.SingleMessageTokenThreshold {
 			summarized, err := x.agentSystem.SummarizeContent(logger, msg.Content, "message")
 			if err != nil {
 				logger.W("Failed to summarize individual message, using original", tracing.InnerError, err)
@@ -360,7 +383,7 @@ func (x *ContextManager) summarizeIndividualMessages(
 				continue
 			}
 			
-			summarizedTokens := len(x.tokenizer.Encode(summarized, nil, nil))
+			summarizedTokens := tokenizer.Tokens(logger, summarized)
 			tokenReduction := tokens - summarizedTokens
 			reductionPercent := 0
 			if tokens > 0 {
@@ -408,7 +431,7 @@ func (x *ContextManager) summarizeClusters(
 		clusterEnd := i
 		pairsInCluster := 0
 		
-		for clusterEnd < len(messages) && pairsInCluster < x.config.ClusterSize {
+		for clusterEnd < len(messages) && pairsInCluster < x.config.AI.Agents.Summarization.ClusterSize {
 			if clusterEnd+1 < len(messages) &&
 				messages[clusterEnd].Role == platform.MessageRoleUser &&
 				messages[clusterEnd+1].Role == platform.MessageRoleAssistant {
@@ -420,17 +443,14 @@ func (x *ContextManager) summarizeClusters(
 		}
 		
 		if pairsInCluster < 2 {
-			for i < len(messages) {
-				result = append(result, messages[i])
-				i++
-			}
+			result = append(result, messages[i:]...)
 			break
 		}
 		
 		clusterMessages := messages[clusterStart:clusterEnd]
-		clusterTokens := x.countTotalTokens(clusterMessages)
+		clusterTokens := x.countTotalTokens(logger, clusterMessages)
 		
-		if clusterTokens > x.config.ClusterTokenThreshold {
+		if clusterTokens > x.config.AI.Agents.Summarization.ClusterTokenThreshold {
 			clusterContent := x.formatClusterContent(clusterMessages)
 			
 			summarized, err := x.agentSystem.SummarizeContent(logger, clusterContent, "cluster")
@@ -478,7 +498,7 @@ func (x *ContextManager) logClusterSummarization(
 	originalTokens int,
 	summarized string,
 ) {
-	summarizedTokens := len(x.tokenizer.Encode(summarized, nil, nil))
+	summarizedTokens := tokenizer.Tokens(logger, summarized)
 	tokenReduction := originalTokens - summarizedTokens
 	reductionPercent := 0
 	if originalTokens > 0 {
@@ -502,14 +522,19 @@ func (x *ContextManager) replaceHistoryInRedis(
 	messages []platform.RedisMessage,
 ) error {
 	key := x.getChatHistoryKey(chatID)
-	limits := x.getContextLimits(userGrade)
 	
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Second)
 	defer cancel()
+
+	limits, err := x.getContextLimits(ctx, userGrade)
+	if err != nil {
+		return err
+	}
 	
 	// Delete old history
 	if err := x.redis.Del(ctx, key).Err(); err != nil {
-		return fmt.Errorf("failed to delete old history: %w", err)
+		logger.E("Failed to delete old history", tracing.InnerError, err)
+		return err
 	}
 	
 	// Store new history in reverse order (LPUSH adds to the beginning)
@@ -527,7 +552,8 @@ func (x *ContextManager) replaceHistoryInRedis(
 	pipe.Expire(ctx, key, time.Duration(limits.TTL)*time.Second)
 	
 	if _, err := pipe.Exec(ctx); err != nil {
-		return fmt.Errorf("failed to store new history: %w", err)
+		logger.E("Failed to store new history", tracing.InnerError, err)
+		return err
 	}
 	
 	logger.I("redis_history_replaced",

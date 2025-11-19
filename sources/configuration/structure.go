@@ -82,6 +82,7 @@ type AI_SummarizationConfig struct {
 	SingleMessageTokenThreshold int    `yaml:"single_message_token_threshold"`
 	ClusterTokenThreshold       int    `yaml:"cluster_token_threshold"`
 	ClusterSize                 int    `yaml:"cluster_size"`
+	RecentMessagesCount         int    `yaml:"recent_messages_count"`
 }
 
 type AI_PromptsConfig struct {

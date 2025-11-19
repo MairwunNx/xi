@@ -53,6 +53,7 @@ ai:
       single_message_token_threshold: 2100
       cluster_token_threshold: 10000
       cluster_size: 10
+      recent_messages_count: 4
 
   prompts:
     context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
