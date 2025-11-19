@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -21,10 +22,10 @@ const (
 )
 
 type SpendingLimitExceededError struct {
-	UserGrade      platform.UserGrade
-	LimitType      LimitType
-	LimitAmount    decimal.Decimal
-	CurrentSpend   decimal.Decimal
+	UserGrade    platform.UserGrade
+	LimitType    LimitType
+	LimitAmount  decimal.Decimal
+	CurrentSpend decimal.Decimal
 }
 
 func (e *SpendingLimitExceededError) Error() string {
@@ -34,22 +35,25 @@ func (e *SpendingLimitExceededError) Error() string {
 
 type SpendingLimiter struct {
 	redis     *redis.Client
-	config    *AIConfig
+	config    *configuration.Config
 	usage     *repository.UsageRepository
 	donations *repository.DonationsRepository
+	tariffs   repository.Tariffs
 }
 
 func NewSpendingLimiter(
 	redis *redis.Client,
-	config *AIConfig,
+	config *configuration.Config,
 	usage *repository.UsageRepository,
 	donations *repository.DonationsRepository,
+	tariffs repository.Tariffs,
 ) *SpendingLimiter {
 	return &SpendingLimiter{
 		redis:     redis,
 		config:    config,
 		usage:     usage,
 		donations: donations,
+		tariffs:   tariffs,
 	}
 }
 
@@ -60,20 +64,17 @@ func (x *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *enti
 		userGrade = platform.GradeBronze
 	}
 
-	limits := x.config.SpendingLimits
-	var dailyLimit, monthlyLimit decimal.Decimal
-
-	switch userGrade {
-	case platform.GradeBronze:
-		dailyLimit = limits.BronzeDailyLimit
-		monthlyLimit = limits.BronzeMonthlyLimit
-	case platform.GradeSilver:
-		dailyLimit = limits.SilverDailyLimit
-		monthlyLimit = limits.SilverMonthlyLimit
-	case platform.GradeGold:
-		dailyLimit = limits.GoldDailyLimit
-		monthlyLimit = limits.GoldMonthlyLimit
+	// Fetch tariff limits
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	tariff, err := getTariffWithFallback(ctx, x.tariffs, userGrade)
+	if err != nil {
+		return fmt.Errorf("failed to fetch tariff limits: %w", err)
 	}
+
+	dailyLimit := tariff.SpendingDailyLimit
+	monthlyLimit := tariff.SpendingMonthlyLimit
 
 	dailySpend, err := x.getSpend(logger, user, "daily")
 	if err != nil {
@@ -105,14 +106,20 @@ func (x *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *enti
 }
 
 func (x *SpendingLimiter) getSpend(logger *tracing.Logger, user *entities.User, period string) (decimal.Decimal, error) {
-	ctx := context.Background()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 3*time.Second)
+	defer cancel()
+	
 	key := x.getSpendKey(user.ID.String(), period)
 
 	// Try to get from Redis first
 	cachedSpend, err := x.redis.Get(ctx, key).Result()
 	if err == nil {
-		spend, _ := decimal.NewFromString(cachedSpend)
-		return spend, nil
+		spend, parseErr := decimal.NewFromString(cachedSpend)
+		if parseErr != nil {
+			logger.W("Failed to parse cached spend from Redis, falling back to DB", "key", key, "cached_value", cachedSpend, tracing.InnerError, parseErr)
+		} else {
+			return spend, nil
+		}
 	}
 
 	// If not in Redis, get from DB
@@ -150,14 +157,19 @@ func (x *SpendingLimiter) getSpend(logger *tracing.Logger, user *entities.User, 
 }
 
 func (x *SpendingLimiter) IncrementSpend(logger *tracing.Logger, userID string, amount decimal.Decimal) {
-	ctx := context.Background()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 2*time.Second)
+	defer cancel()
+	
 	dailyKey := x.getSpendKey(userID, "daily")
 	monthlyKey := x.getSpendKey(userID, "monthly")
 
 	pipe := x.redis.TxPipeline()
 	pipe.IncrByFloat(ctx, dailyKey, amount.InexactFloat64())
 	pipe.IncrByFloat(ctx, monthlyKey, amount.InexactFloat64())
-	pipe.Exec(ctx)
+	
+	if _, err := pipe.Exec(ctx); err != nil {
+		logger.E("Failed to increment spend in Redis", "user_id", userID, "amount", amount.String(), tracing.InnerError, err)
+	}
 }
 
 func (x *SpendingLimiter) getSpendKey(userID string, period string) string {
@@ -173,7 +185,5 @@ func (x *SpendingLimiter) getSpendKey(userID string, period string) string {
 }
 
 func (x *SpendingLimiter) AddSpend(logger *tracing.Logger, user *entities.User, cost decimal.Decimal) {
-	go func() {
-		x.IncrementSpend(logger, user.ID.String(), cost)
-	}()
+	x.IncrementSpend(logger, user.ID.String(), cost)
 }

@@ -48,12 +48,9 @@ func NewContextManager(
 }
 
 func (x *ContextManager) getContextLimits(ctx context.Context, grade platform.UserGrade) (ContextLimits, error) {
-	tariff, err := x.tariffs.GetLatestByKey(ctx, string(grade))
+	tariff, err := getTariffWithFallback(ctx, x.tariffs, grade)
 	if err != nil {
-		tariff, err = x.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
-		if err != nil {
-			return ContextLimits{}, err
-		}
+		return ContextLimits{}, err
 	}
 	return ContextLimits{
 		TTL:         tariff.ContextTTLSeconds,
