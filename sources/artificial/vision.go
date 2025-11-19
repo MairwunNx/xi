@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
@@ -18,17 +19,18 @@ import (
 
 type Vision struct {
 	ai              *openrouter.Client
-	config          *AIConfig
+	config          *configuration.Config
 	usage           *repository.UsageRepository
 	usageLimiter    *UsageLimiter
 	users           *repository.UsersRepository
 	donations       *repository.DonationsRepository
 	spendingLimiter *SpendingLimiter
 	localization    *localization.LocalizationManager
+	tariffs         repository.Tariffs
 }
 
 func NewVision(
-	config *AIConfig,
+	config *configuration.Config,
 	ai *openrouter.Client,
 	usage *repository.UsageRepository,
 	usageLimiter *UsageLimiter,
@@ -36,6 +38,7 @@ func NewVision(
 	donations *repository.DonationsRepository,
 	spendingLimiter *SpendingLimiter,
 	localization *localization.LocalizationManager,
+	tariffs repository.Tariffs,
 ) *Vision {
 	return &Vision{
 		ai:              ai,
@@ -46,6 +49,7 @@ func NewVision(
 		donations:       donations,
 		spendingLimiter: spendingLimiter,
 		localization:    localization,
+		tariffs:         tariffs,
 	}
 }
 
@@ -73,14 +77,15 @@ func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl s
 		return v.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
-	gradeLimits, ok := v.config.GradeLimits[userGrade]
-	if !ok {
-		logger.W("No grade limits config for user grade, using bronze as default", "user_grade", userGrade)
-		gradeLimits = v.config.GradeLimits[platform.GradeBronze]
+	tariff, err := getTariffWithFallback(ctx, v.tariffs, userGrade)
+	if err != nil {
+		logger.E("Failed to get tariff", tracing.InnerError, err)
+		return "", err
 	}
 
-	modelToUse := gradeLimits.VisionPrimaryModel
-	fallbackModels := gradeLimits.VisionFallbackModels
+	modelToUse := tariff.VisionPrimaryModel
+	fallbackModels := tariff.VisionFallbackModels
+
 	var limitWarning string
 	modelDowngraded := false
 	originalModel := modelToUse
@@ -89,8 +94,8 @@ func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl s
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			logger.W("Spending limit exceeded for vision, using fallback model", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
 
-			modelToUse = v.config.LimitExceededModel
-			fallbackModels = v.config.LimitExceededFallbackModels
+			modelToUse = v.config.AI.LimitExceededModel
+			fallbackModels = v.config.AI.LimitExceededFallbackModels
 			modelDowngraded = true
 
 			periodText := v.localization.LocalizeBy(msg, "MsgSpendingLimitExceededDaily")
