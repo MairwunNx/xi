@@ -124,7 +124,7 @@ func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl s
 		req = v.localization.LocalizeBy(msg, "InternalAIImageMessage")
 	}
 
-	req = UserReq(persona, req)
+	req = formatUserRequest(persona, req)
 
 	messages := []openrouter.ChatCompletionMessage{
 		{

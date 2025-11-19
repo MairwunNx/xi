@@ -19,19 +19,6 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const (
-	MsgEnvironmentBlock = `
-
-⸻
-
-📅 Environment
-	• Date & time: %s (UTC+3)
-	• Chat title: %s
-	• Chat description: %s
-	• Bot version: %s
-	• Bot uptime: %s`
-)
-
 type Dialer struct {
 	ai               *openrouter.Client
 	config           *configuration.Config
@@ -141,7 +128,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		return "", err
 	}
 
-	req = UserReq(persona, req)
+	req = formatUserRequest(persona, req)
 	prompt := mode.Prompt
 
 	var history []platform.RedisMessage
@@ -277,7 +264,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
 	personalizationUsed := false
 	if err == nil && personalization != nil {
-		prompt += "\n\n### Personalization\n\nThis is user-provided information about themselves. Consider this data when relevant and reasonable:\n\n" + personalization.Prompt
+		prompt += fmt.Sprintf(PersonalizationBlockTemplate, personalization.Prompt)
 		personalizationUsed = true
 	}
 
@@ -557,7 +544,7 @@ func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
 	version := platform.GetAppVersion()
 	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
 
-	return fmt.Sprintf(MsgEnvironmentBlock,
+	return fmt.Sprintf(EnvironmentBlockTemplate,
 		dateTimeStr,
 		chatTitle,
 		chatDescription,

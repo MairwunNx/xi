@@ -511,28 +511,7 @@ func (a *AgentSystem) ValidatePersonalization(
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prompt := `You are a validation agent. Your task is to determine if the provided text is a self-description or personal information about the user.
-
-Examples of valid self-descriptions:
-- "I am a software engineer from Russia, I love coding and hiking"
-- "My name is Ivan, I'm 25 years old student"
-- "I work as a designer, passionate about art and music"
-- "I'm a teacher who loves reading books and traveling"
-
-Examples of invalid texts:
-- "How to cook pasta?" (question, not self-description)
-- "The weather is nice today" (general statement)
-- "Buy groceries tomorrow" (task/reminder)
-- "Python is a great language" (opinion about something else)
-
-Analyze the following text and determine if it's a valid self-description.
-Return your response in JSON format: {"confidence": 0.0-1.0}
-Where confidence is how certain you are that this is a self-description (1.0 = definitely self-description, 0.0 = definitely not).
-
-Text to analyze: %s
-
-Return ONLY JSON, nothing else.`
-
+	prompt := getDefaultPersonalizationValidationPrompt()
 	systemMessage := fmt.Sprintf(prompt, text)
 
 	messages := []openrouter.ChatCompletionMessage{
