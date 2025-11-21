@@ -723,6 +723,30 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 		return
 	}
 
+	anotherTotalCost, err := x.usage.GetTotalAnotherCost(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	anotherTotalCostLastMonth, err := x.usage.GetTotalAnotherCostLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	anotherTotalTokens, err := x.usage.GetTotalAnotherTokens(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	anotherTotalTokensLastMonth, err := x.usage.GetTotalAnotherTokensLastMonth(log)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
 	userCost, err := x.usage.GetUserCost(log, user)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
@@ -753,26 +777,58 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 		return
 	}
 
+	userAnotherCost, err := x.usage.GetUserAnotherCost(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	userAnotherCostLastMonth, err := x.usage.GetUserAnotherCostLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	userAnotherTokens, err := x.usage.GetUserAnotherTokens(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
+	userAnotherTokensLastMonth, err := x.usage.GetUserAnotherTokensLastMonth(log, user)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, statsErrorMsg))
+		return
+	}
+
 	title := x.localization.LocalizeBy(msg, "MsgStatsTitle")
 
 	generalStats := x.localization.LocalizeByTd(msg, "MsgStatsGeneral", map[string]interface{}{
-		"TotalQuestions": format.Numberify(totalQuestions),
-		"ChatQuestions":  format.Numberify(chatQuestions),
-		"TotalCost":      format.CurrencifyDecimal(totalCost),
-		"MonthlyCost":    format.CurrencifyDecimal(totalCostLastMonth),
-		"DailyCost":      format.CurrencifyDecimal(avgDailyCost),
-		"TotalTokens":    format.Numberify(totalTokens),
-		"MonthlyTokens":  format.Numberify(totalTokensLastMonth),
+		"TotalQuestions":           format.Numberify(totalQuestions),
+		"ChatQuestions":            format.Numberify(chatQuestions),
+		"TotalCost":                totalCost.String(),
+		"MonthlyCost":              totalCostLastMonth.String(),
+		"DailyCost":                format.CurrencifyDecimal(avgDailyCost),
+		"TotalTokens":              format.Numberify(totalTokens),
+		"MonthlyTokens":            format.Numberify(totalTokensLastMonth),
+		"AnotherTotalCost":         anotherTotalCost.String(),
+		"AnotherMonthlyCost":       anotherTotalCostLastMonth.String(),
+		"AnotherTotalTokens":       format.Numberify(anotherTotalTokens),
+		"AnotherMonthlyTokens":     format.Numberify(anotherTotalTokensLastMonth),
 	})
 
 	personalStats := x.localization.LocalizeByTd(msg, "MsgStatsPersonal", map[string]interface{}{
-		"TotalQuestions": format.Numberify(userQuestions),
-		"ChatQuestions":  format.Numberify(userChatQuestions),
-		"TotalCost":      format.CurrencifyDecimal(userCost),
-		"MonthlyCost":    format.CurrencifyDecimal(userCostLastMonth),
-		"DailyCost":      format.CurrencifyDecimal(userAvgDailyCost),
-		"TotalTokens":    format.Numberify(userTokens),
-		"MonthlyTokens":  format.Numberify(userTokensLastMonth),
+		"TotalQuestions":           format.Numberify(userQuestions),
+		"ChatQuestions":            format.Numberify(userChatQuestions),
+		"TotalCost":                format.CurrencifyDecimal(userCost),
+		"MonthlyCost":              format.CurrencifyDecimal(userCostLastMonth),
+		"DailyCost":                format.CurrencifyDecimal(userAvgDailyCost),
+		"TotalTokens":              format.Numberify(userTokens),
+		"MonthlyTokens":            format.Numberify(userTokensLastMonth),
+		"AnotherTotalCost":         format.CurrencifyDecimal(userAnotherCost),
+		"AnotherMonthlyCost":       format.CurrencifyDecimal(userAnotherCostLastMonth),
+		"AnotherTotalTokens":       format.Numberify(userAnotherTokens),
+		"AnotherMonthlyTokens":     format.Numberify(userAnotherTokensLastMonth),
 	})
 
 	usersStats := x.localization.LocalizeByTd(msg, "MsgStatsUsers", map[string]interface{}{
