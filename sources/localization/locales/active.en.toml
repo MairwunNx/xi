@@ -81,10 +81,10 @@ other = "🈲 Unsupported audio/video file type."
 other = "📊 Statistics of the Great Xi:\n\n"
 
 [MsgStatsGeneral]
-other = "🌍 **Global statistics:**\n📝 Total questions: **{{.TotalQuestions}}**\n💬 Questions in this chat: **{{.ChatQuestions}}**\n💵 Total cost: **{{.TotalCost}}**\n💵 Monthly cost: **{{.MonthlyCost}}**\n💵 Daily average: **{{.DailyCost}}**\n🪙 Total tokens: **{{.TotalTokens}}**\n🪙 Tokens this month: **{{.MonthlyTokens}}**\n\n"
+other = "🌍 **Global statistics:**\n📝 Total questions: **{{.TotalQuestions}}**\n💬 Questions in this chat: **{{.ChatQuestions}}**\n💵 Total cost: **{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 Monthly cost: **{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 Daily average: **{{.DailyCost}}**\n🪙 Total tokens: **{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 Tokens this month: **{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsPersonal]
-other = "👤 **Your statistics:**\n📝 Your questions: **{{.TotalQuestions}}**\n💬 Your questions in this chat: **{{.ChatQuestions}}**\n💵 Your total cost: **{{.TotalCost}}**\n💵 Your monthly cost: **{{.MonthlyCost}}**\n💵 Your daily average: **{{.DailyCost}}**\n🪙 Your total tokens: **{{.TotalTokens}}**\n🪙 Your tokens this month: **{{.MonthlyTokens}}**\n\n"
+other = "👤 **Your statistics:**\n📝 Your questions: **{{.TotalQuestions}}**\n💬 Your questions in this chat: **{{.ChatQuestions}}**\n💵 Your total cost: **{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 Your monthly cost: **{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 Your daily average: **{{.DailyCost}}**\n🪙 Your total tokens: **{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 Your tokens this month: **{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsUsers]
 other = "👥 Users: **{{.Users}}**\n🏛️ Chats: **{{.Chats}}**"

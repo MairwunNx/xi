@@ -82,10 +82,10 @@ other = "🈲 Неподдерживаемый тип аудио/видео фа
 other = "📊 Статистика Великого Xi:\n\n"
 
 [MsgStatsGeneral]
-other = "🌍 **Общая статистика:**\n📝 Всего вопросов: **{{.TotalQuestions}}**\n💬 Вопросов в этом чате: **{{.ChatQuestions}}**\n💵 Затраты за все время: **{{.TotalCost}}**\n💵 Затраты за месяц: **{{.MonthlyCost}}**\n💵 В среднем за день: **{{.DailyCost}}**\n🪙 Токенов за все время: **{{.TotalTokens}}**\n🪙 Токенов за месяц: **{{.MonthlyTokens}}**\n\n"
+other = "🌍 **Общая статистика:**\n📝 Всего вопросов: **{{.TotalQuestions}}**\n💬 Вопросов в этом чате: **{{.ChatQuestions}}**\n💵 Затраты за все время: **{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 Затраты за месяц: **{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 В среднем за день: **{{.DailyCost}}**\n🪙 Токенов за все время: **{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 Токенов за месяц: **{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsPersonal]
-other = "👤 **Ваша статистика:**\n📝 Ваших вопросов: **{{.TotalQuestions}}**\n💬 Ваших вопросов в этом чате: **{{.ChatQuestions}}**\n💵 Ваши затраты за все время: **{{.TotalCost}}**\n💵 Ваши затраты за месяц: **{{.MonthlyCost}}**\n💵 В среднем за день: **{{.DailyCost}}**\n🪙 Ваших токенов за все время: **{{.TotalTokens}}**\n🪙 Ваших токенов за месяц: **{{.MonthlyTokens}}**\n\n"
+other = "👤 **Ваша статистика:**\n📝 Ваших вопросов: **{{.TotalQuestions}}**\n💬 Ваших вопросов в этом чате: **{{.ChatQuestions}}**\n💵 Ваши затраты за все время: **{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 Ваши затраты за месяц: **{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 В среднем за день: **{{.DailyCost}}**\n🪙 Ваших токенов за все время: **{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 Ваших токенов за месяц: **{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsUsers]
 other = "👥 Пользователей: **{{.Users}}**\n🏛️ Чатов: **{{.Chats}}**"

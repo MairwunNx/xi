@@ -81,10 +81,10 @@ other = "🈲 不支持的音频/视频文件类型。"
 other = "📊 伟大习主席的统计数据：\n\n"
 
 [MsgStatsGeneral]
-other = "🌍 **全局统计：**\n📝 总问题数：**{{.TotalQuestions}}**\n💬 本聊天中的问题数：**{{.ChatQuestions}}**\n💵 历史总花费：**{{.TotalCost}}**\n💵 本月花费：**{{.MonthlyCost}}**\n💵 日均花费：**{{.DailyCost}}**\n🪙 历史总 Token 数：**{{.TotalTokens}}**\n🪙 本月 Token 数：**{{.MonthlyTokens}}**\n\n"
+other = "🌍 **全局统计：**\n📝 总问题数：**{{.TotalQuestions}}**\n💬 本聊天中的问题数：**{{.ChatQuestions}}**\n💵 历史总花费：**{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 本月花费：**{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 日均花费：**{{.DailyCost}}**\n🪙 历史总 Token 数：**{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 本月 Token 数：**{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsPersonal]
-other = "👤 **你的统计：**\n📝 你的总问题数：**{{.TotalQuestions}}**\n💬 你在本聊天中的问题数：**{{.ChatQuestions}}**\n💵 你的历史总花费：**{{.TotalCost}}**\n💵 你本月花费：**{{.MonthlyCost}}**\n💵 你的日均花费：**{{.DailyCost}}**\n🪙 你的历史总 Token 数：**{{.TotalTokens}}**\n🪙 你本月的 Token 数：**{{.MonthlyTokens}}**\n\n"
+other = "👤 **你的统计：**\n📝 你的总问题数：**{{.TotalQuestions}}**\n💬 你在本聊天中的问题数：**{{.ChatQuestions}}**\n💵 你的历史总花费：**{{.TotalCost}}** (_+{{.AnotherTotalCost}}_)\n💵 你本月花费：**{{.MonthlyCost}}** (_+{{.AnotherMonthlyCost}}_)\n💵 你的日均花费：**{{.DailyCost}}**\n🪙 你的历史总 Token 数：**{{.TotalTokens}}** (_+{{.AnotherTotalTokens}}_)\n🪙 你本月的 Token 数：**{{.MonthlyTokens}}** (_+{{.AnotherMonthlyTokens}}_)\n\n"
 
 [MsgStatsUsers]
 other = "👥 用户数：**{{.Users}}**\n🏛️ 聊天数：**{{.Chats}}**"
