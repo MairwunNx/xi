@@ -18,7 +18,7 @@ func NewUsageRepository() *UsageRepository {
 	return &UsageRepository{}
 }
 
-func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, chatID int64, cost decimal.Decimal, tokens int) error {
+func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, chatID int64, cost decimal.Decimal, tokens int, anotherCost decimal.Decimal, anotherTokens int) error {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
@@ -29,6 +29,14 @@ func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, ch
 		Tokens: tokens,
 	}
 
+	if !anotherCost.IsZero() {
+		usage.AnotherCost = &anotherCost
+	}
+	
+	if anotherTokens > 0 {
+		usage.AnotherTokens = &anotherTokens
+	}
+
 	q := query.Q.WithContext(ctx)
 	err := q.Usage.Create(usage)
 	if err != nil {
@@ -36,7 +44,7 @@ func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, ch
 		return err
 	}
 
-	logger.I("Usage saved", "cost", cost, "tokens", tokens)
+	logger.I("Usage saved", "cost", cost, "tokens", tokens, "another_cost", anotherCost, "another_tokens", anotherTokens)
 	return nil
 }
 
@@ -389,4 +397,208 @@ func (x *UsageRepository) GetUserMonthlyCost(logger *tracing.Logger, user *entit
 	}
 
 	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetTotalAnotherCost(logger *tracing.Logger) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total another cost completed", "repository.usage.get.total.another.cost")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Select(query.Usage.AnotherCost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get total another cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetTotalAnotherCostLastMonth(logger *tracing.Logger) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total another cost last month completed", "repository.usage.get.total.another.cost.last.month")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.CreatedAt.Gte(lastMonth)).
+		Select(query.Usage.AnotherCost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get total another cost for last month", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetUserAnotherCost(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user another cost completed", "repository.usage.get.user.another.cost", "user_id", user.ID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Select(query.Usage.AnotherCost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user another cost", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetUserAnotherCostLastMonth(logger *tracing.Logger, user *entities.User) (decimal.Decimal, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user another cost last month completed", "repository.usage.get.user.another.cost.last.month", "user_id", user.ID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalCost *decimal.Decimal
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Where(query.Usage.CreatedAt.Gte(lastMonth)).
+		Select(query.Usage.AnotherCost.Sum()).
+		Row().Scan(&totalCost)
+
+	if err != nil {
+		logger.E("Failed to get user another cost for last month", tracing.InnerError, err)
+		return decimal.Zero, err
+	}
+
+	if totalCost == nil {
+		return decimal.Zero, nil
+	}
+
+	return *totalCost, nil
+}
+
+func (x *UsageRepository) GetTotalAnotherTokens(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total another tokens completed", "repository.usage.get.total.another.tokens")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalTokens *int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Select(query.Usage.AnotherTokens.Sum()).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get total another tokens", tracing.InnerError, err)
+		return 0, err
+	}
+
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
+}
+
+func (x *UsageRepository) GetTotalAnotherTokensLastMonth(logger *tracing.Logger) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get total another tokens last month completed", "repository.usage.get.total.another.tokens.last.month")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalTokens *int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.CreatedAt.Gte(lastMonth)).
+		Select(query.Usage.AnotherTokens.Sum()).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get total another tokens for last month", tracing.InnerError, err)
+		return 0, err
+	}
+
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
+}
+
+func (x *UsageRepository) GetUserAnotherTokens(logger *tracing.Logger, user *entities.User) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user another tokens completed", "repository.usage.get.user.another.tokens", "user_id", user.ID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var totalTokens *int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Select(query.Usage.AnotherTokens.Sum()).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get user another tokens", tracing.InnerError, err)
+		return 0, err
+	}
+
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
+}
+
+func (x *UsageRepository) GetUserAnotherTokensLastMonth(logger *tracing.Logger, user *entities.User) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get user another tokens last month completed", "repository.usage.get.user.another.tokens.last.month", "user_id", user.ID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	lastMonth := time.Now().AddDate(0, -1, 0)
+	var totalTokens *int64
+	q := query.Q.WithContext(ctx)
+	
+	err := q.Usage.
+		Where(query.Usage.UserID.Eq(user.ID)).
+		Where(query.Usage.CreatedAt.Gte(lastMonth)).
+		Select(query.Usage.AnotherTokens.Sum()).
+		Row().Scan(&totalTokens)
+
+	if err != nil {
+		logger.E("Failed to get user another tokens for last month", tracing.InnerError, err)
+		return 0, err
+	}
+
+	if totalTokens == nil {
+		return 0, nil
+	}
+
+	return *totalTokens, nil
 }
