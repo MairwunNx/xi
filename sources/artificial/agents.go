@@ -511,7 +511,7 @@ func (a *AgentSystem) ValidatePersonalization(
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
-	prompt := getDefaultPersonalizationValidationPrompt()
+	prompt := a.getPersonalizationValidationPrompt()
 	systemMessage := fmt.Sprintf(prompt, text)
 
 	messages := []openrouter.ChatCompletionMessage{
@@ -675,6 +675,14 @@ func (a *AgentSystem) getResponseLengthPrompt() string {
 		return getDefaultResponseLengthPrompt()
 	}
 	return decodePrompt(p, getDefaultResponseLengthPrompt())
+}
+
+func (a *AgentSystem) getPersonalizationValidationPrompt() string {
+	p := a.config.AI.Prompts.PersonalizationValidation
+	if p == "" {
+		return getDefaultPersonalizationValidationPrompt()
+	}
+	return decodePrompt(p, getDefaultPersonalizationValidationPrompt())
 }
 
 func decodePrompt(raw, fallback string) string {

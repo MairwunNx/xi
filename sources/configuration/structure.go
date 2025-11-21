@@ -86,10 +86,11 @@ type AI_SummarizationConfig struct {
 }
 
 type AI_PromptsConfig struct {
-	ContextSelection string `yaml:"context_selection"`
-	ModelSelection   string `yaml:"model_selection"`
-	ResponseLength   string `yaml:"response_length"`
-	Summarization    string `yaml:"summarization"`
+	ContextSelection           string `yaml:"context_selection"`
+	ModelSelection             string `yaml:"model_selection"`
+	ResponseLength             string `yaml:"response_length"`
+	Summarization              string `yaml:"summarization"`
+	PersonalizationValidation  string `yaml:"personalization_validation"`
 }
 
 type ProxyConfig struct {
