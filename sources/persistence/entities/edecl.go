@@ -79,12 +79,14 @@ type (
 	}
 
 	Usage struct {
-		ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		UserID    uuid.UUID       `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
-		Cost      decimal.Decimal `gorm:"type:decimal(10,6);not null" json:"cost"`
-		Tokens    int             `gorm:"not null" json:"tokens"`
-		ChatID    int64           `gorm:"not null" json:"chat_id"`
-		CreatedAt time.Time       `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+		ID           uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID       uuid.UUID        `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Cost         decimal.Decimal  `gorm:"type:decimal(10,6);not null" json:"cost"`
+		Tokens       int              `gorm:"not null" json:"tokens"`
+		AnotherCost  *decimal.Decimal `gorm:"type:decimal(10,6)" json:"another_cost"`
+		AnotherTokens *int            `gorm:"" json:"another_tokens"`
+		ChatID       int64            `gorm:"not null" json:"chat_id"`
+		CreatedAt    time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
