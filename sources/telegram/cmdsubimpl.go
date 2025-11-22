@@ -225,7 +225,14 @@ func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.Use
 }
 
 func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Message, chatID int64) {
-	modes, err := x.modes.GetModesByChat(log, chatID)
+	user, err := x.users.GetUserByEid(log, msg.From.ID)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorGettingList")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	modes, err := x.modes.GetModesByChat(log, chatID, user)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorGettingList")
 		x.diplomat.Reply(log, msg, errorMsg)

@@ -67,11 +67,12 @@ func DefaultModeConfig(prompt string) *ModeConfig {
 }
 
 type ModesRepository struct {
-	users *UsersRepository
+	users     *UsersRepository
+	donations *DonationsRepository
 }
 
-func NewModesRepository(users *UsersRepository) *ModesRepository {
-	return &ModesRepository{users: users}
+func NewModesRepository(users *UsersRepository, donations *DonationsRepository) *ModesRepository {
+	return &ModesRepository{users: users, donations: donations}
 }
 
 func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userID int64) (*entities.Mode, error) {
@@ -87,7 +88,13 @@ func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userI
 		return nil, err
 	}
 
-	availableModes, err := x.GetModesByChat(logger, chatID)
+	user, err := x.users.GetUserByEid(logger, userID)
+	if err != nil {
+		logger.E("Error getting user for mode switch", tracing.InnerError, err)
+		return nil, err
+	}
+
+	availableModes, err := x.GetModesByChat(logger, chatID, user)
 	if err != nil {
 		logger.E("Error getting available modes for switch", tracing.InnerError, err)
 		return nil, err
@@ -112,11 +119,7 @@ func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userI
 		return nil, errors.New("текущий режим не найден в списке доступных режимов")
 	}
 
-	user, err := x.users.GetUserByEid(logger, userID)
-	if err != nil {
-		logger.E("Error getting user for mode switch", tracing.InnerError, err)
-		return nil, err
-	}
+
 
 	selectedMode := &entities.SelectedMode{
 		ChatID:     chatID,
@@ -164,16 +167,37 @@ func (x *ModesRepository) MustUpdateMode(logger *tracing.Logger, mode *entities.
 	return mode
 }
 
-func (x *ModesRepository) GetModesByChat(logger *tracing.Logger, cid int64) ([]*entities.Mode, error) {
+func (x *ModesRepository) GetModesByChat(logger *tracing.Logger, cid int64, user *entities.User) ([]*entities.Mode, error) {
 	defer tracing.ProfilePoint(logger, "Modes get modes by chat completed", "repository.modes.get.modes.by.chat", "chat_id", cid)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
+
+	userGrade, err := x.donations.GetUserGrade(logger, user)
+	if err != nil {
+		logger.E("Failed to get user grade", tracing.InnerError, err)
+		return nil, err
+	}
+
+	allowedGrades := []string{}
+	switch userGrade {
+	case platform.GradeGold:
+		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver, platform.GradeGold}
+	case platform.GradeSilver:
+		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver}
+	case platform.GradeBronze:
+		allowedGrades = []string{platform.GradeBronze}
+	default:
+		allowedGrades = []string{platform.GradeBronze}
+	}
+
+	allowedGrades = append(allowedGrades, "")
 
 	q := query.Q.WithContext(ctx)
 
 	modes, err := q.Mode.Where(
 		query.Mode.ChatID.In(cid, 0),
 		query.Mode.IsEnabled.Is(true),
+		q.Mode.Or(query.Mode.Grade.In(allowedGrades...), query.Mode.Grade.IsNull()),
 	).Order(query.Mode.CreatedAt.Desc()).Find()
 
 	if err != nil {
