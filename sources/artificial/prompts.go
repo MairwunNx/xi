@@ -26,7 +26,9 @@ Message:
 
 	PersonalizationBlockTemplate = `
 
-### Personalization
+⸻
+
+🙋‍♂️ Personalization
 
 This is user-provided information about themselves. Consider this data when relevant and reasonable:
 
