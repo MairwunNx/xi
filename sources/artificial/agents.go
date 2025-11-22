@@ -52,6 +52,16 @@ type AgentSystem struct {
 	tariffs repository.Tariffs
 }
 
+type AgentUsageAccumulator struct {
+	TotalTokens int
+	Cost        float64
+}
+
+func (a *AgentUsageAccumulator) Add(tokens int, cost float64) {
+	a.TotalTokens += tokens
+	a.Cost += cost
+}
+
 func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs repository.Tariffs) *AgentSystem {
 	return &AgentSystem{
 		ai:      ai,
