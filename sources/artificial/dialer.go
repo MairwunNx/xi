@@ -17,6 +17,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	openrouter "github.com/revrost/go-openrouter"
 	"github.com/shopspring/decimal"
+	"golang.org/x/sync/errgroup"
 )
 
 type Dialer struct {
@@ -73,6 +74,73 @@ func NewDialer(
 		localization:     localization,
 		tariffs:          tariffs,
 	}
+}
+
+type AgentDecisions struct {
+	Context        []platform.RedisMessage
+	ModelSelection *ModelSelectionResponse
+	ResponseLength *ResponseLengthResponse
+}
+
+func (x *Dialer) runAgentsParallel(
+	ctx context.Context,
+	log *tracing.Logger,
+	history []platform.RedisMessage,
+	req string,
+	userGrade platform.UserGrade,
+	agentUsage *AgentUsageAccumulator,
+) (*AgentDecisions, error) {
+	g, ctx := errgroup.WithContext(ctx)
+	results := &AgentDecisions{
+		Context: history,
+	}
+
+	// 1. Context Selection
+	if len(history) > 0 {
+		g.Go(func() error {
+			selected, err := x.agentSystem.SelectRelevantContext(log, history, req, userGrade, agentUsage)
+			if err != nil {
+				log.E("Context agent failed", tracing.InnerError, err)
+				return nil
+			}
+			results.Context = selected
+			return nil
+		})
+	}
+
+	// 2. Model Selection
+	g.Go(func() error {
+		recentHistory := history
+		if len(recentHistory) > 4 {
+			recentHistory = recentHistory[len(recentHistory)-4:]
+		}
+
+		selection, err := x.agentSystem.SelectModelAndEffort(log, recentHistory, req, userGrade, agentUsage)
+		if err != nil {
+			return err
+		}
+		results.ModelSelection = selection
+		return nil
+	})
+
+	// 3. Response Length
+	if x.features.IsEnabled(features.FeatureResponseLengthDetection) {
+		g.Go(func() error {
+			length, err := x.agentSystem.DetermineResponseLength(log, req, agentUsage)
+			if err != nil {
+				log.W("Length agent failed", tracing.InnerError, err)
+				return nil
+			}
+			results.ResponseLength = length
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
@@ -134,23 +202,25 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	agentUsage := &AgentUsageAccumulator{}
 
 	var history []platform.RedisMessage
-	var selectedContext []platform.RedisMessage
-
 	if stackful {
 		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
 		if err != nil {
 			log.E("Failed to get message pairs", tracing.InnerError, err)
 			history = []platform.RedisMessage{}
 		}
+	}
 
-		// Use agent to select relevant context
-		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade, agentUsage)
-		if err != nil {
-			log.E("Failed to select relevant context, using fallback", tracing.InnerError, err)
-			// Fallback: use all available history
-			selectedContext = history
+	agentDecisions, err := x.runAgentsParallel(ctx, log, history, req, userGrade, agentUsage)
+	if err != nil {
+		log.E("Failed to run agents parallel", tracing.InnerError, err)
+		// Fallback if critical error (though runAgentsParallel handles most errors gracefully)
+		agentDecisions = &AgentDecisions{
+			Context: history,
 		}
 	}
+
+	selectedContext := agentDecisions.Context
+	modelSelection := agentDecisions.ModelSelection
 
 	var modelToUse string
 	var fallbackModels []string
@@ -158,19 +228,17 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	var temperature float32
 	var limitWarning string
 
-	// Always use agent to select optimal model and reasoning effort
-	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade, agentUsage)
-
 	// Log agent decision
-	agentSuccess := err == nil
+	agentSuccess := modelSelection != nil
 	log.I("agent_model_selection",
 		"agent_success", agentSuccess,
 		"user_grade", userGrade,
 		"context_size", len(selectedContext),
 	)
 
-	if err != nil {
+	if !agentSuccess {
 		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
+
 		if len(tierModels) > 1 {
 			modelToUse = tierModels[1].Name
 		} else if len(tierModels) > 0 {
@@ -275,8 +343,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		"user_id", user.ID,
 	)
 
-	if x.features.IsEnabled(features.FeatureResponseLengthDetection) {
-		if guideline := x.getResponseLengthGuidelineFromAgent(log, req, agentUsage); guideline != "" {
+	if agentDecisions.ResponseLength != nil {
+		log.I("response_length_detected",
+			"length", agentDecisions.ResponseLength.Length,
+			"confidence", agentDecisions.ResponseLength.Confidence,
+			"reasoning", agentDecisions.ResponseLength.Reasoning,
+		)
+		if guideline := x.getResponseLengthGuideline(agentDecisions.ResponseLength.Length); guideline != "" {
 			prompt += guideline
 		}
 	}
@@ -494,21 +567,7 @@ func extractModelNames(models []ModelMeta) []string {
 	return names
 }
 
-func (x *Dialer) getResponseLengthGuidelineFromAgent(log *tracing.Logger, userMessage string, agentUsage *AgentUsageAccumulator) string {
-	lengthDetection, err := x.agentSystem.DetermineResponseLength(log, userMessage, agentUsage)
-	if err != nil {
-		log.W("Failed to determine response length", tracing.InnerError, err)
-		return ""
-	}
-	
-	log.I("response_length_detected",
-		"length", lengthDetection.Length,
-		"confidence", lengthDetection.Confidence,
-		"reasoning", lengthDetection.Reasoning,
-	)
-	
-	return x.getResponseLengthGuideline(lengthDetection.Length)
-}
+
 
 func (x *Dialer) getResponseLengthGuideline(length string) string {
 	switch length {
