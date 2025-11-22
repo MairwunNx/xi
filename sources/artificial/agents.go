@@ -76,6 +76,7 @@ func (a *AgentSystem) SelectRelevantContext(
 	history []platform.RedisMessage,
 	newUserMessage string,
 	userGrade platform.UserGrade,
+	agentUsage *AgentUsageAccumulator,
 ) ([]platform.RedisMessage, error) {
 	defer tracing.ProfilePoint(log, "Agent select relevant context completed", "artificial.agents.select.relevant.context", "history_count", len(history), "user_grade", userGrade)()
 
@@ -114,6 +115,7 @@ func (a *AgentSystem) SelectRelevantContext(
 			Sort:           openrouter.ProviderSortingLatency,
 		},
 		Temperature: 0.1,
+		Usage:       &openrouter.IncludeUsage{Include: true},
 	}
 
 	log = log.With("ai_agent", "context_selector", tracing.AiModel, model)
@@ -126,6 +128,10 @@ func (a *AgentSystem) SelectRelevantContext(
 		log.E("Failed to get context selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
 		log.I("agent_context_selection_failed", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		return history, nil
+	}
+
+	if agentUsage != nil {
+		agentUsage.Add(response.Usage.TotalTokens, response.Usage.Cost)
 	}
 
 	if len(response.Choices) == 0 {
@@ -218,6 +224,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	selectedContext []platform.RedisMessage,
 	newUserMessage string,
 	userGrade platform.UserGrade,
+	agentUsage *AgentUsageAccumulator,
 ) (*ModelSelectionResponse, error) {
 	defer tracing.ProfilePoint(log, "Agent select model and effort completed", "artificial.agents.select.model.and.effort", "context_count", len(selectedContext), "user_grade", userGrade)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.ModelSelection.Timeout)*time.Second)
@@ -284,6 +291,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 			Sort:           openrouter.ProviderSortingLatency,
 		},
 		Temperature: 0.1,
+		Usage:       &openrouter.IncludeUsage{Include: true},
 	}
 
 	log = log.With("ai_agent", "model_selector", tracing.AiModel, model)
@@ -296,6 +304,10 @@ func (a *AgentSystem) SelectModelAndEffort(
 		log.E("Failed to get model selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
 		log.I("agent_model_selection_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
 		return a.getModelSelectionFallback(tierPolicy), nil
+	}
+
+	if agentUsage != nil {
+		agentUsage.Add(response.Usage.TotalTokens, response.Usage.Cost)
 	}
 
 	if len(response.Choices) == 0 {
