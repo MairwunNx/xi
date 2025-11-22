@@ -22,7 +22,7 @@ type TelegramHandler struct {
 	rights           *repository.RightsRepository
 	dialer           *artificial.Dialer
 	whisper          *artificial.Whisper
-	vision           *artificial.Vision
+
 	modes            *repository.ModesRepository
 	donations        *repository.DonationsRepository
 	messages         *repository.MessagesRepository
@@ -38,14 +38,14 @@ type TelegramHandler struct {
 	dateTimeFormatter *format.DateTimeFormatter
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, vision *artificial.Vision, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:         diplomat,
 		users:            users,
 		rights:           rights,
 		dialer:           dialer,
 		whisper:          whisper,
-		vision:           vision,
+
 		modes:            modes,
 		donations:        donations,
 		messages:         messages,

@@ -12,7 +12,6 @@ var Module = fx.Module(
 		NewSpendingLimiter,
 		NewDialer,
 		NewWhisper,
-		NewVision,
 		NewAgentSystem,
 	),
 )

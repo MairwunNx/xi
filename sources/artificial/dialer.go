@@ -143,7 +143,7 @@ func (x *Dialer) runAgentsParallel(
 	return results, nil
 }
 
-func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string, stackful bool) (string, error) {
+func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool) (string, error) {
 	defer tracing.ProfilePoint(log, "Dialer dial completed", "artificial.dialer.dial")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -171,7 +171,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		userGrade = platform.GradeBronze
 	}
 
-	limitResult, err := x.usageLimiter.checkAndIncrement(log, user.UserID, userGrade, UsageTypeDialer)
+	usageType := UsageTypeDialer
+	if imageURL != "" {
+		usageType = UsageTypeVision
+	}
+
+	limitResult, err := x.usageLimiter.checkAndIncrement(log, user.UserID, userGrade, usageType)
 	if err != nil {
 		log.E("Failed to check usage limits", tracing.InnerError, err)
 		return "", err
@@ -382,9 +387,22 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 	}
 
+	userContent := openrouter.Content{
+		Multi: []openrouter.ChatMessagePart{
+			{Type: openrouter.ChatMessagePartTypeText, Text: req},
+		},
+	}
+
+	if imageURL != "" {
+		userContent.Multi = append(userContent.Multi, openrouter.ChatMessagePart{
+			Type:     openrouter.ChatMessagePartTypeImageURL,
+			ImageURL: &openrouter.ChatMessageImageURL{URL: imageURL, Detail: openrouter.ImageURLDetailHigh},
+		})
+	}
+
 	messages = append(messages, openrouter.ChatCompletionMessage{
 		Role:    openrouter.ChatMessageRoleUser,
-		Content: openrouter.Content{Text: req},
+		Content: userContent,
 	})
 
 	if len(fallbackModels) > 3 {

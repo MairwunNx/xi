@@ -20,8 +20,6 @@ type Tariff struct {
 
 	DialerModels          []byte   `gorm:"column:dialer_models;type:jsonb;not null"`
 	DialerReasoningEffort string   `gorm:"column:dialer_reasoning_effort;not null"`
-	VisionPrimaryModel    string   `gorm:"column:vision_primary_model;not null"`
-	VisionFallbackModels  []string `gorm:"column:vision_fallback_models;type:text[];not null;serializer:json"`
 
 	ContextTTLSeconds  int `gorm:"column:context_ttl_seconds;not null"`
 	ContextMaxMessages int `gorm:"column:context_max_messages;not null"`
