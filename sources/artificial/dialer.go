@@ -131,6 +131,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	req = formatUserRequest(persona, req)
 	prompt := mode.Prompt
 
+	agentUsage := &AgentUsageAccumulator{}
+
 	var history []platform.RedisMessage
 	var selectedContext []platform.RedisMessage
 
@@ -142,7 +144,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		}
 
 		// Use agent to select relevant context
-		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade)
+		selectedContext, err = x.agentSystem.SelectRelevantContext(log, history, req, userGrade, agentUsage)
 		if err != nil {
 			log.E("Failed to select relevant context, using fallback", tracing.InnerError, err)
 			// Fallback: use all available history
@@ -157,7 +159,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	var limitWarning string
 
 	// Always use agent to select optimal model and reasoning effort
-	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade)
+	modelSelection, err := x.agentSystem.SelectModelAndEffort(log, selectedContext, req, userGrade, agentUsage)
 
 	// Log agent decision
 	agentSuccess := err == nil
@@ -274,7 +276,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 	)
 
 	if x.features.IsEnabled(features.FeatureResponseLengthDetection) {
-		if guideline := x.getResponseLengthGuidelineFromAgent(log, req); guideline != "" {
+		if guideline := x.getResponseLengthGuidelineFromAgent(log, req, agentUsage); guideline != "" {
 			prompt += guideline
 		}
 	}
@@ -465,7 +467,9 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, pe
 		log.E("Error saving assistant message to context", tracing.InnerError, err)
 	}
 
-	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens); err != nil {
+	anotherCost := decimal.NewFromFloat(agentUsage.Cost)
+	anotherTokens := agentUsage.TotalTokens
+	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens, anotherCost, anotherTokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
 	}
 
@@ -490,8 +494,8 @@ func extractModelNames(models []ModelMeta) []string {
 	return names
 }
 
-func (x *Dialer) getResponseLengthGuidelineFromAgent(log *tracing.Logger, userMessage string) string {
-	lengthDetection, err := x.agentSystem.DetermineResponseLength(log, userMessage)
+func (x *Dialer) getResponseLengthGuidelineFromAgent(log *tracing.Logger, userMessage string, agentUsage *AgentUsageAccumulator) string {
+	lengthDetection, err := x.agentSystem.DetermineResponseLength(log, userMessage, agentUsage)
 	if err != nil {
 		log.W("Failed to determine response length", tracing.InnerError, err)
 		return ""

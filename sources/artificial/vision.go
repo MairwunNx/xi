@@ -168,10 +168,15 @@ func (v *Vision) Visionify(logger *tracing.Logger, msg *tgbotapi.Message, iurl s
 		}
 	}
 
+	agentUsage := &AgentUsageAccumulator{}
+
 	tokens := response.Usage.TotalTokens
 	cost := decimal.NewFromFloat(response.Usage.Cost)
 
-	if err := v.usage.SaveUsage(logger, user.ID, chatID, cost, tokens); err != nil {
+	anotherCost := decimal.NewFromFloat(agentUsage.Cost)
+	anotherTokens := agentUsage.TotalTokens
+
+	if err := v.usage.SaveUsage(logger, user.ID, chatID, cost, tokens, anotherCost, anotherTokens); err != nil {
 		logger.E("Error saving usage", tracing.InnerError, err)
 	}
 
