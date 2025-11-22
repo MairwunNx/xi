@@ -184,7 +184,11 @@ services:
     ports:
       - "4242:4242"
     restart: unless-stopped
+    volumes:
+      - ximanager-unleash-data:/var/lib/unleash
 volumes:
+  ximanager-unleash-data:
+    driver: local
   ximanager-postgres-data:
     driver: local
   ximanager-redis-data:
