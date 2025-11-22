@@ -720,25 +720,40 @@ func decodePrompt(raw, fallback string) string {
 func (a *AgentSystem) DetermineResponseLength(
 	log *tracing.Logger,
 	userMessage string,
+	agentUsage *AgentUsageAccumulator,
 ) (*ResponseLengthResponse, error) {
-	defer tracing.ProfilePoint(log, "Agent determine response length completed", "artificial.agents.determine.response.length", "message_length", len(userMessage))()
+	defer tracing.ProfilePoint(log, "Agent determine response length completed", "artificial.agents.determine.response.length")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.ResponseLength.Timeout)*time.Second)
 	defer cancel()
 
 	prompt := a.getResponseLengthPrompt()
 	systemMessage := fmt.Sprintf(prompt, userMessage)
 
-	request := openrouter.ChatCompletionRequest{
-		Model: a.config.AI.Agents.ResponseLength.Model,
-		Messages: []openrouter.ChatCompletionMessage{
-			{Role: openrouter.ChatMessageRoleSystem, Content: openrouter.Content{Text: systemMessage}},
-			{Role: openrouter.ChatMessageRoleUser, Content: openrouter.Content{Text: "Analyze the user's message and determine the expected response length. Return your response in JSON format."}},
+	messages := []openrouter.ChatCompletionMessage{
+		{
+			Role:    openrouter.ChatMessageRoleSystem,
+			Content: openrouter.Content{Text: systemMessage},
 		},
-		Provider:    &openrouter.ChatProvider{DataCollection: openrouter.DataCollectionDeny, Sort: openrouter.ProviderSortingLatency},
-		Temperature: 0.2,
+		{
+			Role:    openrouter.ChatMessageRoleUser,
+			Content: openrouter.Content{Text: "Analyze the user message and determine the appropriate response length. Return your response in JSON format."},
+		},
 	}
 
-	log = log.With("ai_agent", "response_length_detector", tracing.AiModel, a.config.AI.Agents.ResponseLength.Model)
+	model := a.config.AI.Agents.ResponseLength.Model
+
+	request := openrouter.ChatCompletionRequest{
+		Model:    model,
+		Messages: messages,
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
+		},
+		Temperature: 0.2,
+		Usage:       &openrouter.IncludeUsage{Include: true},
+	}
+
+	log = log.With("ai_agent", "response_length_detector", tracing.AiModel, model)
 
 	startTime := time.Now()
 	response, err := a.ai.CreateChatCompletion(ctx, request)
@@ -748,6 +763,10 @@ func (a *AgentSystem) DetermineResponseLength(
 		log.E("Failed to determine response length", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
 		log.I("agent_response_length_failed", "reason", "api_error", "duration_ms", duration.Milliseconds())
 		return a.getDefaultResponseLength("API error"), nil
+	}
+
+	if agentUsage != nil {
+		agentUsage.Add(response.Usage.TotalTokens, response.Usage.Cost)
 	}
 
 	if len(response.Choices) == 0 {
