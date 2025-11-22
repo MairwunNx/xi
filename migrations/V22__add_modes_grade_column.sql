@@ -1,0 +1,1 @@
+ALTER TABLE xi_modes ADD COLUMN grade VARCHAR(50);
