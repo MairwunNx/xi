@@ -48,6 +48,7 @@ type (
 		Name      string     `gorm:"size:255;not null" json:"name"`
 		Prompt    string     `gorm:"type:text;not null" json:"prompt"`
 		Config    *string    `gorm:"type:json;column:config" json:"config"`
+		Grade     *string    `gorm:"size:50;column:grade" json:"grade"`
 		Final     *bool       `gorm:"not null;default:false" json:"final"`
 		IsEnabled *bool       `gorm:"not null;default:true" json:"is_enabled"`
 		CreatedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
