@@ -602,3 +602,25 @@ func (x *UsageRepository) GetUserAnotherTokensLastMonth(logger *tracing.Logger, 
 
 	return *totalTokens, nil
 }
+
+func (x *UsageRepository) GetActiveUsersCount(logger *tracing.Logger, since time.Time) (int64, error) {
+	defer tracing.ProfilePoint(logger, "Usage get active users count completed", "repository.usage.get.active.users.count")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	var count int64
+	q := query.Q.WithContext(ctx)
+
+	count, err := q.Usage.
+		Where(query.Usage.CreatedAt.Gte(since)).
+		Select(query.Usage.UserID).
+		Distinct().
+		Count()
+
+	if err != nil {
+		logger.E("Failed to get active users count", tracing.InnerError, err)
+		return 0, err
+	}
+
+	return count, nil
+}
