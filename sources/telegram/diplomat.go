@@ -4,6 +4,7 @@ import (
 	"strings"
 	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
+	"ximanager/sources/metrics"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting/markdown"
@@ -19,10 +20,11 @@ type Diplomat struct {
 	users     *repository.UsersRepository
 	donations *repository.DonationsRepository
 	localization *localization.LocalizationManager
+	metrics      *metrics.MetricsService
 }
 
-func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager) *Diplomat {
-	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization}
+func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager, metrics *metrics.MetricsService) *Diplomat {
+	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization, metrics: metrics}
 }
 
 func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
@@ -55,6 +57,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 
 		if _, err := x.bot.Send(chattable); err != nil {
 			logger.E("Message chunk sending error", tracing.InnerError, err)
+			x.metrics.RecordMessageSent("error")
 			emsg := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(x.localization.LocalizeBy(msg, "MsgXiError")));
 			emsg.ReplyToMessageID = msg.MessageID
 			emsg.ParseMode = tgbotapi.ModeMarkdownV2
@@ -64,6 +67,7 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 			}
 			break
 		}
+		x.metrics.RecordMessageSent("success")
 	}
 }
 
