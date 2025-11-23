@@ -6,6 +6,7 @@ import (
 	"time"
 	"ximanager/sources/configuration"
 	"ximanager/sources/localization"
+	"ximanager/sources/metrics"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -23,6 +24,7 @@ type Poller struct {
 	diplomat     *Diplomat
 	handler      *TelegramHandler
 	localization *localization.LocalizationManager
+	metrics      *metrics.MetricsService
 
 	chatQueues map[int64]*chatQueue
 	queuesMux  sync.RWMutex
@@ -31,7 +33,7 @@ type Poller struct {
 	cancel     context.CancelFunc
 }
 
-func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *configuration.Config, handler *TelegramHandler, localization *localization.LocalizationManager) *Poller {
+func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, config *configuration.Config, handler *TelegramHandler, localization *localization.LocalizationManager, metrics *metrics.MetricsService) *Poller {
 	ctx, cancel := context.WithCancel(context.Background())
 	poller := &Poller{
 		bot:          bot,
@@ -40,6 +42,7 @@ func NewPoller(bot *tgbotapi.BotAPI, log *tracing.Logger, diplomat *Diplomat, co
 		config:       config,
 		handler:      handler,
 		localization: localization,
+		metrics:      metrics,
 		chatQueues:   make(map[int64]*chatQueue),
 		ctx:          ctx,
 		cancel:       cancel,
@@ -142,10 +145,15 @@ func (x *Poller) handleMessage(update tgbotapi.Update) {
 		tracing.MessageDate, msg.Date,
 	)
 
+	start := time.Now()
 	if err := x.handler.HandleMessage(log, msg); err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgXiError")
 		x.diplomat.Reply(log, msg, errorMsg)
+		x.metrics.RecordMessageHandled("error")
+	} else {
+		x.metrics.RecordMessageHandled("success")
 	}
+	x.metrics.RecordMessageProcessingDuration(time.Since(start))
 
 	log.D("Message handled")
 }
