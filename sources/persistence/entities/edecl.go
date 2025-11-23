@@ -21,6 +21,15 @@ type (
 	}
 
 
+	Broadcast struct {
+		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID    uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Text      string    `gorm:"type:text;not null" json:"text"`
+		CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+
+		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
+	}
+
 	Donation struct {
 		ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		User      uuid.UUID       `gorm:"type:uuid;not null;column:user" json:"user"`
@@ -116,6 +125,7 @@ type (
 )
 
 func (Ban) TableName() string               { return "xi_bans" }
+func (Broadcast) TableName() string         { return "xi_broadcasts" }
 func (Donation) TableName() string          { return "xi_donations" }
 func (Message) TableName() string           { return "xi_messages" }
 func (Mode) TableName() string              { return "xi_modes" }
