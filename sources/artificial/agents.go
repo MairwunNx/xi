@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 	"ximanager/sources/configuration"
+	"ximanager/sources/metrics"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/texting/indices"
@@ -50,6 +51,7 @@ type AgentSystem struct {
 	ai      *openrouter.Client
 	config  *configuration.Config
 	tariffs repository.Tariffs
+	metrics *metrics.MetricsService
 }
 
 type AgentUsageAccumulator struct {
@@ -62,11 +64,12 @@ func (a *AgentUsageAccumulator) Add(tokens int, cost float64) {
 	a.Cost += cost
 }
 
-func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs repository.Tariffs) *AgentSystem {
+func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs repository.Tariffs, metrics *metrics.MetricsService) *AgentSystem {
 	return &AgentSystem{
 		ai:      ai,
 		config:  config,
 		tariffs: tariffs,
+		metrics: metrics,
 	}
 }
 
@@ -79,6 +82,7 @@ func (a *AgentSystem) SelectRelevantContext(
 	agentUsage *AgentUsageAccumulator,
 ) ([]platform.RedisMessage, error) {
 	defer tracing.ProfilePoint(log, "Agent select relevant context completed", "artificial.agents.select.relevant.context", "history_count", len(history), "user_grade", userGrade)()
+	a.metrics.RecordAgentUsage("context_selection")
 
 	if len(history) <= 4 {
 		return history, nil
@@ -227,6 +231,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 	agentUsage *AgentUsageAccumulator,
 ) (*ModelSelectionResponse, error) {
 	defer tracing.ProfilePoint(log, "Agent select model and effort completed", "artificial.agents.select.model.and.effort", "context_count", len(selectedContext), "user_grade", userGrade)()
+	a.metrics.RecordAgentUsage("model_selection")
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.ModelSelection.Timeout)*time.Second)
 	defer cancel()
 
@@ -530,6 +535,7 @@ func (a *AgentSystem) ValidatePersonalization(
 	text string,
 ) (*PersonalizationValidationResponse, error) {
 	defer tracing.ProfilePoint(log, "Agent validate personalization completed", "artificial.agents.validate.personalization", "text_length", len(text))()
+	a.metrics.RecordAgentUsage("personalization_validation")
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -598,6 +604,7 @@ func (a *AgentSystem) SummarizeContent(
 	contentType string, // "message" or "cluster"
 ) (string, error) {
 	defer tracing.ProfilePoint(log, "Agent summarize content completed", "artificial.agents.summarize.content", "content_type", contentType, "content_length", len(content))()
+	a.metrics.RecordAgentUsage("summarization")
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.Summarization.Timeout)*time.Second)
 	defer cancel()
 
@@ -723,6 +730,7 @@ func (a *AgentSystem) DetermineResponseLength(
 	agentUsage *AgentUsageAccumulator,
 ) (*ResponseLengthResponse, error) {
 	defer tracing.ProfilePoint(log, "Agent determine response length completed", "artificial.agents.determine.response.length")()
+	a.metrics.RecordAgentUsage("response_length")
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.ResponseLength.Timeout)*time.Second)
 	defer cancel()
 
