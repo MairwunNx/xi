@@ -1161,7 +1161,8 @@ func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entit
 			continue
 		}
 
-		err := x.diplomat.SendText(log, chatID, text)
+		unsubscribeText := x.localization.LocalizeBy(msg, "MsgBroadcastUnsubscribe")
+		err := x.diplomat.SendBroadcastMessage(log, chatID, text, unsubscribeText)
 		if err != nil {
 			failCount++
 			log.W("Failed to send broadcast message", "chat_id", chatID, "error", err)
