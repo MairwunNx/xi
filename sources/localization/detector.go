@@ -3,6 +3,7 @@ package localization
 import (
 	"strings"
 	"ximanager/sources/features"
+	"ximanager/sources/metrics"
 	"ximanager/sources/texting/transform"
 	"ximanager/sources/tracing"
 
@@ -18,14 +19,15 @@ type LanguageDetector struct {
 	detector lingua.LanguageDetector
 	features *features.FeatureManager
 	log      *tracing.Logger
+	metrics  *metrics.MetricsService
 }
 
-func NewLanguageDetector(features *features.FeatureManager, log *tracing.Logger) *LanguageDetector {
+func NewLanguageDetector(features *features.FeatureManager, log *tracing.Logger, metrics *metrics.MetricsService) *LanguageDetector {
 	languages := []lingua.Language{lingua.Russian, lingua.English, lingua.Chinese, lingua.Ukrainian, lingua.Belarusian, lingua.Latvian, lingua.Lithuanian}
 	detector := lingua.NewLanguageDetectorBuilder().FromLanguages(languages...).WithPreloadedLanguageModels().Build()
 
 	log.I("Language detector initialized")
-	return &LanguageDetector{detector: detector, features: features, log: log}
+	return &LanguageDetector{detector: detector, features: features, log: log, metrics: metrics}
 }
 
 func (x *LanguageDetector) DetectLanguage(text string) string {
@@ -48,6 +50,7 @@ func (x *LanguageDetector) DetectLanguage(text string) string {
 	if language, exists := x.detector.DetectLanguageOf(truncatedText); exists {
 		langCode := x.linguaToCode(language)
 		x.log.I("Language detected", "detected_language", langCode)
+		x.metrics.RecordLanguageDetected(langCode)
 		return langCode
 	}
 
