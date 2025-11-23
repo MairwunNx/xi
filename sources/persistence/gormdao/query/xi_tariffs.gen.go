@@ -34,8 +34,6 @@ func newTariff(db *gorm.DB, opts ...gen.DOOption) tariff {
 	_tariff.CreatedAt = field.NewTime(tableName, "created_at")
 	_tariff.DialerModels = field.NewBytes(tableName, "dialer_models")
 	_tariff.DialerReasoningEffort = field.NewString(tableName, "dialer_reasoning_effort")
-	_tariff.VisionPrimaryModel = field.NewString(tableName, "vision_primary_model")
-	_tariff.VisionFallbackModels = field.NewField(tableName, "vision_fallback_models")
 	_tariff.ContextTTLSeconds = field.NewInt(tableName, "context_ttl_seconds")
 	_tariff.ContextMaxMessages = field.NewInt(tableName, "context_max_messages")
 	_tariff.ContextMaxTokens = field.NewInt(tableName, "context_max_tokens")
@@ -63,8 +61,6 @@ type tariff struct {
 	CreatedAt             field.Time
 	DialerModels          field.Bytes
 	DialerReasoningEffort field.String
-	VisionPrimaryModel    field.String
-	VisionFallbackModels  field.Field
 	ContextTTLSeconds     field.Int
 	ContextMaxMessages    field.Int
 	ContextMaxTokens      field.Int
@@ -98,8 +94,6 @@ func (t *tariff) updateTableName(table string) *tariff {
 	t.CreatedAt = field.NewTime(table, "created_at")
 	t.DialerModels = field.NewBytes(table, "dialer_models")
 	t.DialerReasoningEffort = field.NewString(table, "dialer_reasoning_effort")
-	t.VisionPrimaryModel = field.NewString(table, "vision_primary_model")
-	t.VisionFallbackModels = field.NewField(table, "vision_fallback_models")
 	t.ContextTTLSeconds = field.NewInt(table, "context_ttl_seconds")
 	t.ContextMaxMessages = field.NewInt(table, "context_max_messages")
 	t.ContextMaxTokens = field.NewInt(table, "context_max_tokens")
@@ -135,15 +129,13 @@ func (t *tariff) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (t *tariff) fillFieldMap() {
-	t.fieldMap = make(map[string]field.Expr, 19)
+	t.fieldMap = make(map[string]field.Expr, 17)
 	t.fieldMap["id"] = t.ID
 	t.fieldMap["key"] = t.Key
 	t.fieldMap["display_name"] = t.DisplayName
 	t.fieldMap["created_at"] = t.CreatedAt
 	t.fieldMap["dialer_models"] = t.DialerModels
 	t.fieldMap["dialer_reasoning_effort"] = t.DialerReasoningEffort
-	t.fieldMap["vision_primary_model"] = t.VisionPrimaryModel
-	t.fieldMap["vision_fallback_models"] = t.VisionFallbackModels
 	t.fieldMap["context_ttl_seconds"] = t.ContextTTLSeconds
 	t.fieldMap["context_max_messages"] = t.ContextMaxMessages
 	t.fieldMap["context_max_tokens"] = t.ContextMaxTokens
