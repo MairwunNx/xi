@@ -94,3 +94,29 @@ func (x *Diplomat) SendText(logger *tracing.Logger, chatID int64, text string) e
 	}
 	return nil
 }
+
+func (x *Diplomat) SendBroadcastMessage(logger *tracing.Logger, chatID int64, text string, unsubscribeText string) error {
+	defer tracing.ProfilePoint(logger, "Diplomat send broadcast message completed", "diplomat.send_broadcast_message")()
+
+	chunks := transform.Chunks(text, x.config.Telegram.DiplomatChunkSize)
+	for i, chunk := range chunks {
+		msg := tgbotapi.NewMessage(chatID, markdown.EscapeMarkdownActor(chunk))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+
+		if i == len(chunks)-1 {
+			msg.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(unsubscribeText, "unsubscribe_broadcast"),
+				),
+			)
+		}
+
+		if _, err := x.bot.Send(msg); err != nil {
+			logger.E("Broadcast message chunk sending error", tracing.InnerError, err)
+			x.metrics.RecordMessageSent("error")
+			return err
+		}
+		x.metrics.RecordMessageSent("success")
+	}
+	return nil
+}
