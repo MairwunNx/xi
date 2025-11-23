@@ -77,3 +77,20 @@ func (x *Diplomat) SendTyping(logger *tracing.Logger, chatID int64) {
 		logger.W("Failed to send typing action", tracing.InnerError, err)
 	}
 }
+
+func (x *Diplomat) SendText(logger *tracing.Logger, chatID int64, text string) error {
+	defer tracing.ProfilePoint(logger, "Diplomat send text completed", "diplomat.send_text")()
+
+	for _, chunk := range transform.Chunks(text, x.config.Telegram.DiplomatChunkSize) {
+		msg := tgbotapi.NewMessage(chatID, markdown.EscapeMarkdownActor(chunk))
+		msg.ParseMode = tgbotapi.ModeMarkdownV2
+
+		if _, err := x.bot.Send(msg); err != nil {
+			logger.E("Message chunk sending error", tracing.InnerError, err)
+			x.metrics.RecordMessageSent("error")
+			return err
+		}
+		x.metrics.RecordMessageSent("success")
+	}
+	return nil
+}
