@@ -592,3 +592,15 @@ other = "🚀 Broadcast started..."
 
 [MsgBroadcastFinished]
 other = "✅ Broadcast finished.\n\nSuccess: **{{.Success}}**\nFail: **{{.Fail}}**\nTotal: **{{.Total}}**"
+
+[MsgBroadcastUnsubscribe]
+other = "🔕 Unsubscribe from broadcast"
+
+[MsgBroadcastUnsubscribed]
+other = "✅ You have successfully unsubscribed from broadcasts."
+
+[MsgBroadcastAlreadyUnsubscribed]
+other = "ℹ️ You are already unsubscribed from broadcasts."
+
+[MsgBroadcastErrorUnsubscribe]
+other = "💢 An error occurred while unsubscribing."

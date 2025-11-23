@@ -592,3 +592,15 @@ other = "🚀 广播已开始..."
 
 [MsgBroadcastFinished]
 other = "✅ 广播已完成。\n\n成功：**{{.Success}}**\n失败：**{{.Fail}}**\n总计：**{{.Total}}**"
+
+[MsgBroadcastUnsubscribe]
+other = "🔕 取消订阅广播"
+
+[MsgBroadcastUnsubscribed]
+other = "✅ 你已成功取消订阅广播。"
+
+[MsgBroadcastAlreadyUnsubscribed]
+other = "ℹ️ 你已经取消订阅了广播。"
+
+[MsgBroadcastErrorUnsubscribe]
+other = "💢 取消订阅时发生错误。"
