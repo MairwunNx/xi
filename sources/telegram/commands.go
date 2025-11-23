@@ -298,3 +298,21 @@ func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entitie
 
 	x.PardonCommandApply(log, msg, cmd.Username)
 }
+
+func (x *TelegramHandler) HandleBroadcastCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	if !x.rights.IsUserHasRight(log, user, "broadcast") {
+		noAccessMsg := x.localization.LocalizeBy(msg, "MsgBroadcastNoAccess")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
+		return
+	}
+
+	var cmd BroadcastCmd
+	_, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgBroadcastHelpText")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		return
+	}
+
+	x.BroadcastCommandApply(log, user, msg, cmd.Text)
+}
