@@ -1,0 +1,2 @@
+ALTER TABLE xi_users
+ADD COLUMN is_unsubscribed BOOLEAN NOT NULL DEFAULT FALSE;
