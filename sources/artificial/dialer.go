@@ -599,8 +599,6 @@ func extractModelNames(models []ModelMeta) []string {
 	return names
 }
 
-
-
 func (x *Dialer) getResponseLengthGuideline(length string) string {
 	switch length {
 	case "very_brief":
