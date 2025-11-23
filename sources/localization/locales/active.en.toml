@@ -293,8 +293,8 @@ other = "🔄 The Great Xi is restarting..."
 [MsgThisInfo]
 other = """🀄️ **Information about the user and chat**
 
-**👤 USER**
-━━━━━━━━━━━━━━━━━━━━━
+**👤 User**
+
 {{.Emoji}} **Grade: {{.Grade}}**
 📅 **Account:** {{.AccountDate}}
 🆔 **Telegram ID:** {{.TelegramID}}
@@ -303,8 +303,8 @@ other = """🀄️ **Information about the user and chat**
 🔑 **Internal ID:** {{.InternalID}}
 ⚡ **Rights:** {{.Rights}}
 
-**💬 CHAT**
-━━━━━━━━━━━━━━━━━━━━━
+**💬 Chat**
+
 🆔 **ID:** {{.ChatID}}
 📂 **Type:** {{.ChatType}}
 🏷️ **Title:** {{.ChatTitle}}"""
