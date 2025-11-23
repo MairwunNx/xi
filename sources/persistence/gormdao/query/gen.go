@@ -18,6 +18,7 @@ import (
 var (
 	Q               = new(Query)
 	Ban             *ban
+	Broadcast       *broadcast
 	Donation        *donation
 	Message         *message
 	Mode            *mode
@@ -31,6 +32,7 @@ var (
 func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	*Q = *Use(db, opts...)
 	Ban = &Q.Ban
+	Broadcast = &Q.Broadcast
 	Donation = &Q.Donation
 	Message = &Q.Message
 	Mode = &Q.Mode
@@ -45,6 +47,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 	return &Query{
 		db:              db,
 		Ban:             newBan(db, opts...),
+		Broadcast:       newBroadcast(db, opts...),
 		Donation:        newDonation(db, opts...),
 		Message:         newMessage(db, opts...),
 		Mode:            newMode(db, opts...),
@@ -60,6 +63,7 @@ type Query struct {
 	db *gorm.DB
 
 	Ban             ban
+	Broadcast       broadcast
 	Donation        donation
 	Message         message
 	Mode            mode
@@ -76,6 +80,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 	return &Query{
 		db:              db,
 		Ban:             q.Ban.clone(db),
+		Broadcast:       q.Broadcast.clone(db),
 		Donation:        q.Donation.clone(db),
 		Message:         q.Message.clone(db),
 		Mode:            q.Mode.clone(db),
@@ -99,6 +104,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 	return &Query{
 		db:              db,
 		Ban:             q.Ban.replaceDB(db),
+		Broadcast:       q.Broadcast.replaceDB(db),
 		Donation:        q.Donation.replaceDB(db),
 		Message:         q.Message.replaceDB(db),
 		Mode:            q.Mode.replaceDB(db),
@@ -112,6 +118,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 
 type queryCtx struct {
 	Ban             IBanDo
+	Broadcast       IBroadcastDo
 	Donation        IDonationDo
 	Message         IMessageDo
 	Mode            IModeDo
@@ -125,6 +132,7 @@ type queryCtx struct {
 func (q *Query) WithContext(ctx context.Context) *queryCtx {
 	return &queryCtx{
 		Ban:             q.Ban.WithContext(ctx),
+		Broadcast:       q.Broadcast.WithContext(ctx),
 		Donation:        q.Donation.WithContext(ctx),
 		Message:         q.Message.WithContext(ctx),
 		Mode:            q.Mode.WithContext(ctx),
