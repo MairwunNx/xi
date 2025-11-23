@@ -155,11 +155,15 @@ func (x *MessagesRepository) GetAllChatIDs(logger *tracing.Logger) ([]int64, err
 	defer cancel()
 
 	q := query.Message.WithContext(ctx)
+	u := query.User
+
 	var result []int64
 
 	err := q.
 		Select(query.Message.ChatID).
 		Distinct(query.Message.ChatID).
+		Join(u, query.Message.UserID.EqCol(u.ID)).
+		Where(u.IsUnsubscribed.Is(false)).
 		Scan(&result)
 
 	if err != nil {
