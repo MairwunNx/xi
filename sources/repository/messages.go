@@ -148,3 +148,24 @@ func (x *MessagesRepository) GetUniqueChatCount(logger *tracing.Logger) (int64, 
 
 	return int64(len(result)), nil
 }
+
+func (x *MessagesRepository) GetAllChatIDs(logger *tracing.Logger) ([]int64, error) {
+	defer tracing.ProfilePoint(logger, "Messages get all chat ids completed", "repository.messages.get.all.chat.ids")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Message.WithContext(ctx)
+	var result []int64
+
+	err := q.
+		Select(query.Message.ChatID).
+		Distinct(query.Message.ChatID).
+		Scan(&result)
+
+	if err != nil {
+		logger.E("Failed to get all chat ids", tracing.InnerError, err)
+		return nil, err
+	}
+
+	return result, nil
+}
