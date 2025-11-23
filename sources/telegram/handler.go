@@ -5,6 +5,7 @@ import (
 	"strings"
 	"ximanager/sources/artificial"
 	"ximanager/sources/localization"
+	"ximanager/sources/metrics"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -36,9 +37,10 @@ type TelegramHandler struct {
 	localization     *localization.LocalizationManager
 	personality      *personality.XiPersonality
 	dateTimeFormatter *format.DateTimeFormatter
+	metrics          *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:         diplomat,
 		users:            users,
@@ -59,6 +61,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		localization:     localization,
 		personality:      personality,
 		dateTimeFormatter: dateTimeFormatter,
+		metrics:          metrics,
 	}
 }
 
@@ -86,6 +89,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 
 	if msg.Sticker != nil {
 		log.I("Ignoring sticker message")
+		x.metrics.RecordMessageIgnored("sticker")
 		return nil
 	}
 
@@ -104,6 +108,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 
 	if msg.IsCommand() {
 		log = log.With(tracing.CommandIssued, msg.Command())
+		x.metrics.RecordCommandUsed(msg.Command())
 
 		switch msg.Command() {
 		case "start":
@@ -144,11 +149,13 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			msg.NewChatTitle != "" || msg.NewChatPhoto != nil || msg.DeleteChatPhoto ||
 			msg.VoiceChatParticipantsInvited != nil || msg.VoiceChatStarted != nil || msg.VoiceChatEnded != nil || msg.VoiceChatScheduled != nil {
 			log.I("Ignoring system message")
+			x.metrics.RecordMessageIgnored("system")
 			return nil
 		}
 
 		if msg.ReplyToMessage != nil && msg.ReplyToMessage.From.ID != x.diplomat.bot.Self.ID {
 			log.W("Message is a reply to another user, ignoring")
+			x.metrics.RecordMessageIgnored("reply_to_other")
 			return nil
 		}
 
@@ -156,6 +163,7 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			msgText := strings.TrimSpace(msg.Text)
 			if strings.HasPrefix(msgText, "/noreply") || strings.HasPrefix(msgText, "!") || strings.HasPrefix(msgText, ">") || strings.HasPrefix(msgText, "^") {
 				log.I("Ignoring noreply/!/>/^ command")
+				x.metrics.RecordMessageIgnored("noreply_prefix")
 				return nil
 			}
 		}
