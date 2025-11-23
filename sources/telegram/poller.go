@@ -70,6 +70,18 @@ func (x *Poller) Start() {
 
 			chatID := msg.Chat.ID
 			x.enqueueMessage(chatID, update)
+		} else if cb := update.CallbackQuery; cb != nil {
+			select {
+			case <-x.ctx.Done():
+				x.log.I("Context cancelled, stopping callback processing")
+				return
+			default:
+			}
+
+			if cb.Message != nil {
+				chatID := cb.Message.Chat.ID
+				x.enqueueMessage(chatID, update)
+			}
 		}
 	}
 }
@@ -127,35 +139,58 @@ func (x *Poller) processChatQueue(chatID int64, queue *chatQueue) {
 			return
 		case update := <-queue.messages:
 			queue.lastUsed = time.Now()
-			x.handleMessage(update)
+			x.handleUpdate(update)
 		}
 	}
 }
 
-func (x *Poller) handleMessage(update tgbotapi.Update) {
-	msg := update.Message
+func (x *Poller) handleUpdate(update tgbotapi.Update) {
 	user := update.SentFrom()
+	var chatID int64
+	var msgID int
+	var msgDate int
+	var chatType string
+
+	if update.Message != nil {
+		chatID = update.Message.Chat.ID
+		msgID = update.Message.MessageID
+		msgDate = update.Message.Date
+		chatType = update.Message.Chat.Type
+	} else if update.CallbackQuery != nil && update.CallbackQuery.Message != nil {
+		chatID = update.CallbackQuery.Message.Chat.ID
+		msgID = update.CallbackQuery.Message.MessageID
+		msgDate = update.CallbackQuery.Message.Date
+		chatType = update.CallbackQuery.Message.Chat.Type
+	}
 
 	log := x.log.With(
 		tracing.UserId, user.ID,
 		tracing.UserName, user.UserName,
-		tracing.ChatType, msg.Chat.Type,
-		tracing.ChatId, msg.Chat.ID,
-		tracing.MessageId, msg.MessageID,
-		tracing.MessageDate, msg.Date,
+		tracing.ChatType, chatType,
+		tracing.ChatId, chatID,
+		tracing.MessageId, msgID,
+		tracing.MessageDate, msgDate,
 	)
 
 	start := time.Now()
-	if err := x.handler.HandleMessage(log, msg); err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgXiError")
-		x.diplomat.Reply(log, msg, errorMsg)
-		x.metrics.RecordMessageHandled("error")
-	} else {
-		x.metrics.RecordMessageHandled("success")
+
+	if update.Message != nil {
+		if err := x.handler.HandleMessage(log, update.Message); err != nil {
+			errorMsg := x.localization.LocalizeBy(update.Message, "MsgXiError")
+			x.diplomat.Reply(log, update.Message, errorMsg)
+			x.metrics.RecordMessageHandled("error")
+		} else {
+			x.metrics.RecordMessageHandled("success")
+		}
+	} else if update.CallbackQuery != nil {
+		if err := x.handler.HandleCallback(log, update.CallbackQuery); err != nil {
+			x.log.E("Error handling callback", tracing.InnerError, err)
+		}
 	}
+
 	x.metrics.RecordMessageProcessingDuration(time.Since(start))
 
-	log.D("Message handled")
+	log.D("Update handled")
 }
 
 func (x *Poller) cleanupInactiveQueues() {
