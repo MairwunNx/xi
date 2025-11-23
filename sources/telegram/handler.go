@@ -176,6 +176,44 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 	return nil
 }
 
+func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery) error {
+	defer tracing.ProfilePoint(log, "Telegram handler callback completed", "telegram.handler.callback")()
+	log.I("Got callback", "data", query.Data)
+
+	user, err := x.user(log, query.Message)
+	if err != nil {
+		log.E("Error getting or creating user", tracing.InnerError, err)
+		return err
+	}
+
+	if query.Data == "unsubscribe_broadcast" {
+		if *user.IsUnsubscribed {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgBroadcastAlreadyUnsubscribed"))
+			if _, err := x.diplomat.bot.Request(callback); err != nil {
+				log.E("Failed to answer callback", tracing.InnerError, err)
+			}
+			return nil
+		}
+
+		user.IsUnsubscribed = platform.BoolPtr(true)
+		if _, err := x.users.UpdateUser(log, user); err != nil {
+			log.E("Failed to update user", tracing.InnerError, err)
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgBroadcastErrorUnsubscribe"))
+			if _, err := x.diplomat.bot.Request(callback); err != nil {
+				log.E("Failed to answer callback", tracing.InnerError, err)
+			}
+			return err
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgBroadcastUnsubscribed"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+	}
+
+	return nil
+}
+
 func (x *TelegramHandler) user(log *tracing.Logger, msg *tgbotapi.Message) (*entities.User, error) {
 	euid := msg.From.ID
 	uname := msg.From.UserName
