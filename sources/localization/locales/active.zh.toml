@@ -571,3 +571,24 @@ one = "{{.Count}} 秒"
 few = "{{.Count}} 秒"
 many = "{{.Count}} 秒"
 other = "{{.Count}} 秒"
+
+# Broadcast
+[MsgBroadcastNoAccess]
+other = "🈲 你没有权限发送广播。你的社会信用已被**降低**！"
+
+[MsgBroadcastHelpText]
+other = """🈲 命令格式不正确。正确用法：
+
+1️⃣ /broadcast <text> - 向所有用户发送广播消息"""
+
+[MsgBroadcastErrorCreate]
+other = "💢 创建广播时发生错误。"
+
+[MsgBroadcastErrorGetChats]
+other = "💢 获取聊天列表时发生错误。"
+
+[MsgBroadcastStarted]
+other = "🚀 广播已开始..."
+
+[MsgBroadcastFinished]
+other = "✅ 广播已完成。\n\n成功：**{{.Success}}**\n失败：**{{.Fail}}**\n总计：**{{.Total}}**"

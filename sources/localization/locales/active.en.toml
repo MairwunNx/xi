@@ -571,3 +571,24 @@ one = "{{.Count}} second"
 few = "{{.Count}} seconds"
 many = "{{.Count}} seconds"
 other = "{{.Count}} seconds"
+
+# Broadcast
+[MsgBroadcastNoAccess]
+other = "🈲 You do not have permission to broadcast. Your social credit **has been lowered**!"
+
+[MsgBroadcastHelpText]
+other = """🈲 Invalid command format. Use:
+
+1️⃣ /broadcast <text> - send a broadcast message to all users"""
+
+[MsgBroadcastErrorCreate]
+other = "💢 An error occurred while creating the broadcast."
+
+[MsgBroadcastErrorGetChats]
+other = "💢 An error occurred while retrieving chat list."
+
+[MsgBroadcastStarted]
+other = "🚀 Broadcast started..."
+
+[MsgBroadcastFinished]
+other = "✅ Broadcast finished.\n\nSuccess: **{{.Success}}**\nFail: **{{.Fail}}**\nTotal: **{{.Total}}**"
