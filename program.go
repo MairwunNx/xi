@@ -9,6 +9,8 @@ import (
 	"ximanager/sources/external"
 	"ximanager/sources/features"
 	"ximanager/sources/localization"
+	"ximanager/sources/metrics"
+	"ximanager/sources/metrics/collector"
 	"ximanager/sources/network"
 	"ximanager/sources/persistence"
 	"ximanager/sources/platform"
@@ -38,7 +40,9 @@ func main() {
 	}
 
 	fx.New(
-    tracing.Module,
+		metrics.Module,
+		collector.Module,
+		tracing.Module,
 		configuration.Module,
 		external.Module,
 		network.Module,
