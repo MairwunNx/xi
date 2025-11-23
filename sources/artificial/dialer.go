@@ -10,6 +10,7 @@ import (
 	"ximanager/sources/configuration"
 	"ximanager/sources/features"
 	"ximanager/sources/localization"
+	"ximanager/sources/metrics"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
@@ -37,6 +38,7 @@ type Dialer struct {
 	features         FeatureChecker
 	localization     *localization.LocalizationManager
 	tariffs          repository.Tariffs
+	metrics          *metrics.MetricsService
 }
 
 func NewDialer(
@@ -55,6 +57,7 @@ func NewDialer(
 	features FeatureChecker,
 	localization *localization.LocalizationManager,
 	tariffs repository.Tariffs,
+	metrics *metrics.MetricsService,
 ) *Dialer {
 	return &Dialer{
 		ai:               ai,
@@ -69,10 +72,11 @@ func NewDialer(
 		contextManager:   contextManager,
 		usageLimiter:     usageLimiter,
 		spendingLimiter:  spendingLimiter,
-		agentSystem:      NewAgentSystem(ai, config, tariffs),
+		agentSystem:      NewAgentSystem(ai, config, tariffs, metrics),
 		features:         features,
 		localization:     localization,
 		tariffs:          tariffs,
+		metrics:          metrics,
 	}
 }
 
@@ -482,7 +486,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(selectedContext))
 
+	start := time.Now()
 	response, err := x.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(start)
+	if err == nil {
+		x.metrics.RecordAIRequestDuration(duration, modelToUse)
+	}
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
@@ -562,6 +571,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	anotherTokens := agentUsage.TotalTokens
 	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens, anotherCost, anotherTokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
+	}
+
+	x.metrics.RecordDialerUsage(tokens, cost.InexactFloat64(), modelToUse)
+	if anotherTokens > 0 || !anotherCost.IsZero() {
+		x.metrics.RecordAgentCost(anotherTokens, anotherCost.InexactFloat64(), modelToUse)
 	}
 
 	x.spendingLimiter.AddSpend(log, user, cost)
