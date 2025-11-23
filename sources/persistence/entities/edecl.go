@@ -111,6 +111,7 @@ type (
 		IsStackAllowed *bool          `gorm:"not null;default:false" json:"is_stack_allowed"`
 		IsStackEnabled *bool          `gorm:"not null;default:true" json:"is_stack_enabled"`
 		IsBanless      *bool          `gorm:"not null;default:false" json:"is_banless"`
+		IsUnsubscribed *bool          `gorm:"not null;default:false" json:"is_unsubscribed"`
 		WindowLimit    int64          `gorm:"not null;default:0" json:"window_limit"`
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
