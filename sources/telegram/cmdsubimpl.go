@@ -1127,3 +1127,57 @@ func getGradeNameRu(grade platform.UserGrade) string {
 		return "Неизвестный"
 	}
 }
+
+// =========================  /broadcast command handlers  =========================
+
+func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, text string) {
+	defer tracing.ProfilePoint(log, "Broadcast command apply completed", "telegram.command.broadcast.apply", "user_id", user.ID)()
+
+	// 1. Save broadcast to DB
+	_, err := x.broadcast.CreateBroadcast(log, user.ID, text)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgBroadcastErrorCreate")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	// 2. Get all chat IDs
+	chatIDs, err := x.messages.GetAllChatIDs(log)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgBroadcastErrorGetChats")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	// 3. Send broadcast
+	successCount := 0
+	failCount := 0
+
+	x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgBroadcastStarted"))
+
+	for _, chatID := range chatIDs {
+		// Skip the sender's chat
+		if chatID == msg.Chat.ID {
+			continue
+		}
+
+		err := x.diplomat.SendText(log, chatID, text)
+		if err != nil {
+			failCount++
+			log.W("Failed to send broadcast message", "chat_id", chatID, "error", err)
+		} else {
+			successCount++
+		}
+		
+		// Add a small delay to avoid hitting Telegram limits too hard
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// 4. Report result
+	resultMsg := x.localization.LocalizeByTd(msg, "MsgBroadcastFinished", map[string]interface{}{
+		"Success": successCount,
+		"Fail":    failCount,
+		"Total":   len(chatIDs),
+	})
+	x.diplomat.Reply(log, msg, resultMsg)
+}
