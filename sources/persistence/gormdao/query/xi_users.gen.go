@@ -37,6 +37,7 @@ func newUser(db *gorm.DB, opts ...gen.DOOption) user {
 	_user.IsStackAllowed = field.NewBool(tableName, "is_stack_allowed")
 	_user.IsStackEnabled = field.NewBool(tableName, "is_stack_enabled")
 	_user.IsBanless = field.NewBool(tableName, "is_banless")
+	_user.IsUnsubscribed = field.NewBool(tableName, "is_unsubscribed")
 	_user.WindowLimit = field.NewInt64(tableName, "window_limit")
 	_user.CreatedAt = field.NewTime(tableName, "created_at")
 	_user.Messages = userHasManyMessages{
@@ -254,6 +255,7 @@ type user struct {
 	IsStackAllowed field.Bool
 	IsStackEnabled field.Bool
 	IsBanless      field.Bool
+	IsUnsubscribed field.Bool
 	WindowLimit    field.Int64
 	CreatedAt      field.Time
 	Messages       userHasManyMessages
@@ -294,6 +296,7 @@ func (u *user) updateTableName(table string) *user {
 	u.IsStackAllowed = field.NewBool(table, "is_stack_allowed")
 	u.IsStackEnabled = field.NewBool(table, "is_stack_enabled")
 	u.IsBanless = field.NewBool(table, "is_banless")
+	u.IsUnsubscribed = field.NewBool(table, "is_unsubscribed")
 	u.WindowLimit = field.NewInt64(table, "window_limit")
 	u.CreatedAt = field.NewTime(table, "created_at")
 
@@ -320,7 +323,7 @@ func (u *user) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (u *user) fillFieldMap() {
-	u.fieldMap = make(map[string]field.Expr, 18)
+	u.fieldMap = make(map[string]field.Expr, 19)
 	u.fieldMap["id"] = u.ID
 	u.fieldMap["user_id"] = u.UserID
 	u.fieldMap["username"] = u.Username
@@ -330,6 +333,7 @@ func (u *user) fillFieldMap() {
 	u.fieldMap["is_stack_allowed"] = u.IsStackAllowed
 	u.fieldMap["is_stack_enabled"] = u.IsStackEnabled
 	u.fieldMap["is_banless"] = u.IsBanless
+	u.fieldMap["is_unsubscribed"] = u.IsUnsubscribed
 	u.fieldMap["window_limit"] = u.WindowLimit
 	u.fieldMap["created_at"] = u.CreatedAt
 
