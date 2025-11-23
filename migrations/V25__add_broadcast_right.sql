@@ -1,0 +1,1 @@
+ALTER TYPE user_right ADD VALUE 'broadcast';
