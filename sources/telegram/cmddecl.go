@@ -107,3 +107,7 @@ type BanCmd struct {
 type PardonCmd struct {
 	Username string `arg:"" help:"Username to unban (with or without @ prefix)"`
 }
+
+type BroadcastCmd struct {
+	Text string `arg:"" help:"Text to broadcast"`
+}
