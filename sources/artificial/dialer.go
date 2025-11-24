@@ -564,6 +564,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	x.spendingLimiter.AddSpend(log, user, totalCost)
 
+	if x.features.IsEnabled(features.FeaturePersonalizationExtraction) {
+		go x.extractAndSavePersonalization(log, user, req, personalization)
+	}
+
 	if limitWarning != "" {
 		responseText += limitWarning
 	}
@@ -788,4 +792,39 @@ func (x *Dialer) formatEnvironmentBlock(msg *tgbotapi.Message) string {
 		version,
 		uptime.String(),
 	)
+}
+
+func (x *Dialer) extractAndSavePersonalization(log *tracing.Logger, user *entities.User, userMessage string, currentPersonalization *entities.Personalization) {
+	defer tracing.ProfilePoint(log, "Background personalization extraction completed", "dialer.personalization.extraction")()
+
+	currentProfile := ""
+	if currentPersonalization != nil {
+		currentProfile = currentPersonalization.Prompt
+	}
+
+	extraction, err := x.agentSystem.ExtractPersonalization(log, currentProfile, userMessage)
+	if err != nil {
+		log.W("Failed to extract personalization", tracing.InnerError, err)
+		x.metrics.RecordPersonalizationExtracted("error")
+		return
+	}
+
+	if !extraction.HasNewInfo || extraction.UpdatedProfile == nil || *extraction.UpdatedProfile == "" {
+		log.D("No new personalization info found")
+		x.metrics.RecordPersonalizationExtracted("no_new_info")
+		return
+	}
+
+	_, err = x.personalizations.CreateOrUpdatePersonalization(log, user, *extraction.UpdatedProfile)
+	if err != nil {
+		log.E("Failed to save extracted personalization", tracing.InnerError, err)
+		x.metrics.RecordPersonalizationExtracted("save_error")
+		return
+	}
+
+	log.I("personalization_extracted_and_saved",
+		"new_facts_count", len(extraction.NewFacts),
+		"new_facts", extraction.NewFacts,
+	)
+	x.metrics.RecordPersonalizationExtracted("success")
 }
