@@ -21,12 +21,8 @@ type ContextManager struct {
 	config      *configuration.Config
 	donations   *repository.DonationsRepository
 	agentSystem *AgentSystem
-	features    FeatureChecker
+	features    *features.FeatureManager
 	tariffs     repository.Tariffs
-}
-
-type FeatureChecker interface {
-	IsEnabled(featureName string) bool
 }
 
 func NewContextManager(
@@ -34,7 +30,7 @@ func NewContextManager(
 	config *configuration.Config,
 	donations *repository.DonationsRepository,
 	agentSystem *AgentSystem,
-	features FeatureChecker,
+	fm *features.FeatureManager,
 	tariffs repository.Tariffs,
 ) (*ContextManager, error) {
 	return &ContextManager{
@@ -42,7 +38,7 @@ func NewContextManager(
 		config:      config,
 		donations:   donations,
 		agentSystem: agentSystem,
-		features:    features,
+		features:    fm,
 		tariffs:     tariffs,
 	}, nil
 }
@@ -365,7 +361,7 @@ func (x *ContextManager) summarizeIndividualMessages(
 	summarizedCount := 0
 	
 	for _, msg := range messages {
-		if msg.Role == platform.MessageRoleSystem || msg.IsCompressed {
+		if msg.Role == platform.MessageRoleSystem || msg.Role == platform.MessageRoleTool || msg.IsCompressed {
 			result = append(result, msg)
 			continue
 		}
@@ -424,11 +420,20 @@ func (x *ContextManager) summarizeClusters(
 	i := 0
 	
 	for i < len(messages) {
+		if messages[i].Role == platform.MessageRoleTool {
+			result = append(result, messages[i])
+			i++
+			continue
+		}
+
 		clusterStart := i
 		clusterEnd := i
 		pairsInCluster := 0
 		
 		for clusterEnd < len(messages) && pairsInCluster < x.config.AI.Agents.Summarization.ClusterSize {
+			if messages[clusterEnd].Role == platform.MessageRoleTool {
+				break
+			}
 			if clusterEnd+1 < len(messages) &&
 				messages[clusterEnd].Role == platform.MessageRoleUser &&
 				messages[clusterEnd+1].Role == platform.MessageRoleAssistant {
