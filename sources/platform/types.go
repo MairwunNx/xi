@@ -16,6 +16,7 @@ const (
 	MessageRoleUser      MessageRole = "user"
 	MessageRoleAssistant MessageRole = "assistant"
 	MessageRoleSystem    MessageRole = "system"
+	MessageRoleTool      MessageRole = "tool"
 )
 
 type RedisMessage struct {
