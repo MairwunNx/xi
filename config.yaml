@@ -54,6 +54,13 @@ ai:
       cluster_token_threshold: 10000
       cluster_size: 10
       recent_messages_count: 4
+    web_search:
+      deep_model: ${WEB_SEARCH_DEEP_MODEL:perplexity/sonar-pro-search}
+      brief_model: ${WEB_SEARCH_BRIEF_MODEL:perplexity/sonar-pro}
+      fallback_model: ${WEB_SEARCH_FALLBACK_MODEL:perplexity/sonar-pro}
+      timeout: ${WEB_SEARCH_TIMEOUT:60}
+      reasoning_effort: ${WEB_SEARCH_REASONING_EFFORT:high}
+      max_calls_per_query: ${WEB_SEARCH_MAX_CALLS:3}
 
   prompts:
     context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
@@ -61,6 +68,7 @@ ai:
     response_length: ${AGENT_RESPONSE_LENGTH_PROMPT}
     summarization: ${SUMMARIZATION_PROMPT}
     personalization_validation: ${AGENT_PERSONALIZATION_VALIDATION_PROMPT}
+    web_search: ${AGENT_WEB_SEARCH_PROMPT}
 
 proxy:
   url: ${PROXY_ADDRESS}
