@@ -1,8 +1,10 @@
 package telegram
 
 import (
+	"fmt"
 	"strings"
 	"ximanager/sources/configuration"
+	"ximanager/sources/features"
 	"ximanager/sources/localization"
 	"ximanager/sources/metrics"
 	"ximanager/sources/platform"
@@ -15,27 +17,44 @@ import (
 )
 
 type Diplomat struct {
-	bot       *tgbotapi.BotAPI
-	config    *configuration.Config
-	users     *repository.UsersRepository
-	donations *repository.DonationsRepository
+	bot          *tgbotapi.BotAPI
+	config       *configuration.Config
+	users        *repository.UsersRepository
+	donations    *repository.DonationsRepository
 	localization *localization.LocalizationManager
 	metrics      *metrics.MetricsService
+	features     *features.FeatureManager
 }
 
-func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager, metrics *metrics.MetricsService) *Diplomat {
-	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization, metrics: metrics}
+func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager, metrics *metrics.MetricsService, fm *features.FeatureManager) *Diplomat {
+	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization, metrics: metrics, features: fm}
 }
 
 func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
-  defer tracing.ProfilePoint(logger, "Diplomat reply completed", "diplomat.reply")()
+	defer tracing.ProfilePoint(logger, "Diplomat reply completed", "diplomat.reply")()
 
-	for _, chunk := range transform.Chunks(text, x.config.Telegram.DiplomatChunkSize) {
+	chunks := transform.Chunks(text, x.config.Telegram.DiplomatChunkSize)
+	isXiResponse := strings.HasPrefix(text, x.localization.LocalizeBy(msg, "MsgXiResponse"))
+
+	for i, chunk := range chunks {
 		chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(chunk))
 		chattable.ReplyToMessageID = msg.MessageID
 		chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
-		if strings.HasPrefix(text, x.localization.LocalizeBy(msg, "MsgXiResponse")) {
+		isLastChunk := i == len(chunks)-1
+
+		if isXiResponse && isLastChunk {
+			var rows [][]tgbotapi.InlineKeyboardButton
+
+			if x.features.IsEnabled(features.FeatureFeedbackButtons) {
+				likeData := fmt.Sprintf("feedback_like_%d", msg.From.ID)
+				dislikeData := fmt.Sprintf("feedback_dislike_%d", msg.From.ID)
+				rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackLikeEmoji"), likeData),
+					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackDislikeEmoji"), dislikeData),
+				))
+			}
+
 			user, err := x.users.GetUserByEid(logger, msg.From.ID)
 			if err != nil {
 				logger.E("Failed to get user", tracing.InnerError, err)
@@ -45,20 +64,22 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 					logger.E("Failed to get donations", tracing.InnerError, err)
 				} else {
 					if grade != platform.GradeGold && *user.Username != "mairwunnx" {
-						chattable.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(
-							tgbotapi.NewInlineKeyboardRow(
-								tgbotapi.NewInlineKeyboardButtonURL(x.localization.LocalizeBy(msg, "MsgDonationsSupport"), "https://www.tbank.ru/cf/3uoCqIOiT8V"),
-							),
-						)
+						rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+							tgbotapi.NewInlineKeyboardButtonURL(x.localization.LocalizeBy(msg, "MsgDonationsSupport"), "https://www.tbank.ru/cf/3uoCqIOiT8V"),
+						))
 					}
 				}
+			}
+
+			if len(rows) > 0 {
+				chattable.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(rows...)
 			}
 		}
 
 		if _, err := x.bot.Send(chattable); err != nil {
 			logger.E("Message chunk sending error", tracing.InnerError, err)
 			x.metrics.RecordMessageSent("error")
-			emsg := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(x.localization.LocalizeBy(msg, "MsgXiError")));
+			emsg := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(x.localization.LocalizeBy(msg, "MsgXiError")))
 			emsg.ReplyToMessageID = msg.MessageID
 			emsg.ParseMode = tgbotapi.ModeMarkdownV2
 
