@@ -20,6 +20,7 @@ var (
 	Ban             *ban
 	Broadcast       *broadcast
 	Donation        *donation
+	Feedback        *feedback
 	Message         *message
 	Mode            *mode
 	Personalization *personalization
@@ -34,6 +35,7 @@ func SetDefault(db *gorm.DB, opts ...gen.DOOption) {
 	Ban = &Q.Ban
 	Broadcast = &Q.Broadcast
 	Donation = &Q.Donation
+	Feedback = &Q.Feedback
 	Message = &Q.Message
 	Mode = &Q.Mode
 	Personalization = &Q.Personalization
@@ -49,6 +51,7 @@ func Use(db *gorm.DB, opts ...gen.DOOption) *Query {
 		Ban:             newBan(db, opts...),
 		Broadcast:       newBroadcast(db, opts...),
 		Donation:        newDonation(db, opts...),
+		Feedback:        newFeedback(db, opts...),
 		Message:         newMessage(db, opts...),
 		Mode:            newMode(db, opts...),
 		Personalization: newPersonalization(db, opts...),
@@ -65,6 +68,7 @@ type Query struct {
 	Ban             ban
 	Broadcast       broadcast
 	Donation        donation
+	Feedback        feedback
 	Message         message
 	Mode            mode
 	Personalization personalization
@@ -82,6 +86,7 @@ func (q *Query) clone(db *gorm.DB) *Query {
 		Ban:             q.Ban.clone(db),
 		Broadcast:       q.Broadcast.clone(db),
 		Donation:        q.Donation.clone(db),
+		Feedback:        q.Feedback.clone(db),
 		Message:         q.Message.clone(db),
 		Mode:            q.Mode.clone(db),
 		Personalization: q.Personalization.clone(db),
@@ -106,6 +111,7 @@ func (q *Query) ReplaceDB(db *gorm.DB) *Query {
 		Ban:             q.Ban.replaceDB(db),
 		Broadcast:       q.Broadcast.replaceDB(db),
 		Donation:        q.Donation.replaceDB(db),
+		Feedback:        q.Feedback.replaceDB(db),
 		Message:         q.Message.replaceDB(db),
 		Mode:            q.Mode.replaceDB(db),
 		Personalization: q.Personalization.replaceDB(db),
@@ -120,6 +126,7 @@ type queryCtx struct {
 	Ban             IBanDo
 	Broadcast       IBroadcastDo
 	Donation        IDonationDo
+	Feedback        IFeedbackDo
 	Message         IMessageDo
 	Mode            IModeDo
 	Personalization IPersonalizationDo
@@ -134,6 +141,7 @@ func (q *Query) WithContext(ctx context.Context) *queryCtx {
 		Ban:             q.Ban.WithContext(ctx),
 		Broadcast:       q.Broadcast.WithContext(ctx),
 		Donation:        q.Donation.WithContext(ctx),
+		Feedback:        q.Feedback.WithContext(ctx),
 		Message:         q.Message.WithContext(ctx),
 		Mode:            q.Mode.WithContext(ctx),
 		Personalization: q.Personalization.WithContext(ctx),
