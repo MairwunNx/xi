@@ -149,6 +149,14 @@ var (
 		},
 		[]string{"type"},
 	)
+
+	personalizationExtracted = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ximanager_personalization_extracted_total",
+			Help: "Total number of personalizations extracted",
+		},
+		[]string{"status"},
+	)
 )
 
 func init() {
@@ -170,6 +178,7 @@ func init() {
 	prometheus.MustRegister(statsDAU)
 	prometheus.MustRegister(statsMAU)
 	prometheus.MustRegister(feedbacksReceived)
+	prometheus.MustRegister(personalizationExtracted)
 }
 
 func NewMetricsService(log *tracing.Logger) *MetricsService {
@@ -253,4 +262,8 @@ func (s *MetricsService) SetMAU(count float64) {
 
 func (s *MetricsService) RecordFeedback(feedbackType string) {
 	feedbacksReceived.WithLabelValues(feedbackType).Inc()
+}
+
+func (s *MetricsService) RecordPersonalizationExtracted(status string) {
+	personalizationExtracted.WithLabelValues(status).Inc()
 }
