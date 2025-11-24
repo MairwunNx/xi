@@ -52,6 +52,13 @@ type WebSearchResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// PersonalizationExtractionResponse represents the response from personalization extraction agent
+type PersonalizationExtractionResponse struct {
+	HasNewInfo     bool     `json:"has_new_info"`
+	NewFacts       []string `json:"new_facts"`
+	UpdatedProfile *string  `json:"updated_profile"`
+}
+
 // AgentSystem handles the agent-based AI workflow
 type AgentSystem struct {
 	ai      *openrouter.Client
@@ -758,6 +765,14 @@ func (a *AgentSystem) getWebSearchPrompt() string {
 	return decodePrompt(p, getDefaultWebSearchPrompt())
 }
 
+func (a *AgentSystem) getPersonalizationExtractionPrompt() string {
+	p := a.config.AI.Prompts.PersonalizationExtraction
+	if p == "" {
+		return getDefaultPersonalizationExtractionPrompt()
+	}
+	return decodePrompt(p, getDefaultPersonalizationExtractionPrompt())
+}
+
 func decodePrompt(raw, fallback string) string {
 	// Try base64 decode
 	decoded, err := base64.StdEncoding.DecodeString(raw)
@@ -978,6 +993,76 @@ func (a *AgentSystem) WebSearch(
 		Result: resultText,
 		Error:  "",
 	}, nil
+}
+
+func (a *AgentSystem) ExtractPersonalization(
+	log *tracing.Logger,
+	currentProfile string,
+	userMessage string,
+) (*PersonalizationExtractionResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent extract personalization completed", "artificial.agents.extract.personalization", "message_length", len(userMessage))()
+	a.metrics.RecordAgentUsage("personalization_extraction")
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.PersonalizationExtrctor.Timeout)*time.Second)
+	defer cancel()
+
+	prompt := a.getPersonalizationExtractionPrompt()
+	systemMessage := fmt.Sprintf(prompt, currentProfile, userMessage)
+
+	messages := []openrouter.ChatCompletionMessage{
+		{
+			Role:    openrouter.ChatMessageRoleSystem,
+			Content: openrouter.Content{Text: systemMessage},
+		},
+		{
+			Role:    openrouter.ChatMessageRoleUser,
+			Content: openrouter.Content{Text: "Analyze the message and extract any new personal information. Return your response in JSON format."},
+		},
+	}
+
+	model := a.config.AI.Agents.PersonalizationExtrctor.Model
+
+	request := openrouter.ChatCompletionRequest{
+		Model:    model,
+		Messages: messages,
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
+		},
+		Temperature: 0.1,
+	}
+
+	log = log.With("ai_agent", "personalization_extractor", tracing.AiModel, model)
+
+	startTime := time.Now()
+	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		log.E("Failed to extract personalization", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		return nil, err
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in personalization extraction response")
+		return nil, fmt.Errorf("empty response from personalization extraction agent")
+	}
+
+	responseText := cleanJSONFromMarkdown(response.Choices[0].Message.Content.Text)
+
+	var extractionResponse PersonalizationExtractionResponse
+	if err := json.Unmarshal([]byte(responseText), &extractionResponse); err != nil {
+		log.E("Failed to parse personalization extraction response", tracing.InnerError, err, "response_text", responseText)
+		return nil, fmt.Errorf("failed to parse extraction response: %w", err)
+	}
+
+	log.I("agent_personalization_extraction_success",
+		"has_new_info", extractionResponse.HasNewInfo,
+		"new_facts_count", len(extractionResponse.NewFacts),
+		"duration_ms", duration.Milliseconds(),
+	)
+
+	return &extractionResponse, nil
 }
 
 // Helper to format models for prompt (copied from config.go logic)
