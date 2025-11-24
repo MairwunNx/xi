@@ -69,6 +69,7 @@ type AI_AgentsConfig struct {
 	ModelSelection AI_AgentConfig         `yaml:"model_selection"`
 	ResponseLength AI_AgentConfig         `yaml:"response_length"`
 	Summarization  AI_SummarizationConfig `yaml:"summarization"`
+	WebSearch      AI_WebSearchConfig     `yaml:"web_search"`
 }
 
 type AI_AgentConfig struct {
@@ -85,12 +86,22 @@ type AI_SummarizationConfig struct {
 	RecentMessagesCount         int    `yaml:"recent_messages_count"`
 }
 
+type AI_WebSearchConfig struct {
+	DeepModel        string `yaml:"deep_model"`
+	BriefModel       string `yaml:"brief_model"`
+	FallbackModel    string `yaml:"fallback_model"`
+	Timeout          int    `yaml:"timeout"`
+	ReasoningEffort  string `yaml:"reasoning_effort"`
+	MaxCallsPerQuery int    `yaml:"max_calls_per_query"`
+}
+
 type AI_PromptsConfig struct {
-	ContextSelection           string `yaml:"context_selection"`
-	ModelSelection             string `yaml:"model_selection"`
-	ResponseLength             string `yaml:"response_length"`
-	Summarization              string `yaml:"summarization"`
-	PersonalizationValidation  string `yaml:"personalization_validation"`
+	ContextSelection          string `yaml:"context_selection"`
+	ModelSelection            string `yaml:"model_selection"`
+	ResponseLength            string `yaml:"response_length"`
+	Summarization             string `yaml:"summarization"`
+	PersonalizationValidation string `yaml:"personalization_validation"`
+	WebSearch                 string `yaml:"web_search"`
 }
 
 type ProxyConfig struct {
