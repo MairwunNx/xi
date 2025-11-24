@@ -604,3 +604,22 @@ other = "ℹ️ 你已经取消订阅了广播。"
 
 [MsgBroadcastErrorUnsubscribe]
 other = "💢 取消订阅时发生错误。"
+
+# Feedback
+[MsgFeedbackLikeEmoji]
+other = "👍"
+
+[MsgFeedbackDislikeEmoji]
+other = "👎"
+
+[MsgFeedbackLiked]
+other = "✅ 感谢您的好评！"
+
+[MsgFeedbackDisliked]
+other = "✅ 感谢您的反馈！我们会努力提高回答质量。"
+
+[MsgFeedbackError]
+other = "💢 保存评价时发生错误。"
+
+[MsgFeedbackNotYourMessage]
+other = "🈲 只有收到回复的人才能评价。"

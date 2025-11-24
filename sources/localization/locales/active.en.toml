@@ -604,3 +604,22 @@ other = "ℹ️ You are already unsubscribed from broadcasts."
 
 [MsgBroadcastErrorUnsubscribe]
 other = "💢 An error occurred while unsubscribing."
+
+# Feedback
+[MsgFeedbackLikeEmoji]
+other = "👍"
+
+[MsgFeedbackDislikeEmoji]
+other = "👎"
+
+[MsgFeedbackLiked]
+other = "✅ Thank you for your positive feedback!"
+
+[MsgFeedbackDisliked]
+other = "✅ Thank you for your feedback! We will try to improve the quality of responses."
+
+[MsgFeedbackError]
+other = "💢 An error occurred while saving your feedback."
+
+[MsgFeedbackNotYourMessage]
+other = "🈲 Only the person the response was addressed to can rate it."
