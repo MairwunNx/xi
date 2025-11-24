@@ -161,14 +161,11 @@ func (a *AgentSystem) SelectRelevantContext(
 
 	indices := indices.Expand(log, contextResponse.RelevantIndices, len(history)-1)
 
-	// Ensure we select messages in pairs (user-assistant)
-	// Convert indices to a set for faster lookup
 	indicesSet := make(map[int]bool)
 	for _, idx := range indices {
 		indicesSet[idx] = true
 	}
 
-	// Add missing pairs - iterate over copy to avoid modifying map during iteration
 	currentIndices := make([]int, 0, len(indicesSet))
 	for idx := range indicesSet {
 		currentIndices = append(currentIndices, idx)
@@ -178,18 +175,16 @@ func (a *AgentSystem) SelectRelevantContext(
 		if idx >= 0 && idx < len(history) {
 			msg := history[idx]
 
-			// If this is a user message, ensure we have the following assistant message
-			if msg.Role == platform.MessageRoleUser && idx+1 < len(history) {
-				if history[idx+1].Role == platform.MessageRoleAssistant {
-					indicesSet[idx+1] = true
-				}
-			}
+			switch msg.Role {
+			case platform.MessageRoleUser:
+				a.addChainForward(history, indicesSet, idx)
 
-			// If this is an assistant message, ensure we have the preceding user message
-			if msg.Role == platform.MessageRoleAssistant && idx > 0 {
-				if history[idx-1].Role == platform.MessageRoleUser {
-					indicesSet[idx-1] = true
-				}
+			case platform.MessageRoleAssistant:
+				a.addChainBackward(history, indicesSet, idx)
+
+			case platform.MessageRoleTool:
+				a.addChainBackward(history, indicesSet, idx)
+				a.addChainForward(history, indicesSet, idx)
 			}
 		}
 	}
@@ -378,6 +373,36 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 		parts = append(parts, fmt.Sprintf("[%d] %s: %s", i, role, msg.Content))
 	}
 	return strings.Join(parts, "\n")
+}
+
+func (a *AgentSystem) addChainForward(history []platform.RedisMessage, indicesSet map[int]bool, startIdx int) {
+	for i := startIdx + 1; i < len(history); i++ {
+		role := history[i].Role
+		if role == platform.MessageRoleTool {
+			indicesSet[i] = true
+			continue
+		}
+		if role == platform.MessageRoleAssistant {
+			indicesSet[i] = true
+			break
+		}
+		break
+	}
+}
+
+func (a *AgentSystem) addChainBackward(history []platform.RedisMessage, indicesSet map[int]bool, startIdx int) {
+	for i := startIdx - 1; i >= 0; i-- {
+		role := history[i].Role
+		if role == platform.MessageRoleTool {
+			indicesSet[i] = true
+			continue
+		}
+		if role == platform.MessageRoleUser {
+			indicesSet[i] = true
+			break
+		}
+		break
+	}
 }
 
 func (a *AgentSystem) getModelSelectionFallback(tierPolicy TierPolicy) *ModelSelectionResponse {
