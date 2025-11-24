@@ -53,7 +53,7 @@ ai:
       single_message_token_threshold: 2100
       cluster_token_threshold: 10000
       cluster_size: 10
-      recent_messages_count: 4
+      recent_messages_count: 5
     web_search:
       deep_model: ${WEB_SEARCH_DEEP_MODEL:perplexity/sonar-pro-search}
       brief_model: ${WEB_SEARCH_BRIEF_MODEL:perplexity/sonar-pro}
