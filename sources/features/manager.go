@@ -14,6 +14,7 @@ const (
 	FeatureMessageSummarization    = "dialer/context/message/summarization"
 	FeatureClusterSummarization    = "dialer/context/cluster/summarization"
 	FeatureResponseLengthDetection = "dialer/response/length-detection"
+	FeatureFeedbackButtons         = "dialer/response/feedback-buttons"
 )
 
 type FeatureManager struct {
