@@ -46,6 +46,12 @@ type ResponseLengthResponse struct {
 	Reasoning  string  `json:"reasoning"`  // Brief explanation
 }
 
+// WebSearchResponse represents the response from web search agent
+type WebSearchResponse struct {
+	Result string `json:"result"`
+	Error  string `json:"error,omitempty"`
+}
+
 // AgentSystem handles the agent-based AI workflow
 type AgentSystem struct {
 	ai      *openrouter.Client
@@ -714,6 +720,14 @@ func (a *AgentSystem) getPersonalizationValidationPrompt() string {
 	return decodePrompt(p, getDefaultPersonalizationValidationPrompt())
 }
 
+func (a *AgentSystem) getWebSearchPrompt() string {
+	p := a.config.AI.Prompts.WebSearch
+	if p == "" {
+		return getDefaultWebSearchPrompt()
+	}
+	return decodePrompt(p, getDefaultWebSearchPrompt())
+}
+
 func decodePrompt(raw, fallback string) string {
 	// Try base64 decode
 	decoded, err := base64.StdEncoding.DecodeString(raw)
@@ -822,6 +836,118 @@ func (a *AgentSystem) isValidResponseLength(length string) bool {
 		"detailed": true, "very_detailed": true,
 	}
 	return validLengths[length]
+}
+
+func (a *AgentSystem) WebSearch(
+	log *tracing.Logger,
+	query string,
+	isDeepSearch bool,
+	effortOverride string,
+	agentUsage *AgentUsageAccumulator,
+) (*WebSearchResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent web search completed", "artificial.agents.web.search", "query_length", len(query), "is_deep", isDeepSearch)()
+	a.metrics.RecordAgentUsage("web_search")
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.WebSearch.Timeout)*time.Second)
+	defer cancel()
+
+	prompt := a.getWebSearchPrompt()
+	systemMessage := fmt.Sprintf(prompt, query)
+
+	messages := []openrouter.ChatCompletionMessage{
+		{
+			Role:    openrouter.ChatMessageRoleSystem,
+			Content: openrouter.Content{Text: systemMessage},
+		},
+		{
+			Role:    openrouter.ChatMessageRoleUser,
+			Content: openrouter.Content{Text: "Search the internet for the most relevant and recent information related to the query."},
+		},
+	}
+
+	model := a.config.AI.Agents.WebSearch.BriefModel
+	if isDeepSearch {
+		model = a.config.AI.Agents.WebSearch.DeepModel
+	}
+
+	effort := a.config.AI.Agents.WebSearch.ReasoningEffort
+	if effortOverride != "" && (effortOverride == "low" || effortOverride == "medium" || effortOverride == "high") {
+		effort = effortOverride
+	}
+
+	searchContextSize := openrouter.SearchContextSizeMedium
+	switch effort {
+	case "low":
+		searchContextSize = openrouter.SearchContextSizeLow
+	case "high":
+		searchContextSize = openrouter.SearchContextSizeHigh
+	}
+
+	request := openrouter.ChatCompletionRequest{
+		Model:    model,
+		Messages: messages,
+		Provider: &openrouter.ChatProvider{
+			DataCollection: openrouter.DataCollectionDeny,
+			Sort:           openrouter.ProviderSortingLatency,
+		},
+		Temperature: 0.3,
+		Usage:       &openrouter.IncludeUsage{Include: true},
+		WebSearchOptions: &openrouter.WebSearchOptions{
+			SearchContextSize: searchContextSize,
+		},
+	}
+
+	log = log.With("ai_agent", "web_search", tracing.AiModel, model, "effort", effort, "is_deep", isDeepSearch)
+
+	startTime := time.Now()
+	response, err := a.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		log.E("Failed to perform web search", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_web_search_failed", "reason", "api_error", "duration_ms", duration.Milliseconds())
+
+		model = a.config.AI.Agents.WebSearch.FallbackModel
+		request.Model = model
+		log = log.With(tracing.AiModel, model)
+
+		response, err = a.ai.CreateChatCompletion(ctx, request)
+		if err != nil {
+			log.E("Fallback web search also failed", tracing.InnerError, err)
+			return &WebSearchResponse{
+				Result: "",
+				Error:  "Web search failed: unable to retrieve information at this time. Please try again later.",
+			}, nil
+		}
+	}
+
+	if agentUsage != nil {
+		agentUsage.Add(response.Usage.TotalTokens, response.Usage.Cost)
+	}
+
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in web search response")
+		log.I("agent_web_search_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds())
+		return &WebSearchResponse{
+			Result: "",
+			Error:  "Web search returned no results.",
+		}, nil
+	}
+
+	resultText := response.Choices[0].Message.Content.Text
+
+	log.I("agent_web_search_success",
+		"result_length", len(resultText),
+		"duration_ms", duration.Milliseconds(),
+		"model", model,
+		"effort", effort,
+		"is_deep", isDeepSearch,
+	)
+
+	return &WebSearchResponse{
+		Result: resultText,
+		Error:  "",
+	}, nil
 }
 
 // Helper to format models for prompt (copied from config.go logic)
