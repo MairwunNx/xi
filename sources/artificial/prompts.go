@@ -197,6 +197,26 @@ Text to analyze: %s
 Return ONLY JSON, nothing else.`
 }
 
+func getDefaultWebSearchPrompt() string {
+	return `You are a web search specialist agent. Your task is to find accurate and up-to-date information from the internet based on the user's query.
+
+User's search query:
+"""
+%s
+"""
+
+Instructions:
+1. Search for the most relevant and recent information related to the query.
+2. Focus on authoritative and reliable sources.
+3. Provide a comprehensive answer that directly addresses the user's question.
+4. Include specific facts, dates, numbers, and citations where relevant.
+5. If the query involves current events, prices, statistics, or time-sensitive data, prioritize the most recent information.
+6. Structure your response clearly with key findings.
+7. If you cannot find reliable information, clearly state that.
+
+Return a clear, well-structured response with the search results.`
+}
+
 func getDefaultResponseLengthPrompt() string {
 	return `You are a response length classification agent.
 Your task is to analyze the user's message and choose how long the assistant's reply should be.
