@@ -61,6 +61,9 @@ ai:
       timeout: ${WEB_SEARCH_TIMEOUT:60}
       reasoning_effort: ${WEB_SEARCH_REASONING_EFFORT:high}
       max_calls_per_query: ${WEB_SEARCH_MAX_CALLS:3}
+    personalization_extractor:
+      model: ${AGENT_PERSONALIZATION_EXTRACTOR_MODEL:openai/gpt-4o-mini}
+      timeout: ${AGENT_PERSONALIZATION_EXTRACTOR_TIMEOUT:30}
 
   prompts:
     context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
@@ -68,6 +71,7 @@ ai:
     response_length: ${AGENT_RESPONSE_LENGTH_PROMPT}
     summarization: ${SUMMARIZATION_PROMPT}
     personalization_validation: ${AGENT_PERSONALIZATION_VALIDATION_PROMPT}
+    personalization_extraction: ${AGENT_PERSONALIZATION_EXTRACTION_PROMPT}
     web_search: ${AGENT_WEB_SEARCH_PROMPT}
 
 proxy:
