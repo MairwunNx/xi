@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"ximanager/sources/artificial"
 	"ximanager/sources/localization"
@@ -18,52 +19,52 @@ import (
 )
 
 type TelegramHandler struct {
-	diplomat         *Diplomat
-	users            *repository.UsersRepository
-	rights           *repository.RightsRepository
-	dialer           *artificial.Dialer
-	whisper          *artificial.Whisper
-
-	modes            *repository.ModesRepository
-	donations        *repository.DonationsRepository
-	messages         *repository.MessagesRepository
-	personalizations *repository.PersonalizationsRepository
-	agents           *artificial.AgentSystem
-	usage            *repository.UsageRepository
-	throttler        *throttler.Throttler
-	contextManager   *artificial.ContextManager
-	health           *repository.HealthRepository
-	bans             *repository.BansRepository
-	broadcast        *repository.BroadcastRepository
-	localization     *localization.LocalizationManager
-	personality      *personality.XiPersonality
+	diplomat          *Diplomat
+	users             *repository.UsersRepository
+	rights            *repository.RightsRepository
+	dialer            *artificial.Dialer
+	whisper           *artificial.Whisper
+	modes             *repository.ModesRepository
+	donations         *repository.DonationsRepository
+	messages          *repository.MessagesRepository
+	personalizations  *repository.PersonalizationsRepository
+	agents            *artificial.AgentSystem
+	usage             *repository.UsageRepository
+	throttler         *throttler.Throttler
+	contextManager    *artificial.ContextManager
+	health            *repository.HealthRepository
+	bans              *repository.BansRepository
+	broadcast         *repository.BroadcastRepository
+	feedbacks         *repository.FeedbacksRepository
+	localization      *localization.LocalizationManager
+	personality       *personality.XiPersonality
 	dateTimeFormatter *format.DateTimeFormatter
-	metrics          *metrics.MetricsService
+	metrics           *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
 	return &TelegramHandler{
-		diplomat:         diplomat,
-		users:            users,
-		rights:           rights,
-		dialer:           dialer,
-		whisper:          whisper,
-
-		modes:            modes,
-		donations:        donations,
-		messages:         messages,
-		personalizations: personalizations,
-		agents:           agents,
-		usage:            usage,
-		throttler:        throttler,
-		contextManager:   contextManager,
-		health:           health,
-		bans:             bans,
-		broadcast:        broadcast,
-		localization:     localization,
-		personality:      personality,
+		diplomat:          diplomat,
+		users:             users,
+		rights:            rights,
+		dialer:            dialer,
+		whisper:           whisper,
+		modes:             modes,
+		donations:         donations,
+		messages:          messages,
+		personalizations:  personalizations,
+		agents:            agents,
+		usage:             usage,
+		throttler:         throttler,
+		contextManager:    contextManager,
+		health:            health,
+		bans:              bans,
+		broadcast:         broadcast,
+		feedbacks:         feedbacks,
+		localization:      localization,
+		personality:       personality,
 		dateTimeFormatter: dateTimeFormatter,
-		metrics:          metrics,
+		metrics:           metrics,
 	}
 }
 
@@ -209,9 +210,81 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		if _, err := x.diplomat.bot.Request(callback); err != nil {
 			log.E("Failed to answer callback", tracing.InnerError, err)
 		}
+		return nil
+	}
+
+	if strings.HasPrefix(query.Data, "feedback_like_") || strings.HasPrefix(query.Data, "feedback_dislike_") {
+		x.handleFeedbackCallback(log, query, user)
+		return nil
 	}
 
 	return nil
+}
+
+func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	isLike := strings.HasPrefix(query.Data, "feedback_like_")
+	var targetUserIDStr string
+	if isLike {
+		targetUserIDStr = strings.TrimPrefix(query.Data, "feedback_like_")
+	} else {
+		targetUserIDStr = strings.TrimPrefix(query.Data, "feedback_dislike_")
+	}
+
+	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
+	if err != nil {
+		log.E("Failed to parse target user ID from callback", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgFeedbackError"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	if query.From.ID != targetUserID {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgFeedbackNotYourMessage"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	liked := 0
+	if isLike {
+		liked = 1
+	}
+
+	_, err = x.feedbacks.CreateFeedback(log, user.ID, liked)
+	if err != nil {
+		log.E("Failed to create feedback", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgFeedbackError"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	if isLike {
+		x.metrics.RecordFeedback("like")
+	} else {
+		x.metrics.RecordFeedback("dislike")
+	}
+
+	callbackText := x.localization.LocalizeBy(query.Message, "MsgFeedbackDisliked")
+	if isLike {
+		callbackText = x.localization.LocalizeBy(query.Message, "MsgFeedbackLiked")
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, callbackText)
+	if _, err := x.diplomat.bot.Request(callback); err != nil {
+		log.E("Failed to answer callback", tracing.InnerError, err)
+	}
+
+	editMarkup := tgbotapi.NewEditMessageReplyMarkup(query.Message.Chat.ID, query.Message.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
+	if _, err := x.diplomat.bot.Request(editMarkup); err != nil {
+		log.W("Failed to remove feedback buttons", tracing.InnerError, err)
+	}
+
+	log.I("Feedback recorded", "user_id", user.ID, "liked", liked)
 }
 
 func (x *TelegramHandler) user(log *tracing.Logger, msg *tgbotapi.Message) (*entities.User, error) {
