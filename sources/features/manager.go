@@ -10,11 +10,13 @@ import (
 )
 
 const (
-	FeatureLocalizationAuto        = "general/localization/auto"
-	FeatureMessageSummarization    = "dialer/context/message/summarization"
-	FeatureClusterSummarization    = "dialer/context/cluster/summarization"
-	FeatureResponseLengthDetection = "dialer/response/length-detection"
-	FeatureFeedbackButtons         = "dialer/response/feedback-buttons"
+	FeatureLocalizationAuto           = "general/localization/auto"
+	FeatureMessageSummarization       = "dialer/context/message/summarization"
+	FeatureClusterSummarization       = "dialer/context/cluster/summarization"
+	FeatureResponseLengthDetection    = "dialer/response/length-detection"
+	FeatureFeedbackButtons            = "dialer/response/feedback-buttons"
+	FeaturePersonalizationExtraction  = "dialer/personalization/extraction"
+	FeatureStreamingResponses         = "dialer/response/streaming"
 )
 
 type FeatureManager struct {
