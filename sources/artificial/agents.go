@@ -367,8 +367,13 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 	var parts []string
 	for i, msg := range history {
 		role := "User"
-		if msg.Role == platform.MessageRoleAssistant {
+		switch msg.Role {
+		case platform.MessageRoleAssistant:
 			role = "Assistant"
+		case platform.MessageRoleTool:
+			role = "Tool"
+		case platform.MessageRoleSystem:
+			role = "System"
 		}
 		parts = append(parts, fmt.Sprintf("[%d] %s: %s", i, role, msg.Content))
 	}
