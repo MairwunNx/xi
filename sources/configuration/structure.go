@@ -65,11 +65,12 @@ type AIConfig struct {
 }
 
 type AI_AgentsConfig struct {
-	Context        AI_AgentConfig         `yaml:"context"`
-	ModelSelection AI_AgentConfig         `yaml:"model_selection"`
-	ResponseLength AI_AgentConfig         `yaml:"response_length"`
-	Summarization  AI_SummarizationConfig `yaml:"summarization"`
-	WebSearch      AI_WebSearchConfig     `yaml:"web_search"`
+	Context                 AI_AgentConfig         `yaml:"context"`
+	ModelSelection          AI_AgentConfig         `yaml:"model_selection"`
+	ResponseLength          AI_AgentConfig         `yaml:"response_length"`
+	Summarization           AI_SummarizationConfig `yaml:"summarization"`
+	WebSearch               AI_WebSearchConfig     `yaml:"web_search"`
+	PersonalizationExtrctor AI_AgentConfig         `yaml:"personalization_extractor"`
 }
 
 type AI_AgentConfig struct {
@@ -101,6 +102,7 @@ type AI_PromptsConfig struct {
 	ResponseLength            string `yaml:"response_length"`
 	Summarization             string `yaml:"summarization"`
 	PersonalizationValidation string `yaml:"personalization_validation"`
+	PersonalizationExtraction string `yaml:"personalization_extraction"`
 	WebSearch                 string `yaml:"web_search"`
 }
 
