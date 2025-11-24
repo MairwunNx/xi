@@ -11,6 +11,7 @@ import (
 	"ximanager/sources/features"
 	"ximanager/sources/localization"
 	"ximanager/sources/metrics"
+	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
@@ -35,7 +36,7 @@ type Dialer struct {
 	usageLimiter     *UsageLimiter
 	spendingLimiter  *SpendingLimiter
 	agentSystem      *AgentSystem
-	features         FeatureChecker
+	features         *features.FeatureManager
 	localization     *localization.LocalizationManager
 	tariffs          repository.Tariffs
 	metrics          *metrics.MetricsService
@@ -54,7 +55,7 @@ func NewDialer(
 	contextManager *ContextManager,
 	usageLimiter *UsageLimiter,
 	spendingLimiter *SpendingLimiter,
-	features FeatureChecker,
+	fm *features.FeatureManager,
 	localization *localization.LocalizationManager,
 	tariffs repository.Tariffs,
 	metrics *metrics.MetricsService,
@@ -73,7 +74,7 @@ func NewDialer(
 		usageLimiter:     usageLimiter,
 		spendingLimiter:  spendingLimiter,
 		agentSystem:      NewAgentSystem(ai, config, tariffs, metrics),
-		features:         features,
+		features:         fm,
 		localization:     localization,
 		tariffs:          tariffs,
 		metrics:          metrics,
@@ -433,36 +434,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	request.Transforms = []string{}
 
-	if !platform.BoolValue(user.IsBanless, false) {
-		request.Tools = []openrouter.Tool{
-			{
-				Type: openrouter.ToolTypeFunction,
-				Function: &openrouter.FunctionDefinition{
-					Name:        "temporary_ban",
-					Description: "Temporarily ban user for violations. STRICT RULES:\n\nWHEN TO CALL:\n- Minimum 3 similar violations within last 10 messages\n- After explicit warning given (or include warning in current response)\n- Pattern of repeated behavior, NOT isolated incident\n- User ignored previous warning\n\nVIOLATION TYPES (severity → duration):\n1. Explicit prolonged rudeness/insults → 30m-2h\n2. Explicit prolonged trolling → 10m-1h\n3. Explicit prolonged spam/flood → 1m-10m\n4. Meaningless message chains → 1m-5m\n5. Very heavy computational tasks → 30s-2m\n\nDO NOT BAN FOR:\n- Criticism, disagreement, debate\n- Single off-topic messages\n- Poor language quality, typos, slang\n- Questions or confusion\n- First-time minor violations\n- Sarcasm or humor\n- Simple misunderstandings\n\nPROCESS:\n1. Warn user first (in current response)\n2. If violation continues → call this tool\n3. Tool will send notice to user automatically\n4. Do NOT mention ban in your response text\n\nMax ban: 12h. When in doubt, DON'T call.",
-					Parameters: map[string]interface{}{
-						"type": "object",
-						"properties": map[string]interface{}{
-							"duration": map[string]interface{}{
-								"type":        "string",
-								"description": "Ban duration based on violation severity. Format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Examples: heavy task=30s-1m, spam=1m-10m, rudeness=30m-2h",
-								"enum":        []string{"30s", "45s", "1m", "90s", "2m", "3m", "5m", "7m", "10m", "15m", "20m", "30m", "45m", "1h", "90m", "2h", "3h", "4h", "5h", "6h", "8h", "10h", "12h"},
-							},
-							"reason": map[string]interface{}{
-								"type":        "string",
-								"description": "Brief internal reason tag (Russian). Examples: 'хамство', 'троллинг', 'флуд', 'спам', 'тяжелая задача'",
-							},
-							"notice": map[string]interface{}{
-								"type":        "string",
-								"description": "Full notice to user in Russian. Explain: what violated, why banned, duration, how to avoid future bans. Tone: firm but fair. Example: 'Временная блокировка на 10 минут за продолжительный флуд. Пожалуйста, избегайте отправки множества коротких бессмысленных сообщений подряд.'",
-							},
-						},
-						"required": []string{"duration", "reason", "notice"},
-					},
-				},
-			},
-		}
-	}
+	request.Tools = x.buildTools(user)
 
 	request.Temperature = temperature
 
@@ -486,68 +458,80 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(selectedContext))
 
-	start := time.Now()
-	response, err := x.ai.CreateChatCompletion(ctx, request)
-	duration := time.Since(start)
-	if err == nil {
-		x.metrics.RecordAIRequestDuration(duration, modelToUse)
-	}
-	if err != nil {
-		switch e := err.(type) {
-		case *openrouter.APIError:
-			if e.Code == 402 {
-				return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
-			}
-			log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
-			return "", err
-		default:
-			log.E("Failed to dial", tracing.InnerError, err)
-			return "", err
-		}
-	}
-
-	tokens := response.Usage.TotalTokens
-	cost := decimal.NewFromFloat(response.Usage.Cost)
-
-	log.I("ai completed", tracing.AiCost, cost.String(), tracing.AiTokens, tokens)
-
-	if len(response.Choices) == 0 {
-		log.E("Empty choices in dialer response")
-		return "", fmt.Errorf("empty choices in AI response")
-	}
-
-	responseText := response.Choices[0].Message.Content.Text
-
+	var responseText string
 	var banNotice string
+	var totalTokens int
+	var totalCost decimal.Decimal
+	webSearchCalls := 0
+	maxWebSearchCalls := x.config.AI.Agents.WebSearch.MaxCallsPerQuery
+	if maxWebSearchCalls <= 0 {
+		maxWebSearchCalls = 3
+	}
 
-	if len(response.Choices[0].Message.ToolCalls) > 0 {
-		for _, toolCall := range response.Choices[0].Message.ToolCalls {
-			if toolCall.Function.Name == "temporary_ban" {
-				log.I("LLM called temporary_ban tool", "arguments", toolCall.Function.Arguments)
-
-				var banArgs struct {
-					Duration string `json:"duration"`
-					Reason   string `json:"reason"`
-					Notice   string `json:"notice"`
+	for {
+		start := time.Now()
+		response, err := x.ai.CreateChatCompletion(ctx, request)
+		duration := time.Since(start)
+		if err == nil {
+			x.metrics.RecordAIRequestDuration(duration, modelToUse)
+		}
+		if err != nil {
+			switch e := err.(type) {
+			case *openrouter.APIError:
+				if e.Code == 402 {
+					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 				}
-
-				if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &banArgs); err != nil {
-					log.E("Failed to parse ban tool arguments", tracing.InnerError, err)
-					continue
-				}
-
-				_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
-				if err != nil {
-					log.E("Failed to create ban from tool call", tracing.InnerError, err)
-					// Don't expose technical error to user, just log it
-				} else {
-					log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason, "notice", banArgs.Notice)
-					if banArgs.Notice != "" {
-						banNotice = "\n\n" + banArgs.Notice
-					}
-				}
+				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
+				return "", err
+			default:
+				log.E("Failed to dial", tracing.InnerError, err)
+				return "", err
 			}
 		}
+
+		totalTokens += response.Usage.TotalTokens
+		totalCost = totalCost.Add(decimal.NewFromFloat(response.Usage.Cost))
+
+		log.I("ai iteration completed", tracing.AiCost, totalCost.String(), tracing.AiTokens, totalTokens, "iteration_tokens", response.Usage.TotalTokens)
+
+		if len(response.Choices) == 0 {
+			log.E("Empty choices in dialer response")
+			return "", fmt.Errorf("empty choices in AI response")
+		}
+
+		choice := response.Choices[0]
+		responseText = choice.Message.Content.Text
+
+		if len(choice.Message.ToolCalls) == 0 {
+			break
+		}
+
+		toolResults := x.processToolCalls(log, user, msg, choice.Message.ToolCalls, &banNotice, &webSearchCalls, maxWebSearchCalls, agentUsage)
+
+		if len(toolResults) == 0 {
+			break
+		}
+
+		messages = append(messages, openrouter.ChatCompletionMessage{
+			Role:      openrouter.ChatMessageRoleAssistant,
+			Content:   openrouter.Content{Text: responseText},
+			ToolCalls: choice.Message.ToolCalls,
+		})
+
+		for _, toolResult := range toolResults {
+			messages = append(messages, openrouter.ChatCompletionMessage{
+				Role:       openrouter.ChatMessageRoleTool,
+				Content:    openrouter.Content{Text: toolResult.Content},
+				ToolCallID: toolResult.ToolCallID,
+			})
+
+			toolMessage := platform.RedisMessage{Role: platform.MessageRoleTool, Content: toolResult.Content}
+			if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, toolMessage); err != nil {
+				log.E("Error saving tool message to context", tracing.InnerError, err)
+			}
+		}
+
+		request.Messages = messages
 	}
 
 	if err := x.messages.SaveMessage(log, msg, false); err != nil {
@@ -569,16 +553,16 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	anotherCost := decimal.NewFromFloat(agentUsage.Cost)
 	anotherTokens := agentUsage.TotalTokens
-	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, cost, tokens, anotherCost, anotherTokens); err != nil {
+	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, totalCost, totalTokens, anotherCost, anotherTokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
 	}
 
-	x.metrics.RecordDialerUsage(tokens, cost.InexactFloat64(), modelToUse)
+	x.metrics.RecordDialerUsage(totalTokens, totalCost.InexactFloat64(), modelToUse)
 	if anotherTokens > 0 || !anotherCost.IsZero() {
 		x.metrics.RecordAgentCost(anotherTokens, anotherCost.InexactFloat64(), modelToUse)
 	}
 
-	x.spendingLimiter.AddSpend(log, user, cost)
+	x.spendingLimiter.AddSpend(log, user, totalCost)
 
 	if limitWarning != "" {
 		responseText += limitWarning
@@ -591,12 +575,172 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	return responseText, nil
 }
 
+type ToolResult struct {
+	ToolCallID string
+	Content    string
+}
+
+func (x *Dialer) processToolCalls(
+	log *tracing.Logger,
+	user *entities.User,
+	msg *tgbotapi.Message,
+	toolCalls []openrouter.ToolCall,
+	banNotice *string,
+	webSearchCalls *int,
+	maxWebSearchCalls int,
+	agentUsage *AgentUsageAccumulator,
+) []ToolResult {
+	var results []ToolResult
+
+	for _, toolCall := range toolCalls {
+		switch toolCall.Function.Name {
+		case "web_search":
+			if *webSearchCalls >= maxWebSearchCalls {
+				log.W("Web search call limit reached", "max", maxWebSearchCalls)
+				results = append(results, ToolResult{
+					ToolCallID: toolCall.ID,
+					Content:    "Web search limit reached for this query. Please provide your response based on the information already gathered.",
+				})
+				continue
+			}
+			*webSearchCalls++
+
+			var searchArgs struct {
+				Query        string `json:"query"`
+				IsDeepSearch bool   `json:"is_deep_search"`
+				Effort       string `json:"effort"`
+			}
+
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &searchArgs); err != nil {
+				log.E("Failed to parse web_search tool arguments", tracing.InnerError, err)
+				results = append(results, ToolResult{
+					ToolCallID: toolCall.ID,
+					Content:    "Error: Failed to parse search parameters.",
+				})
+				continue
+			}
+
+			log.I("Processing web_search tool call", "query", searchArgs.Query, "is_deep", searchArgs.IsDeepSearch, "effort", searchArgs.Effort, "call_number", *webSearchCalls)
+
+			searchResult, err := x.agentSystem.WebSearch(log, searchArgs.Query, searchArgs.IsDeepSearch, searchArgs.Effort, agentUsage)
+			if err != nil {
+				log.E("Web search agent error", tracing.InnerError, err)
+				results = append(results, ToolResult{
+					ToolCallID: toolCall.ID,
+					Content:    "Error: Web search failed. Please try to answer based on your knowledge.",
+				})
+				continue
+			}
+
+			if searchResult.Error != "" {
+				results = append(results, ToolResult{
+					ToolCallID: toolCall.ID,
+					Content:    searchResult.Error,
+				})
+			} else {
+				results = append(results, ToolResult{
+					ToolCallID: toolCall.ID,
+					Content:    searchResult.Result,
+				})
+			}
+
+		case "temporary_ban":
+			log.I("LLM called temporary_ban tool", "arguments", toolCall.Function.Arguments)
+
+			var banArgs struct {
+				Duration string `json:"duration"`
+				Reason   string `json:"reason"`
+				Notice   string `json:"notice"`
+			}
+
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &banArgs); err != nil {
+				log.E("Failed to parse ban tool arguments", tracing.InnerError, err)
+				continue
+			}
+
+			_, err := x.bans.CreateBan(log, user.ID, msg.Chat.ID, banArgs.Reason, banArgs.Duration)
+			if err != nil {
+				log.E("Failed to create ban from tool call", tracing.InnerError, err)
+			} else {
+				log.I("Ban created by LLM", "user_id", user.ID, "duration", banArgs.Duration, "reason", banArgs.Reason, "notice", banArgs.Notice)
+				if banArgs.Notice != "" {
+					*banNotice = "\n\n" + banArgs.Notice
+				}
+			}
+		}
+	}
+
+	return results
+}
+
 func extractModelNames(models []ModelMeta) []string {
 	names := make([]string, len(models))
 	for i, model := range models {
 		names[i] = model.Name
 	}
 	return names
+}
+
+func (x *Dialer) buildTools(user *entities.User) []openrouter.Tool {
+	tools := []openrouter.Tool{
+		{
+			Type: openrouter.ToolTypeFunction,
+			Function: &openrouter.FunctionDefinition{
+				Name:        "web_search",
+				Description: "Search the web for current, real-time information. Use ONLY when:\n\n1. User explicitly asks about current events, news, or recent happenings\n2. Question involves time-sensitive data (prices, stocks, weather, sports scores)\n3. User asks 'what is happening now', 'latest news about', 'current status of'\n4. Need to verify facts that may have changed recently\n5. Question mentions specific dates in the future or recent past\n6. Looking for real-time statistics or live data\n\nDO NOT USE for:\n- General knowledge questions\n- Historical facts\n- Programming/coding help\n- Math calculations\n- Personal advice\n- Creative writing\n- Explaining concepts\n- Anything you already know with confidence",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"query": map[string]interface{}{
+							"type":        "string",
+							"description": "The search query - be specific and include relevant keywords for better results",
+						},
+						"is_deep_search": map[string]interface{}{
+							"type":        "boolean",
+							"description": "Set true for complex research requiring in-depth analysis, multiple sources, or comprehensive overview. Set false for simple factual lookups or quick answers. Default: false",
+						},
+						"effort": map[string]interface{}{
+							"type":        "string",
+							"enum":        []string{"low", "medium", "high"},
+							"description": "Search effort level. 'low' for quick lookups, 'medium' for balanced search, 'high' for thorough research. Default: determined by config",
+						},
+					},
+					"required": []string{"query"},
+				},
+			},
+		},
+	}
+
+	if !platform.BoolValue(user.IsBanless, false) {
+		tools = append(tools, openrouter.Tool{
+			Type: openrouter.ToolTypeFunction,
+			Function: &openrouter.FunctionDefinition{
+				Name:        "temporary_ban",
+				Description: "Temporarily ban user for violations. STRICT RULES:\n\nWHEN TO CALL:\n- Minimum 3 similar violations within last 10 messages\n- After explicit warning given (or include warning in current response)\n- Pattern of repeated behavior, NOT isolated incident\n- User ignored previous warning\n\nVIOLATION TYPES (severity → duration):\n1. Explicit prolonged rudeness/insults → 30m-2h\n2. Explicit prolonged trolling → 10m-1h\n3. Explicit prolonged spam/flood → 1m-10m\n4. Meaningless message chains → 1m-5m\n5. Very heavy computational tasks → 30s-2m\n\nDO NOT BAN FOR:\n- Criticism, disagreement, debate\n- Single off-topic messages\n- Poor language quality, typos, slang\n- Questions or confusion\n- First-time minor violations\n- Sarcasm or humor\n- Simple misunderstandings\n\nPROCESS:\n1. Warn user first (in current response)\n2. If violation continues → call this tool\n3. Tool will send notice to user automatically\n4. Do NOT mention ban in your response text\n\nMax ban: 12h. When in doubt, DON'T call.",
+				Parameters: map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"duration": map[string]interface{}{
+							"type":        "string",
+							"description": "Ban duration based on violation severity. Format: '30s', '1m', '5m', '10m', '30m', '1h', '2h', '4h', '12h'. Examples: heavy task=30s-1m, spam=1m-10m, rudeness=30m-2h",
+							"enum":        []string{"30s", "45s", "1m", "90s", "2m", "3m", "5m", "7m", "10m", "15m", "20m", "30m", "45m", "1h", "90m", "2h", "3h", "4h", "5h", "6h", "8h", "10h", "12h"},
+						},
+						"reason": map[string]interface{}{
+							"type":        "string",
+							"description": "Brief internal reason tag (Russian). Examples: 'хамство', 'троллинг', 'флуд', 'спам', 'тяжелая задача'",
+						},
+						"notice": map[string]interface{}{
+							"type":        "string",
+							"description": "Full notice to user in Russian. Explain: what violated, why banned, duration, how to avoid future bans. Tone: firm but fair. Example: 'Временная блокировка на 10 минут за продолжительный флуд. Пожалуйста, избегайте отправки множества коротких бессмысленных сообщений подряд.'",
+						},
+					},
+					"required": []string{"duration", "reason", "notice"},
+				},
+			},
+		})
+	}
+
+	return tools
 }
 
 func (x *Dialer) getResponseLengthGuideline(length string) string {
