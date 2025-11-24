@@ -4,7 +4,7 @@ import "go.uber.org/fx"
 
 var Module = fx.Module("repository",
 	fx.Provide(
-    NewTariffsRepository,
+		NewTariffsRepository,
 		NewModesRepository,
 		NewUsersRepository,
 		NewMessagesRepository,
@@ -15,5 +15,6 @@ var Module = fx.Module("repository",
 		NewHealthRepository,
 		NewBansRepository,
 		NewBroadcastRepository,
+		NewFeedbacksRepository,
 	),
 )
