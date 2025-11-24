@@ -141,6 +141,14 @@ var (
 			Help: "Monthly Active Users (last 30d)",
 		},
 	)
+
+	feedbacksReceived = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ximanager_feedbacks_received_total",
+			Help: "Total number of feedbacks received",
+		},
+		[]string{"type"},
+	)
 )
 
 func init() {
@@ -161,6 +169,7 @@ func init() {
 	prometheus.MustRegister(messageProcessingDuration)
 	prometheus.MustRegister(statsDAU)
 	prometheus.MustRegister(statsMAU)
+	prometheus.MustRegister(feedbacksReceived)
 }
 
 func NewMetricsService(log *tracing.Logger) *MetricsService {
@@ -240,4 +249,8 @@ func (s *MetricsService) SetDAU(count float64) {
 
 func (s *MetricsService) SetMAU(count float64) {
 	statsMAU.Set(count)
+}
+
+func (s *MetricsService) RecordFeedback(feedbackType string) {
+	feedbacksReceived.WithLabelValues(feedbackType).Inc()
 }
