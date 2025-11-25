@@ -410,11 +410,23 @@ other = "🤖 **OpenRouter API:** {{.Status}}\n"
 [MsgHealthUnleash]
 other = "🎛️ **Unleash:** {{.Status}}\n"
 
+[MsgHealthTelegram]
+other = "📱 **Telegram API:** {{.Status}}\n"
+
 [MsgHealthSystem]
 other = "⚙️ **Overall Status:** {{.Status}}\n\n"
 
 [MsgHealthUptime]
 other = "⏰ **Uptime:** {{.Uptime}}\n"
+
+[MsgHealthMemory]
+other = "💾 **Memory:** {{.Memory}} MB\n"
+
+[MsgHealthGoroutines]
+other = "🔄 **Goroutines:** {{.Count}}\n"
+
+[MsgHealthGoVersion]
+other = "🐹 **Go:** {{.Version}}\n"
 
 [MsgHealthVersion]
 other = "🏷️ **Version:** {{.Version}}\n"
