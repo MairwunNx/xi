@@ -37,6 +37,7 @@ type TelegramHandler struct {
 	bans              *repository.BansRepository
 	broadcast         *repository.BroadcastRepository
 	feedbacks         *repository.FeedbacksRepository
+	tariffs           *repository.TariffsRepository
 	features          *features.FeatureManager
 	localization      *localization.LocalizationManager
 	personality       *personality.XiPersonality
@@ -44,7 +45,7 @@ type TelegramHandler struct {
 	metrics           *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, tariffs *repository.TariffsRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:          diplomat,
 		users:             users,
@@ -63,6 +64,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		bans:              bans,
 		broadcast:         broadcast,
 		feedbacks:         feedbacks,
+		tariffs:           tariffs,
 		features:          fm,
 		localization:      localization,
 		personality:       personality,
@@ -145,6 +147,8 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleBanCommand(log, user, msg)
 		case "pardon":
 			x.HandlePardonCommand(log, user, msg)
+		case "tariff":
+			x.HandleTariffCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUnknownCommand"))
 		}
