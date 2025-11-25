@@ -13,3 +13,11 @@ type ContextLimits struct {
 	MaxMessages int
 	MaxTokens   int
 }
+
+type StreamChunk struct {
+	Content string
+	Done    bool
+	Error   error
+}
+
+type StreamCallback func(chunk StreamChunk)
