@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"ximanager/sources/artificial"
+	"ximanager/sources/features"
 	"ximanager/sources/localization"
 	"ximanager/sources/metrics"
 	"ximanager/sources/persistence/entities"
@@ -36,13 +37,14 @@ type TelegramHandler struct {
 	bans              *repository.BansRepository
 	broadcast         *repository.BroadcastRepository
 	feedbacks         *repository.FeedbacksRepository
+	features          *features.FeatureManager
 	localization      *localization.LocalizationManager
 	personality       *personality.XiPersonality
 	dateTimeFormatter *format.DateTimeFormatter
 	metrics           *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, agents *artificial.AgentSystem, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:          diplomat,
 		users:             users,
@@ -61,6 +63,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		bans:              bans,
 		broadcast:         broadcast,
 		feedbacks:         feedbacks,
+		features:          fm,
 		localization:      localization,
 		personality:       personality,
 		dateTimeFormatter: dateTimeFormatter,
