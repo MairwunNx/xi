@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 	"ximanager/sources/artificial"
@@ -20,8 +19,6 @@ import (
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 )
 
 // =========================  /xi command handlers  =========================
@@ -645,128 +642,6 @@ func (x *TelegramHandler) treat(rights []string) []string {
 		}
 	}
 	return treated
-}
-
-// =========================  /donations command handlers  =========================
-
-func (x *TelegramHandler) DonationsCommandAdd(log *tracing.Logger, msg *tgbotapi.Message, username string, sum float64) {
-	username = strings.TrimPrefix(username, "@")
-	if username == "" {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUserNotSpecified")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	user, err := x.users.GetUserByName(log, username)
-	if err != nil {
-		errorMsg := x.localization.LocalizeByTd(msg, "MsgUserNotFound", map[string]interface{}{
-			"Username": username,
-		})
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	_, err = x.donations.CreateDonation(log, user, sum)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgDonationsErrorAdd")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	successMsg := x.localization.LocalizeByTd(msg, "MsgDonationsAdded", map[string]interface{}{
-		"Username": *user.Username,
-		"Amount":   format.DecimalifyFloat(sum),
-	})
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
-}
-
-func (x *TelegramHandler) DonationsCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
-	donations, err := x.donations.GetDonationsWithUsers(log)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgDonationsErrorList")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	if len(donations) == 0 {
-		noDonationsMsg := x.localization.LocalizeBy(msg, "MsgDonationsNoDonations")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noDonationsMsg))
-		return
-	}
-
-	userDonations := make(map[uuid.UUID]decimal.Decimal)
-	usersMap := make(map[uuid.UUID]entities.User)
-
-	for _, donation := range donations {
-		if donation.Sum.IsZero() {
-			continue
-		}
-		userDonations[donation.User] = userDonations[donation.User].Add(donation.Sum)
-		if _, ok := usersMap[donation.User]; !ok {
-			usersMap[donation.User] = donation.UserEntity
-		}
-	}
-
-	type userDonation struct {
-		User  entities.User
-		Total decimal.Decimal
-	}
-
-	var sortedDonations []userDonation
-	for userID, total := range userDonations {
-		sortedDonations = append(sortedDonations, userDonation{
-			User:  usersMap[userID],
-			Total: total,
-		})
-	}
-
-	sort.Slice(sortedDonations, func(i, j int) bool {
-		return sortedDonations[i].Total.GreaterThan(sortedDonations[j].Total)
-	})
-
-	var builder strings.Builder
-	header := x.localization.LocalizeBy(msg, "MsgDonationsListHeader")
-	builder.WriteString(header)
-
-	if len(sortedDonations) > 0 {
-		topHeader := x.localization.LocalizeBy(msg, "MsgDonationsListTopHeader")
-		builder.WriteString(topHeader)
-	}
-
-	for i, ud := range sortedDonations {
-		username := "Мертвая душа"
-		if ud.User.Username != nil {
-			username = "@" + *ud.User.Username
-		}
-
-		donationData := map[string]interface{}{
-			"Username": username,
-			"Amount":   format.Decimalify(ud.Total),
-		}
-
-		if i < 3 {
-			var messageID string
-			switch i {
-			case 0:
-				messageID = "MsgDonationsListTop1Item"
-			case 1:
-				messageID = "MsgDonationsListTop2Item"
-			case 2:
-				messageID = "MsgDonationsListTop3Item"
-			}
-			itemMsg := x.localization.LocalizeByTd(msg, messageID, donationData)
-			builder.WriteString(itemMsg)
-		} else {
-			if i == 3 {
-				othersHeader := x.localization.LocalizeBy(msg, "MsgDonationsListOthersHeader")
-				builder.WriteString(othersHeader)
-			}
-			itemMsg := x.localization.LocalizeByTd(msg, "MsgDonationsListItem", donationData)
-			builder.WriteString(itemMsg)
-		}
-	}
-
-	x.diplomat.Reply(log, msg, builder.String())
 }
 
 // =========================  /stats command handlers  =========================
