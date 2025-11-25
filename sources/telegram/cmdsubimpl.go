@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"ximanager/sources/artificial"
+	"ximanager/sources/features"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -37,6 +39,41 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 	defer x.diplomat.StopTyping(msg.Chat.ID)
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
+
+	if x.features.IsEnabled(features.FeatureStreamingResponses) {
+		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
+		if err != nil {
+			log.E("Failed to start streaming reply", tracing.InnerError, err)
+			x.xiCommandTextNonStreaming(log, msg, req, persona)
+			return
+		}
+
+		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
+			if chunk.Error != nil {
+				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
+				streamReply.FinishWithError(errorMsg)
+				return
+			}
+			if chunk.Done {
+				finalText := x.personality.Xiify(msg, chunk.Content)
+				if strings.TrimSpace(chunk.Content) == "" {
+					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
+				} else {
+					streamReply.Finish(finalText)
+				}
+			}
+		}
+
+		_, err = x.dialer.Dial(log, msg, req, "", persona, true, streamCallback)
+		if err != nil {
+			log.E("Error from dialer in streaming mode", tracing.InnerError, err)
+		}
+	} else {
+		x.xiCommandTextNonStreaming(log, msg, req, persona)
+	}
+}
+
+func (x *TelegramHandler) xiCommandTextNonStreaming(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string) {
 	response, err := x.dialer.Dial(log, msg, req, "", persona, true, nil)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
