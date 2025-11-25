@@ -1271,6 +1271,10 @@ func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Me
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidEffort")
 		case errors.Is(err, repository.ErrTariffInvalidLimit):
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidLimit")
+		case errors.Is(err, repository.ErrTariffModelsEmpty):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorModelsEmpty")
+		case errors.Is(err, repository.ErrTariffModelNameEmpty):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorModelNameEmpty")
 		default:
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorCreate")
 		}
