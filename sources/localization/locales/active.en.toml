@@ -21,9 +21,7 @@ other = """🐉 **Welcome to Xi Manager!**
 🧠 Answer almost any question
 🖼️ Analyze images
 🎤 Transcribe audio
-📊 Track usage statistics
 🎭 Work in different behavior modes
-💰 Take donations into account
 👤 Personalize answers based on information about you
 
 **How to start:**
@@ -41,9 +39,7 @@ other = """🀄️ **Available commands of the Great Xi:**
 🐉 `/xi` - Summon the Great Emperor Xi with your question or image
 🎭 `/mode` - Switch Xi's behavior modes (available to honored citizens)
 👥 `/users` - Manage subjects of the Celestial Empire (apparatus of the Great Xi only)
-💰 `/donations` - Manage donations to the imperial treasury (apparatus of the Great Xi only)
 👤 `/personalization` - Manage personalization for AI
-🔍 `/this` - Technical information about the current state from Xi
 📊 `/stats` - Statistics of the Great Ruler
 🏥 `/health` - System health check
 🧠 `/context` - Manage Xi's memory about conversations
