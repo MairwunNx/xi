@@ -12,7 +12,7 @@ import (
 var ErrNothingChanged = errors.New("nothing changed")
 var ErrRightNotFound = errors.New("right not found")
 
-var AvailableRights = []string{"switch_mode", "edit_mode", "manage_users", "manage_context"}
+var AvailableRights = []string{"switch_mode", "edit_mode", "manage_users", "manage_context", "manage_tariffs"}
 
 type RightsRepository struct {
 	users *UsersRepository
