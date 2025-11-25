@@ -225,12 +225,26 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 }
 
 func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
-	isLike := strings.HasPrefix(query.Data, "feedback_like_")
+	// Parse callback data format: feedback_{like|dislike}_{kind}_{userID}
+	// Old format (backwards compatible): feedback_{like|dislike}_{userID}
+	parts := strings.Split(query.Data, "_")
+	if len(parts) < 3 {
+		log.E("Invalid feedback callback data format", "data", query.Data)
+		return
+	}
+
+	isLike := parts[1] == "like"
+	var kind repository.FeedbackKind
 	var targetUserIDStr string
-	if isLike {
-		targetUserIDStr = strings.TrimPrefix(query.Data, "feedback_like_")
+
+	if len(parts) == 4 {
+		// New format: feedback_like_dialer_12345
+		kind = repository.FeedbackKind(parts[2])
+		targetUserIDStr = parts[3]
 	} else {
-		targetUserIDStr = strings.TrimPrefix(query.Data, "feedback_dislike_")
+		// Old format: feedback_like_12345 (default to dialer)
+		kind = repository.FeedbackKindDialer
+		targetUserIDStr = parts[2]
 	}
 
 	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
@@ -256,7 +270,7 @@ func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgb
 		liked = 1
 	}
 
-	_, err = x.feedbacks.CreateFeedback(log, user.ID, liked)
+	_, err = x.feedbacks.CreateFeedback(log, user.ID, liked, kind)
 	if err != nil {
 		log.E("Failed to create feedback", tracing.InnerError, err)
 		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgFeedbackError"))
@@ -266,11 +280,11 @@ func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgb
 		return
 	}
 
+	feedbackType := "dislike"
 	if isLike {
-		x.metrics.RecordFeedback("like")
-	} else {
-		x.metrics.RecordFeedback("dislike")
+		feedbackType = "like"
 	}
+	x.metrics.RecordFeedback(feedbackType + "_" + string(kind))
 
 	callbackText := x.localization.LocalizeBy(query.Message, "MsgFeedbackDisliked")
 	if isLike {
@@ -287,7 +301,7 @@ func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgb
 		log.W("Failed to remove feedback buttons", tracing.InnerError, err)
 	}
 
-	log.I("Feedback recorded", "user_id", user.ID, "liked", liked)
+	log.I("Feedback recorded", "user_id", user.ID, "liked", liked, "kind", kind)
 }
 
 func (x *TelegramHandler) user(log *tracing.Logger, msg *tgbotapi.Message) (*entities.User, error) {
