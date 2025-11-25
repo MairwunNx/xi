@@ -626,3 +626,104 @@ other = "💭 Thinking"
 
 [MsgStreamingSearching]
 other = "🔍 Searching"
+
+# Tariffs
+[MsgTariffNoAccess]
+other = "🈲 You do not have permission to manage tariffs. Your social credit **has been lowered**!"
+
+[MsgTariffHelpText]
+other = """🏷️ **Xi Manager Tariff Management**
+
+**Available commands:**
+
+1️⃣ `/tariff add <key> '<config>'` - add a new tariff
+2️⃣ `/tariff list` - show list of tariffs
+3️⃣ `/tariff get <key>` - get tariff information
+
+**Configuration format (JSON):**
+```json
+{
+  "display_name": "Name",
+  "dialer_models": ["model1", "model2"],
+  "dialer_reasoning_effort": "high",
+  "context_ttl_seconds": 3600,
+  "context_max_messages": 50,
+  "context_max_tokens": 8000,
+  "usage_vision_daily": 10,
+  "usage_vision_monthly": 100,
+  "usage_dialer_daily": 50,
+  "usage_dialer_monthly": 500,
+  "usage_whisper_daily": 10,
+  "usage_whisper_monthly": 100,
+  "spending_daily_limit": "1.00",
+  "spending_monthly_limit": "10.00"
+}
+```"""
+
+[MsgTariffErrorConfigParse]
+other = "💢 Error parsing tariff JSON configuration."
+
+[MsgTariffErrorKeyEmpty]
+other = "💢 Tariff key cannot be empty."
+
+[MsgTariffErrorKeyTooLong]
+other = "💢 Tariff key cannot exceed 50 characters."
+
+[MsgTariffErrorNameEmpty]
+other = "💢 Tariff display name cannot be empty."
+
+[MsgTariffErrorNameTooLong]
+other = "💢 Tariff display name cannot exceed 100 characters."
+
+[MsgTariffErrorInvalidEffort]
+other = "💢 Invalid reasoning_effort value. Valid: low, medium, high."
+
+[MsgTariffErrorInvalidLimit]
+other = "💢 Limit values must be non-negative."
+
+[MsgTariffErrorCreate]
+other = "💢 An error occurred while creating the tariff."
+
+[MsgTariffAdded]
+other = "✅ Tariff **{{.Key}}** ({{.DisplayName}}) has been added. ID: {{.ID}}"
+
+[MsgTariffErrorList]
+other = "💢 An error occurred while getting the tariff list."
+
+[MsgTariffNoTariffs]
+other = "🤷‍♂️ No tariffs have been created yet."
+
+[MsgTariffListHeader]
+other = "🏷️ **Tariff list:**\n\n"
+
+[MsgTariffListItem]
+other = "▶️ **{{.Key}}** — {{.DisplayName}} (ID: {{.ID}})\n"
+
+[MsgTariffNotFound]
+other = "🈲 Tariff **{{.Key}}** not found."
+
+[MsgTariffInfo]
+other = """🏷️ **Tariff Information**
+
+🔑 **ID:** {{.ID}}
+📛 **Key:** {{.Key}}
+📝 **Display Name:** {{.DisplayName}}
+
+**⚙️ Dialog Settings:**
+🧠 Reasoning Effort: {{.DialerReasoningEffort}}
+
+**📚 Context:**
+⏱️ TTL: {{.ContextTTLSeconds}} sec
+💬 Max messages: {{.ContextMaxMessages}}
+🪙 Max tokens: {{.ContextMaxTokens}}
+
+**📊 Usage Limits:**
+👁️ Vision: {{.UsageVisionDaily}}/day, {{.UsageVisionMonthly}}/month
+💬 Dialer: {{.UsageDialerDaily}}/day, {{.UsageDialerMonthly}}/month
+🎤 Whisper: {{.UsageWhisperDaily}}/day, {{.UsageWhisperMonthly}}/month
+
+**💰 Spending Limits:**
+📅 Daily: {{.SpendingDailyLimit}}
+📆 Monthly: {{.SpendingMonthlyLimit}}
+
+📅 **Created:** {{.CreatedAt}}"""
