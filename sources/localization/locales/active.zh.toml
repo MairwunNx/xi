@@ -334,10 +334,13 @@ other = """🧠 **Xi Manager 上下文记忆管理**
 
 **可用命令：**
 
+📊 `/context` - 显示上下文信息
 🔄 `/context refresh` - 清空当前对话记忆
+✅ `/context enable` - 启用上下文收集
+🚫 `/context disable` - 禁用上下文收集
 ❓ `/context help` - 显示本帮助文本
 
-**什么是“上下文”？**
+**什么是"上下文"？**
 伟大习主席会记住对话中的上一些消息，以保证对话连贯。可记忆的时间与长度会根据你的身份等级而变化。
 
 **什么时候需要清空记忆？**
@@ -356,6 +359,37 @@ other = "🔄 **习主席的记忆已清空！**\n\n伟大习主席已忘记本�
 
 [MsgContextRefreshError]
 other = "💢 清空习主席记忆时发生错误，请稍后重试。"
+
+[MsgContextEnabled]
+other = "✅ **上下文收集已启用！**\n\n伟大习主席现在会记住对话历史，以提供更连贯的回复。"
+
+[MsgContextDisabled]
+other = "🚫 **上下文收集已禁用！**\n\n伟大习主席将不再记住对话历史。每条消息将独立处理。"
+
+[MsgContextEnableError]
+other = "💢 启用上下文时发生错误，请稍后重试。"
+
+[MsgContextDisableError]
+other = "💢 禁用上下文时发生错误，请稍后重试。"
+
+[MsgContextInfoError]
+other = "💢 获取上下文信息时发生错误。"
+
+[MsgContextStatusEnabled]
+other = "✅ 已启用"
+
+[MsgContextStatusDisabled]
+other = "🚫 已禁用"
+
+[MsgContextInfo]
+other = """🧠 **上下文信息**
+
+📊 **状态：** {{.Status}}
+
+📝 **消息数：** {{.CurrentMessages}} / {{.MaxMessages}}
+🪙 **令牌数：** {{.CurrentTokens}} / {{.MaxTokens}}
+
+💡 如需了解命令详情，请使用 `/context help`"""
 
 # 系统健康
 [MsgHealthTitle]

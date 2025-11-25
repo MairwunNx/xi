@@ -334,7 +334,10 @@ other = """🧠 **Managing Xi Manager memory**
 
 **Available commands:**
 
+📊 `/context` - Show context information
 🔄 `/context refresh` - Clear memory about the current conversation
+✅ `/context enable` - Enable context collection
+🚫 `/context disable` - Disable context collection
 ❓ `/context help` - Show this help text
 
 **What is context?**
@@ -356,6 +359,37 @@ other = "🔄 **Xi's memory has been cleared!**\n\nThe Great Xi has forgotten al
 
 [MsgContextRefreshError]
 other = "💢 An error occurred while clearing Xi's memory. Please try again later."
+
+[MsgContextEnabled]
+other = "✅ **Context collection enabled!**\n\nThe Great Xi will now remember the conversation history for more coherent responses."
+
+[MsgContextDisabled]
+other = "🚫 **Context collection disabled!**\n\nThe Great Xi will no longer remember the conversation history. Each message will be processed independently."
+
+[MsgContextEnableError]
+other = "💢 An error occurred while enabling context. Please try again later."
+
+[MsgContextDisableError]
+other = "💢 An error occurred while disabling context. Please try again later."
+
+[MsgContextInfoError]
+other = "💢 An error occurred while fetching context information."
+
+[MsgContextStatusEnabled]
+other = "✅ Enabled"
+
+[MsgContextStatusDisabled]
+other = "🚫 Disabled"
+
+[MsgContextInfo]
+other = """🧠 **Context Information**
+
+📊 **Status:** {{.Status}}
+
+📝 **Messages:** {{.CurrentMessages}} / {{.MaxMessages}}
+🪙 **Tokens:** {{.CurrentTokens}} / {{.MaxTokens}}
+
+💡 For detailed command information, use `/context help`"""
 
 # System health
 [MsgHealthTitle]
