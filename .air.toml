@@ -1,0 +1,47 @@
+# Air - Live reload for Go apps
+# https://github.com/air-verse/air
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  bin = "./tmp/ximanager"
+  cmd = "go build -o ./tmp/ximanager ./program.go"
+  delay = 1000
+  exclude_dir = ["tmp", "vendor", "data", ".git", ".devcontainer", "migrations", ".idea", ".vscode", ".cursor"]
+  exclude_file = []
+  exclude_regex = ["_test.go$", ".*_mock.go$"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = []
+  include_ext = ["go", "toml", "yaml"]
+  include_file = []
+  kill_delay = "2s"
+  log = "build-errors.log"
+  poll = false
+  poll_interval = 0
+  post_cmd = []
+  pre_cmd = []
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = false
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  time = true
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = true
+  keep_scroll = true
