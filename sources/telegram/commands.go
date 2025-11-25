@@ -147,32 +147,6 @@ func (x *TelegramHandler) HandleUsersCommand(log *tracing.Logger, user *entities
 	}
 }
 
-func (x *TelegramHandler) HandleDonationsCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	var cmd DonationsCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
-	if err != nil {
-		helpMsg := x.localization.LocalizeBy(msg, "MsgDonationsHelpText")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
-		return
-	}
-
-	switch ctx.Command() {
-	case "add <username> <sum>":
-		if !x.rights.IsUserHasRight(log, user, "manage_users") {
-			noAccessMsg := x.localization.LocalizeBy(msg, "MsgDonationsNoAccess")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
-			return
-		}
-		x.DonationsCommandAdd(log, msg, cmd.Add.Username, cmd.Add.Sum)
-	case "list":
-		x.DonationsCommandList(log, msg)
-	default:
-		log.W("Unknown donations subcommand", tracing.InternalCommand, ctx.Command())
-		unknownCmdMsg := x.localization.LocalizeBy(msg, "MsgDonationsUnknownCommand")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, unknownCmdMsg))
-	}
-}
-
 func (x *TelegramHandler) HandleThisCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	x.ThisCommand(log, user, msg)
 }

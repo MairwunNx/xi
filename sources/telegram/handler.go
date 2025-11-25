@@ -129,8 +129,6 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandleModeCommand(log, user, msg)
 		case "users":
 			x.HandleUsersCommand(log, user, msg)
-		case "donations":
-			x.HandleDonationsCommand(log, user, msg)
 		case "this":
 			x.HandleThisCommand(log, user, msg)
 		case "stats":

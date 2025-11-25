@@ -65,16 +65,6 @@ type UsersCmd struct {
 	} `cmd:"" help:"Set user stack allowance"`
 }
 
-type DonationsCmd struct {
-	Add struct {
-		Username string  `arg:"" help:"Username (with @ prefix)"`
-		Sum      float64 `arg:"" help:"Donation amount"`
-	} `cmd:"" help:"Add a new donation"`
-
-	List struct {
-	} `cmd:"" help:"List all donations"`
-}
-
 type PersonalizationCmd struct {
 	Set struct {
 		Prompt string `arg:"" help:"Personalization prompt (12-1024 characters)"`
