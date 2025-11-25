@@ -19,13 +19,15 @@ RUN apk --no-cache add \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH" \
     PIP_NO_CACHE_DIR=1 \
-    CGO_ENABLED=1
+    CGO_ENABLED=1 \
+    GOMODCACHE=/go/pkg/mod \
+    GOCACHE=/home/devuser/.cache/go-build
 
 RUN pip install --upgrade pip && pip install telegramify-markdown
 
 RUN adduser -D -s /bin/bash -G root devuser \
-    && mkdir -p /go/bin \
-    && chown -R devuser:root /go
+    && mkdir -p /go/bin /go/pkg/mod /home/devuser/.cache/go-build \
+    && chown -R devuser:root /go /home/devuser/.cache
 
 USER devuser
 
