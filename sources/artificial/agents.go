@@ -135,6 +135,7 @@ func (a *AgentSystem) SelectRelevantContext(
 		},
 		Temperature: 0.1,
 		Usage:       &openrouter.IncludeUsage{Include: true},
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "context_selector", tracing.AiModel, model)
@@ -307,6 +308,7 @@ func (a *AgentSystem) SelectModelAndEffort(
 		},
 		Temperature: 0.1,
 		Usage:       &openrouter.IncludeUsage{Include: true},
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "model_selector", tracing.AiModel, model)
@@ -608,6 +610,7 @@ func (a *AgentSystem) ValidatePersonalization(
 			Sort:           openrouter.ProviderSortingLatency,
 		},
 		Temperature: 0.1,
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "personalization_validator", tracing.AiModel, model)
@@ -677,6 +680,7 @@ func (a *AgentSystem) SummarizeContent(
 			Sort:           openrouter.ProviderSortingLatency,
 		},
 		Temperature: 0.3, // Lower temperature for consistent summarization
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "summarizer", tracing.AiModel, model, "content_type", contentType)
@@ -820,6 +824,7 @@ func (a *AgentSystem) DetermineResponseLength(
 		},
 		Temperature: 0.2,
 		Usage:       &openrouter.IncludeUsage{Include: true},
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "response_length_detector", tracing.AiModel, model)
@@ -942,6 +947,7 @@ func (a *AgentSystem) WebSearch(
 		WebSearchOptions: &openrouter.WebSearchOptions{
 			SearchContextSize: searchContextSize,
 		},
+		Transforms: []string{},
 	}
 
 	log = log.With("ai_agent", "web_search", tracing.AiModel, model, "effort", effort, "is_deep", isDeepSearch)
@@ -1032,6 +1038,7 @@ func (a *AgentSystem) ExtractPersonalization(
 			Sort:           openrouter.ProviderSortingLatency,
 		},
 		Temperature: 0.1,
+		Transforms:  []string{},
 	}
 
 	log = log.With("ai_agent", "personalization_extractor", tracing.AiModel, model)
