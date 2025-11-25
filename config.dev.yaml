@@ -1,0 +1,96 @@
+# Development configuration for ximanager
+# Used with docker-compose.dev.yaml
+# Only secrets are loaded from environment variables
+
+service:
+  startup_port: 10000
+  system_metrics_port: 9090
+  application_metrics_port: 9091
+
+database:
+  host: ximanager-postgres-dev
+  port: "5432"
+  user: ximanager
+  password: dev123
+  dbname: ximanager
+  ssl_mode: disable
+  time_zone: Europe/Moscow
+
+redis:
+  host: ximanager-redis-dev
+  port: 6379
+  password: dev123
+  db: 0
+  max_retries: 5
+  dial_timeout: 5s
+
+telegram:
+  bot_token: ${TELEGRAM_BOT_TOKEN}
+  api_endpoint: https://api.telegram.org/bot%s/test/%s
+  file_api_endpoint: https://api.telegram.org/file/bot%s/test/%s
+  poller_timeout: 120
+  allowed_updates: [message]
+  diplomat_chunk_size: 4096
+
+ai:
+  open_router_token: ${OPENROUTER_API_KEY}
+  openai_token: ${OPENAI_API_KEY}
+  whisper_model: whisper-1
+  limit_exceeded_model: openai/gpt-4o-mini
+  limit_exceeded_fallback_models: [deepseek/deepseek-chat]
+  placebo_models: [openai/gpt-4.1-mini, x-ai/grok-4-fast, x-ai/grok-4-fast:free]
+  agents:
+    context:
+      model: openai/gpt-4o-mini
+      timeout: 45
+    model_selection:
+      model: openai/gpt-4o-mini
+      timeout: 30
+    response_length:
+      model: openai/gpt-4o-mini
+      timeout: 20
+    summarization:
+      model: openai/gpt-4o-mini
+      timeout: 60
+      single_message_token_threshold: 2100
+      cluster_token_threshold: 10000
+      cluster_size: 10
+      recent_messages_count: 5
+    web_search:
+      deep_model: perplexity/sonar-pro-search
+      brief_model: perplexity/sonar-pro
+      fallback_model: perplexity/sonar-pro
+      timeout: 60
+      reasoning_effort: high
+      max_calls_per_query: 3
+    personalization_extractor:
+      model: openai/gpt-4o-mini
+      timeout: 30
+  prompts:
+    context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
+    model_selection: ${AGENT_MODEL_SELECTION_PROMPT}
+    response_length: ${AGENT_RESPONSE_LENGTH_PROMPT}
+    summarization: ${SUMMARIZATION_PROMPT}
+    personalization_validation: ${AGENT_PERSONALIZATION_VALIDATION_PROMPT}
+    personalization_extraction: ${AGENT_PERSONALIZATION_EXTRACTION_PROMPT}
+    web_search: ${AGENT_WEB_SEARCH_PROMPT}
+
+proxy:
+  url: ${PROXY_ADDRESS}
+  user: ${PROXY_USER}
+  password: ${PROXY_PASS}
+
+network:
+  timeout_seconds: 30
+
+throttler:
+  limit: 5s
+
+features:
+  unleash_api_url: http://ximanager-unleash-dev:4242/api/
+  unleash_app_name: ximanager-dev
+  unleash_instance_id: dev-instance
+  refresh_interval: 15
+
+localization:
+  supported_languages: [en, ru, zh]
