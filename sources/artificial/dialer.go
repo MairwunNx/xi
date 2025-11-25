@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
 	"strconv"
 	"time"
 	"ximanager/sources/configuration"
@@ -471,9 +472,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	if streamCallback != nil {
 		request.Stream = true
-		request.Tools = nil
 
-		responseText, totalTokens, totalCost, err = x.dialStreaming(ctx, log, request, modelToUse, streamCallback)
+		responseText, banNotice, totalTokens, totalCost, err = x.dialStreaming(
+			ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, streamCallback,
+		)
 		if err != nil {
 			return "", err
 		}
@@ -532,34 +534,98 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 func (x *Dialer) dialStreaming(
 	ctx context.Context,
 	log *tracing.Logger,
+	user *entities.User,
+	msg *tgbotapi.Message,
 	request openrouter.ChatCompletionRequest,
+	messages []openrouter.ChatCompletionMessage,
 	modelToUse string,
+	userGrade platform.UserGrade,
+	agentUsage *AgentUsageAccumulator,
 	streamCallback StreamCallback,
-) (string, int, decimal.Decimal, error) {
+) (string, string, int, decimal.Decimal, error) {
 	defer tracing.ProfilePoint(log, "Dialer streaming completed", "artificial.dialer.streaming")()
 
+	var fullResponse string
+	var banNotice string
+	var totalTokens int
+	var totalCost decimal.Decimal
+	webSearchCalls := 0
+	maxWebSearchCalls := x.config.AI.Agents.WebSearch.MaxCallsPerQuery
+
+	for {
+		iterResponse, iterBanNotice, iterTokens, iterCost, shouldContinue, err := x.dialStreamingIteration(
+			ctx, log, user, msg, &request, &messages, modelToUse, userGrade, agentUsage,
+			&webSearchCalls, maxWebSearchCalls, streamCallback,
+		)
+
+		totalTokens += iterTokens
+		totalCost = totalCost.Add(iterCost)
+
+		if iterBanNotice != "" {
+			banNotice = iterBanNotice
+		}
+
+		if err != nil {
+			return fullResponse, banNotice, totalTokens, totalCost, err
+		}
+
+		if iterResponse != "" {
+			fullResponse = iterResponse
+		}
+
+		if !shouldContinue {
+			break
+		}
+	}
+
+	streamCallback(StreamChunk{Content: fullResponse, Done: true, Error: nil})
+
+	return fullResponse, banNotice, totalTokens, totalCost, nil
+}
+
+func (x *Dialer) dialStreamingIteration(
+	ctx context.Context,
+	log *tracing.Logger,
+	user *entities.User,
+	msg *tgbotapi.Message,
+	request *openrouter.ChatCompletionRequest,
+	messages *[]openrouter.ChatCompletionMessage,
+	modelToUse string,
+	userGrade platform.UserGrade,
+	agentUsage *AgentUsageAccumulator,
+	webSearchCalls *int,
+	maxWebSearchCalls int,
+	streamCallback StreamCallback,
+) (string, string, int, decimal.Decimal, bool, error) {
 	start := time.Now()
-	stream, err := x.ai.CreateChatCompletionStream(ctx, request)
+	stream, err := x.ai.CreateChatCompletionStream(ctx, *request)
 	if err != nil {
 		switch e := err.(type) {
 		case *openrouter.APIError:
 			if e.Code == 402 {
-				insufficientMsg := "Insufficient credits. Please top up your balance."
+				insufficientMsg := x.localization.LocalizeBy(msg, "MsgInsufficientCredits")
 				streamCallback(StreamChunk{Content: insufficientMsg, Done: true, Error: nil})
-				return insufficientMsg, 0, decimal.Zero, nil
+				return insufficientMsg, "", 0, decimal.Zero, false, nil
 			}
 			log.E("OpenRouter API error in streaming", "code", e.Code, "message", e.Message, tracing.InnerError, err)
 		default:
 			log.E("Failed to create stream", tracing.InnerError, err)
 		}
 		streamCallback(StreamChunk{Done: true, Error: err})
-		return "", 0, decimal.Zero, err
+		return "", "", 0, decimal.Zero, false, err
 	}
 	defer stream.Close()
 
 	var fullResponse string
 	var totalTokens int
 	var totalCost decimal.Decimal
+
+	// Accumulate tool calls from streaming chunks
+	toolCallsMap := make(map[int]*openrouter.ToolCall)
+	toolCallDetected := false
+
+	// Send initial "thinking" status
+	streamCallback(StreamChunk{Status: StreamStatusThinking})
 
 	for {
 		response, err := stream.Recv()
@@ -569,14 +635,51 @@ func (x *Dialer) dialStreaming(
 		if err != nil {
 			log.E("Error receiving stream chunk", tracing.InnerError, err)
 			streamCallback(StreamChunk{Done: true, Error: err})
-			return fullResponse, totalTokens, totalCost, err
+			return fullResponse, "", totalTokens, totalCost, false, err
 		}
 
 		if len(response.Choices) > 0 {
-			delta := response.Choices[0].Delta.Content
-			if delta != "" {
-				fullResponse += delta
+			delta := response.Choices[0].Delta
+
+			// Accumulate text content
+			if delta.Content != "" {
+				fullResponse += delta.Content
 				streamCallback(StreamChunk{Content: fullResponse, Done: false, Error: nil})
+			}
+
+			// Accumulate tool calls
+			for _, tc := range delta.ToolCalls {
+				// Notify about tool call detection (first time only)
+				if !toolCallDetected {
+					toolCallDetected = true
+					streamCallback(StreamChunk{Status: StreamStatusSearching})
+				}
+				idx := 0
+				if tc.Index != nil {
+					idx = *tc.Index
+				}
+
+				existing, ok := toolCallsMap[idx]
+				if !ok {
+					// New tool call
+					toolCallsMap[idx] = &openrouter.ToolCall{
+						Index:    tc.Index,
+						ID:       tc.ID,
+						Type:     tc.Type,
+						Function: tc.Function,
+					}
+				} else {
+					// Append arguments to existing tool call
+					if tc.Function.Arguments != "" {
+						existing.Function.Arguments += tc.Function.Arguments
+					}
+					if tc.ID != "" {
+						existing.ID = tc.ID
+					}
+					if tc.Function.Name != "" {
+						existing.Function.Name = tc.Function.Name
+					}
+				}
 			}
 		}
 
@@ -588,11 +691,72 @@ func (x *Dialer) dialStreaming(
 
 	duration := time.Since(start)
 	x.metrics.RecordAIRequestDuration(duration, modelToUse)
-	log.I("streaming completed", tracing.AiCost, totalCost.String(), tracing.AiTokens, totalTokens, "response_length", len(fullResponse))
 
-	streamCallback(StreamChunk{Content: fullResponse, Done: true, Error: nil})
+	// Convert tool calls map to slice
+	var toolCalls []openrouter.ToolCall
+	for _, tc := range toolCallsMap {
+		toolCalls = append(toolCalls, *tc)
+	}
 
-	return fullResponse, totalTokens, totalCost, nil
+	// Sort by index for consistency
+	sort.Slice(toolCalls, func(i, j int) bool {
+		iIdx, jIdx := 0, 0
+		if toolCalls[i].Index != nil {
+			iIdx = *toolCalls[i].Index
+		}
+		if toolCalls[j].Index != nil {
+			jIdx = *toolCalls[j].Index
+		}
+		return iIdx < jIdx
+	})
+
+	log.I("streaming iteration completed",
+		tracing.AiCost, totalCost.String(),
+		tracing.AiTokens, totalTokens,
+		"response_length", len(fullResponse),
+		"tool_calls_count", len(toolCalls),
+	)
+
+	// If no tool calls, we're done
+	if len(toolCalls) == 0 {
+		return fullResponse, "", totalTokens, totalCost, false, nil
+	}
+
+	// Process tool calls
+	var banNotice string
+	toolResults := x.processToolCalls(log, user, msg, toolCalls, &banNotice, webSearchCalls, maxWebSearchCalls, agentUsage)
+
+	if len(toolResults) == 0 {
+		return fullResponse, banNotice, totalTokens, totalCost, false, nil
+	}
+
+	// Add assistant message with tool calls to messages
+	*messages = append(*messages, openrouter.ChatCompletionMessage{
+		Role:      openrouter.ChatMessageRoleAssistant,
+		Content:   openrouter.Content{Text: fullResponse},
+		ToolCalls: toolCalls,
+	})
+
+	// Add tool results to messages
+	for _, result := range toolResults {
+		*messages = append(*messages, openrouter.ChatCompletionMessage{
+			Role:       openrouter.ChatMessageRoleTool,
+			Content:    openrouter.Content{Text: result.Content},
+			ToolCallID: result.ToolCallID,
+		})
+
+		// Store tool response in context
+		toolMessage := platform.RedisMessage{Role: platform.MessageRoleTool, Content: result.Content}
+		if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, toolMessage); err != nil {
+			log.E("Error saving tool message to context", tracing.InnerError, err)
+		}
+	}
+
+	// Update request messages for next iteration
+	request.Messages = *messages
+
+	// Continue the loop
+	return fullResponse, banNotice, totalTokens, totalCost, true, nil
 }
 
 func (x *Dialer) dialNonStreaming(
@@ -614,33 +778,33 @@ func (x *Dialer) dialNonStreaming(
 	var totalCost decimal.Decimal
 
 	for {
-		start := time.Now()
-		response, err := x.ai.CreateChatCompletion(ctx, request)
-		duration := time.Since(start)
-		if err == nil {
-			x.metrics.RecordAIRequestDuration(duration, modelToUse)
-		}
-		if err != nil {
-			switch e := err.(type) {
-			case *openrouter.APIError:
-				if e.Code == 402 {
+	start := time.Now()
+	response, err := x.ai.CreateChatCompletion(ctx, request)
+	duration := time.Since(start)
+	if err == nil {
+		x.metrics.RecordAIRequestDuration(duration, modelToUse)
+	}
+	if err != nil {
+		switch e := err.(type) {
+		case *openrouter.APIError:
+			if e.Code == 402 {
 					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), "", 0, decimal.Zero, nil
-				}
-				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
-			default:
-				log.E("Failed to dial", tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
 			}
+			log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
+				return "", "", 0, decimal.Zero, err
+		default:
+			log.E("Failed to dial", tracing.InnerError, err)
+				return "", "", 0, decimal.Zero, err
 		}
+	}
 
 		totalTokens += response.Usage.TotalTokens
 		totalCost = totalCost.Add(decimal.NewFromFloat(response.Usage.Cost))
 
 		log.I("ai iteration completed", tracing.AiCost, totalCost.String(), tracing.AiTokens, totalTokens, "iteration_tokens", response.Usage.TotalTokens)
 
-		if len(response.Choices) == 0 {
-			log.E("Empty choices in dialer response")
+	if len(response.Choices) == 0 {
+		log.E("Empty choices in dialer response")
 			return "", "", 0, decimal.Zero, fmt.Errorf("empty choices in AI response")
 		}
 
