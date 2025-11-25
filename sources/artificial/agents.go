@@ -63,8 +63,9 @@ type PersonalizationExtractionResponse struct {
 type AgentSystem struct {
 	ai      *openrouter.Client
 	config  *configuration.Config
-	tariffs repository.Tariffs
+	tariffs *repository.TariffsRepository
 	metrics *metrics.MetricsService
+	log     *tracing.Logger
 }
 
 type AgentUsageAccumulator struct {
@@ -77,12 +78,13 @@ func (a *AgentUsageAccumulator) Add(tokens int, cost float64) {
 	a.Cost += cost
 }
 
-func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs repository.Tariffs, metrics *metrics.MetricsService) *AgentSystem {
+func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs *repository.TariffsRepository, metrics *metrics.MetricsService, log *tracing.Logger) *AgentSystem {
 	return &AgentSystem{
 		ai:      ai,
 		config:  config,
 		tariffs: tariffs,
 		metrics: metrics,
+		log:     log,
 	}
 }
 
@@ -459,11 +461,11 @@ type TierPolicy struct {
 
 func (a *AgentSystem) getTierPolicy(ctx context.Context, userGrade platform.UserGrade) (TierPolicy, error) {
 	// 1. Fetch current tier tariff
-	currentTariff, err := a.tariffs.GetLatestByKey(ctx, string(userGrade))
+	currentTariff, err := a.tariffs.GetLatestByKey(a.log, string(userGrade))
 	if err != nil {
 		// Try fallback to bronze if not bronze
 		if userGrade != platform.GradeBronze {
-			currentTariff, err = a.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
+			currentTariff, err = a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
 		}
 		if err != nil {
 			return TierPolicy{}, fmt.Errorf("failed to fetch tariff: %w", err)
@@ -486,13 +488,13 @@ func (a *AgentSystem) getTierPolicy(ctx context.Context, userGrade platform.User
 	var downgradeModels []ModelMeta
 	if userGrade == platform.GradeGold {
 		// Need Silver + Bronze
-		silverTariff, _ := a.tariffs.GetLatestByKey(ctx, string(platform.GradeSilver))
+		silverTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeSilver))
 		if silverTariff != nil {
 			var silverModels []ModelMeta
 			_ = json.Unmarshal(silverTariff.DialerModels, &silverModels)
 			downgradeModels = append(downgradeModels, silverModels...)
 		}
-		bronzeTariff, _ := a.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
+		bronzeTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
 		if bronzeTariff != nil {
 			var bronzeModels []ModelMeta
 			_ = json.Unmarshal(bronzeTariff.DialerModels, &bronzeModels)
@@ -500,7 +502,7 @@ func (a *AgentSystem) getTierPolicy(ctx context.Context, userGrade platform.User
 		}
 	} else if userGrade == platform.GradeSilver {
 		// Need Bronze
-		bronzeTariff, _ := a.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
+		bronzeTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
 		if bronzeTariff != nil {
 			var bronzeModels []ModelMeta
 			_ = json.Unmarshal(bronzeTariff.DialerModels, &bronzeModels)

@@ -24,14 +24,16 @@ const (
 type UsageLimiter struct {
 	redis   *redis.Client
 	config  *configuration.Config
-	tariffs repository.Tariffs
+	tariffs *repository.TariffsRepository
+	log     *tracing.Logger
 }
 
-func NewUsageLimiter(redis *redis.Client, config *configuration.Config, tariffs repository.Tariffs) *UsageLimiter {
+func NewUsageLimiter(redis *redis.Client, config *configuration.Config, tariffs *repository.TariffsRepository, log *tracing.Logger) *UsageLimiter {
 	return &UsageLimiter{
 		redis:   redis,
 		config:  config,
 		tariffs: tariffs,
+		log:     log,
 	}
 }
 
@@ -41,9 +43,9 @@ type LimitCheckResult struct {
 }
 
 func (x *UsageLimiter) getUsageLimits(ctx context.Context, grade platform.UserGrade) (*entities.Tariff, error) {
-	tariff, err := x.tariffs.GetLatestByKey(ctx, string(grade))
+	tariff, err := x.tariffs.GetLatestByKey(x.log, string(grade))
 	if err != nil {
-		return x.tariffs.GetLatestByKey(ctx, string(platform.GradeBronze))
+		return x.tariffs.GetLatestByKey(x.log, string(platform.GradeBronze))
 	}
 	return tariff, nil
 }

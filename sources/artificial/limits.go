@@ -38,7 +38,8 @@ type SpendingLimiter struct {
 	config    *configuration.Config
 	usage     *repository.UsageRepository
 	donations *repository.DonationsRepository
-	tariffs   repository.Tariffs
+	tariffs   *repository.TariffsRepository
+	log       *tracing.Logger
 }
 
 func NewSpendingLimiter(
@@ -46,7 +47,8 @@ func NewSpendingLimiter(
 	config *configuration.Config,
 	usage *repository.UsageRepository,
 	donations *repository.DonationsRepository,
-	tariffs repository.Tariffs,
+	tariffs *repository.TariffsRepository,
+	log *tracing.Logger,
 ) *SpendingLimiter {
 	return &SpendingLimiter{
 		redis:     redis,
@@ -54,6 +56,7 @@ func NewSpendingLimiter(
 		usage:     usage,
 		donations: donations,
 		tariffs:   tariffs,
+		log:       log,
 	}
 }
 
@@ -64,11 +67,7 @@ func (x *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *enti
 		userGrade = platform.GradeBronze
 	}
 
-	// Fetch tariff limits
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
-	defer cancel()
-	
-	tariff, err := getTariffWithFallback(ctx, x.tariffs, userGrade)
+	tariff, err := getTariffWithFallback(x.log, x.tariffs, userGrade)
 	if err != nil {
 		return fmt.Errorf("failed to fetch tariff limits: %w", err)
 	}

@@ -40,8 +40,9 @@ type Dialer struct {
 	agentSystem      *AgentSystem
 	features         *features.FeatureManager
 	localization     *localization.LocalizationManager
-	tariffs          repository.Tariffs
+	tariffs          *repository.TariffsRepository
 	metrics          *metrics.MetricsService
+	log              *tracing.Logger
 }
 
 func NewDialer(
@@ -59,8 +60,9 @@ func NewDialer(
 	spendingLimiter *SpendingLimiter,
 	fm *features.FeatureManager,
 	localization *localization.LocalizationManager,
-	tariffs repository.Tariffs,
+	tariffs *repository.TariffsRepository,
 	metrics *metrics.MetricsService,
+	log *tracing.Logger,
 ) *Dialer {
 	return &Dialer{
 		ai:               ai,
@@ -75,11 +77,12 @@ func NewDialer(
 		contextManager:   contextManager,
 		usageLimiter:     usageLimiter,
 		spendingLimiter:  spendingLimiter,
-		agentSystem:      NewAgentSystem(ai, config, tariffs, metrics),
+		agentSystem:      NewAgentSystem(ai, config, tariffs, metrics, log),
 		features:         fm,
 		localization:     localization,
 		tariffs:          tariffs,
 		metrics:          metrics,
+		log:              log,
 	}
 }
 
@@ -196,7 +199,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		return x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
-	tariff, err := getTariffWithFallback(ctx, x.tariffs, userGrade)
+	tariff, err := getTariffWithFallback(x.log, x.tariffs, userGrade)
 	if err != nil {
 		log.E("Failed to get tariff", tracing.InnerError, err)
 		return "", err

@@ -23,6 +23,7 @@ type ContextManager struct {
 	agentSystem *AgentSystem
 	features    *features.FeatureManager
 	tariffs     *repository.TariffsRepository
+	log         *tracing.Logger
 }
 
 func NewContextManager(
@@ -32,6 +33,7 @@ func NewContextManager(
 	agentSystem *AgentSystem,
 	fm *features.FeatureManager,
 	tariffs *repository.TariffsRepository,
+	log *tracing.Logger,
 ) (*ContextManager, error) {
 	return &ContextManager{
 		redis:       redis,
@@ -40,11 +42,12 @@ func NewContextManager(
 		agentSystem: agentSystem,
 		features:    fm,
 		tariffs:     tariffs,
+		log:         log,
 	}, nil
 }
 
 func (x *ContextManager) getContextLimits(ctx context.Context, grade platform.UserGrade) (ContextLimits, error) {
-	tariff, err := getTariffWithFallback(ctx, x.tariffs, grade)
+	tariff, err := getTariffWithFallback(x.log, x.tariffs, grade)
 	if err != nil {
 		return ContextLimits{}, err
 	}
