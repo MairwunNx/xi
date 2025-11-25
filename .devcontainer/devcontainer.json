@@ -8,11 +8,7 @@
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
-    "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/docker-from-docker:1": {},
-    "ghcr.io/devcontainers/features/go:1": {
-      "version": "1.25"
-    }
+    "ghcr.io/devcontainers/features/docker-from-docker:1": {}
   },
   "forwardPorts": [
     5432,
@@ -69,8 +65,8 @@
       }
     }
   },
-  "postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest",
-  "postStartCommand": "go version && go env",
+  "postCreateCommand": "go mod download",
+  "postStartCommand": "go version && echo 'CGO_ENABLED='$CGO_ENABLED && python3 --version",
   "runServices": [
     "ximanager-postgres",
     "ximanager-redis",
