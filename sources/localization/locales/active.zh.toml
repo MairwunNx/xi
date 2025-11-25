@@ -717,6 +717,9 @@ other = """🏷️ **套餐信息**
 📛 **密钥：** {{.Key}}
 📝 **显示名称：** {{.DisplayName}}
 
+**🤖 模型：**
+{{.Models}}
+
 **⚙️ 对话设置：**
 🧠 推理强度：{{.DialerReasoningEffort}}
 
@@ -735,3 +738,12 @@ other = """🏷️ **套餐信息**
 📆 每月：{{.SpendingMonthlyLimit}}
 
 📅 **创建时间：** {{.CreatedAt}}"""
+
+[MsgTariffModelItem]
+other = "▶️ **{{.Name}}** — AAI: {{.AAI}} | 💵 {{.InputCost}} / {{.OutputCost}} | 📏 {{.Context}}"
+
+[MsgTariffModelsParseError]
+other = "⚠️ 读取模型时出错"
+
+[MsgTariffNoModels]
+other = "🤷 未配置模型"

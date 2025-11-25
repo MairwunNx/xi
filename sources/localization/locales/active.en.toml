@@ -717,6 +717,9 @@ other = """🏷️ **Tariff Information**
 📛 **Key:** {{.Key}}
 📝 **Display Name:** {{.DisplayName}}
 
+**🤖 Models:**
+{{.Models}}
+
 **⚙️ Dialog Settings:**
 🧠 Reasoning Effort: {{.DialerReasoningEffort}}
 
@@ -735,3 +738,12 @@ other = """🏷️ **Tariff Information**
 📆 Monthly: {{.SpendingMonthlyLimit}}
 
 📅 **Created:** {{.CreatedAt}}"""
+
+[MsgTariffModelItem]
+other = "▶️ **{{.Name}}** — AAI: {{.AAI}} | 💵 {{.InputCost}} / {{.OutputCost}} | 📏 {{.Context}}"
+
+[MsgTariffModelsParseError]
+other = "⚠️ Error reading models"
+
+[MsgTariffNoModels]
+other = "🤷 No models configured"

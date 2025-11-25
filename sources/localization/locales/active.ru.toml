@@ -718,6 +718,9 @@ other = """🏷️ **Информация о тарифе**
 📛 **Ключ:** {{.Key}}
 📝 **Название:** {{.DisplayName}}
 
+**🤖 Модели:**
+{{.Models}}
+
 **⚙️ Настройки диалога:**
 🧠 Reasoning Effort: {{.DialerReasoningEffort}}
 
@@ -736,3 +739,12 @@ other = """🏷️ **Информация о тарифе**
 📆 Месячный: {{.SpendingMonthlyLimit}}
 
 📅 **Создан:** {{.CreatedAt}}"""
+
+[MsgTariffModelItem]
+other = "▶️ **{{.Name}}** — AAI: {{.AAI}} | 💵 {{.InputCost}} / {{.OutputCost}} | 📏 {{.Context}}"
+
+[MsgTariffModelsParseError]
+other = "⚠️ Ошибка чтения моделей"
+
+[MsgTariffNoModels]
+other = "🤷 Модели не настроены"
