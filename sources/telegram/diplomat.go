@@ -141,3 +141,107 @@ func (x *Diplomat) SendBroadcastMessage(logger *tracing.Logger, chatID int64, te
 	}
 	return nil
 }
+
+type StreamingReply struct {
+	diplomat      *Diplomat
+	logger        *tracing.Logger
+	originalMsg   *tgbotapi.Message
+	chatID        int64
+	replyToMsgID  int
+	sentMessageID int
+	userID        int64
+}
+
+func (x *Diplomat) StartStreamingReply(logger *tracing.Logger, msg *tgbotapi.Message) (*StreamingReply, error) {
+	initialText := "▌"
+	chattable := tgbotapi.NewMessage(msg.Chat.ID, initialText)
+	chattable.ReplyToMessageID = msg.MessageID
+
+	sent, err := x.bot.Send(chattable)
+	if err != nil {
+		logger.E("Failed to send initial streaming message", tracing.InnerError, err)
+		return nil, err
+	}
+
+	return &StreamingReply{
+		diplomat:      x,
+		logger:        logger,
+		originalMsg:   msg,
+		chatID:        msg.Chat.ID,
+		replyToMsgID:  msg.MessageID,
+		sentMessageID: sent.MessageID,
+		userID:        msg.From.ID,
+	}, nil
+}
+
+func (sr *StreamingReply) Update(text string) error {
+	if text == "" {
+		text = "▌"
+	}
+	displayText := text + "▌"
+
+	if len(displayText) > sr.diplomat.config.Telegram.DiplomatChunkSize {
+		displayText = displayText[:sr.diplomat.config.Telegram.DiplomatChunkSize]
+	}
+
+	edit := tgbotapi.NewEditMessageText(sr.chatID, sr.sentMessageID, displayText)
+
+	if _, err := sr.diplomat.bot.Send(edit); err != nil {
+		if !strings.Contains(err.Error(), "message is not modified") {
+			sr.logger.W("Failed to update streaming message", tracing.InnerError, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (sr *StreamingReply) Finish(text string) error {
+	finalText := markdown.EscapeMarkdownActor(text)
+
+	if len(finalText) > sr.diplomat.config.Telegram.DiplomatChunkSize {
+		finalText = finalText[:sr.diplomat.config.Telegram.DiplomatChunkSize]
+	}
+
+	edit := tgbotapi.NewEditMessageText(sr.chatID, sr.sentMessageID, finalText)
+	edit.ParseMode = tgbotapi.ModeMarkdownV2
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	if sr.diplomat.features.IsEnabled(features.FeatureFeedbackButtons) {
+		likeData := fmt.Sprintf("feedback_like_%d", sr.userID)
+		dislikeData := fmt.Sprintf("feedback_dislike_%d", sr.userID)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(sr.diplomat.localization.LocalizeBy(sr.originalMsg, "MsgFeedbackLikeEmoji"), likeData),
+			tgbotapi.NewInlineKeyboardButtonData(sr.diplomat.localization.LocalizeBy(sr.originalMsg, "MsgFeedbackDislikeEmoji"), dislikeData),
+		))
+	}
+
+	if len(rows) > 0 {
+		edit.ReplyMarkup = &tgbotapi.InlineKeyboardMarkup{InlineKeyboard: rows}
+	}
+
+	if _, err := sr.diplomat.bot.Send(edit); err != nil {
+		sr.logger.E("Failed to finish streaming message", tracing.InnerError, err)
+		sr.diplomat.metrics.RecordMessageSent("error")
+		return err
+	}
+
+	sr.diplomat.metrics.RecordMessageSent("success")
+	return nil
+}
+
+func (sr *StreamingReply) FinishWithError(errorText string) error {
+	edit := tgbotapi.NewEditMessageText(sr.chatID, sr.sentMessageID, errorText)
+
+	if _, err := sr.diplomat.bot.Send(edit); err != nil {
+		sr.logger.E("Failed to finish streaming message with error", tracing.InnerError, err)
+		return err
+	}
+
+	sr.diplomat.metrics.RecordMessageSent("error")
+	return nil
+}
+
+func (sr *StreamingReply) GetMessageID() int {
+	return sr.sentMessageID
+}
