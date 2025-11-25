@@ -22,7 +22,7 @@ type ContextManager struct {
 	donations   *repository.DonationsRepository
 	agentSystem *AgentSystem
 	features    *features.FeatureManager
-	tariffs     repository.Tariffs
+	tariffs     *repository.TariffsRepository
 }
 
 func NewContextManager(
@@ -31,7 +31,7 @@ func NewContextManager(
 	donations *repository.DonationsRepository,
 	agentSystem *AgentSystem,
 	fm *features.FeatureManager,
-	tariffs repository.Tariffs,
+	tariffs *repository.TariffsRepository,
 ) (*ContextManager, error) {
 	return &ContextManager{
 		redis:       redis,
@@ -61,6 +61,12 @@ func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
 
 func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, error) {
 	defer tracing.ProfilePoint(logger, "Context fetch completed", "artificial.context.fetch", "chat_id", chatID, "user_grade", userGrade)()
+
+	if !x.IsEnabled(logger, chatID) {
+		logger.I("Context collection is disabled for this chat, returning empty", "chat_id", chatID)
+		return []platform.RedisMessage{}, nil
+	}
+
 	startTime := time.Now()
 	
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
@@ -140,6 +146,12 @@ func (x *ContextManager) Store(
 	message platform.RedisMessage,
 ) error {
 	defer tracing.ProfilePoint(logger, "Context store completed", "artificial.context.store", "chat_id", chatID, "user_grade", userGrade, "message_role", message.Role)()
+
+	if !x.IsEnabled(logger, chatID) {
+		logger.I("Context collection is disabled for this chat, skipping store", "chat_id", chatID)
+		return nil
+	}
+
 	startTime := time.Now()
 	
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
@@ -201,6 +213,103 @@ func (x *ContextManager) Clear(logger *tracing.Logger, chatID platform.ChatID) e
 
 	logger.I("Chat history cleared successfully", "key", key)
 	return nil
+}
+
+func (x *ContextManager) getContextEnabledKey(chatID platform.ChatID) string {
+	return fmt.Sprintf("chat_context_enabled:%d", chatID)
+}
+
+func (x *ContextManager) SetEnabled(logger *tracing.Logger, chatID platform.ChatID, enabled bool) error {
+	defer tracing.ProfilePoint(logger, "Context set enabled completed", "artificial.context.set.enabled", "chat_id", chatID, "enabled", enabled)()
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	key := x.getContextEnabledKey(chatID)
+
+	if enabled {
+		// Remove the key to enable (default is enabled)
+		err := x.redis.Del(ctx, key).Err()
+		if err != nil {
+			logger.E("Failed to enable context", "key", key, tracing.InnerError, err)
+			return err
+		}
+	} else {
+		// Set key to "0" to disable
+		err := x.redis.Set(ctx, key, "0", 0).Err()
+		if err != nil {
+			logger.E("Failed to disable context", "key", key, tracing.InnerError, err)
+			return err
+		}
+	}
+
+	logger.I("Context enabled status changed", "chat_id", chatID, "enabled", enabled)
+	return nil
+}
+
+func (x *ContextManager) IsEnabled(logger *tracing.Logger, chatID platform.ChatID) bool {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	key := x.getContextEnabledKey(chatID)
+	val, err := x.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		// Key doesn't exist = enabled (default)
+		return true
+	}
+	if err != nil {
+		logger.W("Failed to check context enabled status, assuming enabled", tracing.InnerError, err)
+		return true
+	}
+
+	return val != "0"
+}
+
+type ContextStats struct {
+	Enabled           bool
+	CurrentMessages   int
+	MaxMessages       int
+	CurrentTokens     int
+	MaxTokens         int
+}
+
+func (x *ContextManager) GetStats(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) (*ContextStats, error) {
+	defer tracing.ProfilePoint(logger, "Context get stats completed", "artificial.context.get.stats", "chat_id", chatID)()
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	limits, err := x.getContextLimits(ctx, userGrade)
+	if err != nil {
+		logger.E("Failed to get context limits for stats", tracing.InnerError, err)
+		return nil, err
+	}
+
+	key := x.getChatHistoryKey(chatID)
+	messageStrings, err := x.redis.LRange(ctx, key, 0, -1).Result()
+	if err != nil {
+		logger.E("Failed to fetch chat history for stats", tracing.InnerError, err)
+		return nil, err
+	}
+
+	var totalTokens int
+	for _, msgStr := range messageStrings {
+		var msg platform.RedisMessage
+		if err := json.Unmarshal([]byte(msgStr), &msg); err != nil {
+			continue
+		}
+		totalTokens += tokenizer.Tokens(logger, msg.Content)
+	}
+
+	enabled := x.IsEnabled(logger, chatID)
+
+	return &ContextStats{
+		Enabled:         enabled,
+		CurrentMessages: len(messageStrings),
+		MaxMessages:     limits.MaxMessages,
+		CurrentTokens:   totalTokens,
+		MaxTokens:       limits.MaxTokens,
+	}, nil
 }
 
 func (x *ContextManager) reverseMessages(messages []platform.RedisMessage) {
