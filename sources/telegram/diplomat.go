@@ -17,17 +17,27 @@ import (
 )
 
 type Diplomat struct {
-	bot          *tgbotapi.BotAPI
-	config       *configuration.Config
-	users        *repository.UsersRepository
-	donations    *repository.DonationsRepository
-	localization *localization.LocalizationManager
-	metrics      *metrics.MetricsService
-	features     *features.FeatureManager
+	bot           *tgbotapi.BotAPI
+	config        *configuration.Config
+	users         *repository.UsersRepository
+	donations     *repository.DonationsRepository
+	localization  *localization.LocalizationManager
+	metrics       *metrics.MetricsService
+	features      *features.FeatureManager
+	typingManager *TypingManager
 }
 
-func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager, metrics *metrics.MetricsService, fm *features.FeatureManager) *Diplomat {
-	return &Diplomat{bot: bot, config: config, users: users, donations: donations, localization: localization, metrics: metrics, features: fm}
+func NewDiplomat(bot *tgbotapi.BotAPI, config *configuration.Config, users *repository.UsersRepository, donations *repository.DonationsRepository, localization *localization.LocalizationManager, metrics *metrics.MetricsService, fm *features.FeatureManager, log *tracing.Logger) *Diplomat {
+	return &Diplomat{
+		bot:           bot,
+		config:        config,
+		users:         users,
+		donations:     donations,
+		localization:  localization,
+		metrics:       metrics,
+		features:      fm,
+		typingManager: NewTypingManager(bot, log),
+	}
 }
 
 func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
@@ -97,6 +107,14 @@ func (x *Diplomat) SendTyping(logger *tracing.Logger, chatID int64) {
 	if _, err := x.bot.Send(action); err != nil {
 		logger.W("Failed to send typing action", tracing.InnerError, err)
 	}
+}
+
+func (x *Diplomat) StartTyping(chatID int64) {
+	x.typingManager.Start(chatID)
+}
+
+func (x *Diplomat) StopTyping(chatID int64) {
+	x.typingManager.Stop(chatID)
 }
 
 func (x *Diplomat) SendText(logger *tracing.Logger, chatID int64, text string) error {
