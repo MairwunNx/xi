@@ -627,3 +627,104 @@ other = "💭 Думаю"
 
 [MsgStreamingSearching]
 other = "🔍 Ищу информацию"
+
+# Tariffs
+[MsgTariffNoAccess]
+other = "🈲 У вас нет прав для управления тарифами. Ваш социальный рейтинг **снижен**!"
+
+[MsgTariffHelpText]
+other = """🏷️ **Управление тарифами Xi Manager**
+
+**Доступные команды:**
+
+1️⃣ `/tariff add <key> '<config>'` - добавить новый тариф
+2️⃣ `/tariff list` - показать список тарифов
+3️⃣ `/tariff get <key>` - получить информацию о тарифе
+
+**Формат конфигурации (JSON):**
+```json
+{
+  "display_name": "Название",
+  "dialer_models": ["model1", "model2"],
+  "dialer_reasoning_effort": "high",
+  "context_ttl_seconds": 3600,
+  "context_max_messages": 50,
+  "context_max_tokens": 8000,
+  "usage_vision_daily": 10,
+  "usage_vision_monthly": 100,
+  "usage_dialer_daily": 50,
+  "usage_dialer_monthly": 500,
+  "usage_whisper_daily": 10,
+  "usage_whisper_monthly": 100,
+  "spending_daily_limit": "1.00",
+  "spending_monthly_limit": "10.00"
+}
+```"""
+
+[MsgTariffErrorConfigParse]
+other = "💢 Ошибка при парсинге JSON конфигурации тарифа."
+
+[MsgTariffErrorKeyEmpty]
+other = "💢 Ключ тарифа не может быть пустым."
+
+[MsgTariffErrorKeyTooLong]
+other = "💢 Ключ тарифа не может превышать 50 символов."
+
+[MsgTariffErrorNameEmpty]
+other = "💢 Название тарифа (display_name) не может быть пустым."
+
+[MsgTariffErrorNameTooLong]
+other = "💢 Название тарифа не может превышать 100 символов."
+
+[MsgTariffErrorInvalidEffort]
+other = "💢 Недопустимое значение reasoning_effort. Допустимые: low, medium, high."
+
+[MsgTariffErrorInvalidLimit]
+other = "💢 Значения лимитов должны быть неотрицательными."
+
+[MsgTariffErrorCreate]
+other = "💢 Произошла ошибка при создании тарифа."
+
+[MsgTariffAdded]
+other = "✅ Тариф **{{.Key}}** ({{.DisplayName}}) успешно добавлен. ID: {{.ID}}"
+
+[MsgTariffErrorList]
+other = "💢 Произошла ошибка при получении списка тарифов."
+
+[MsgTariffNoTariffs]
+other = "🤷‍♂️ Тарифы еще не созданы."
+
+[MsgTariffListHeader]
+other = "🏷️ **Список тарифов:**\n\n"
+
+[MsgTariffListItem]
+other = "▶️ **{{.Key}}** — {{.DisplayName}} (ID: {{.ID}})\n"
+
+[MsgTariffNotFound]
+other = "🈲 Тариф **{{.Key}}** не найден."
+
+[MsgTariffInfo]
+other = """🏷️ **Информация о тарифе**
+
+🔑 **ID:** {{.ID}}
+📛 **Ключ:** {{.Key}}
+📝 **Название:** {{.DisplayName}}
+
+**⚙️ Настройки диалога:**
+🧠 Reasoning Effort: {{.DialerReasoningEffort}}
+
+**📚 Контекст:**
+⏱️ TTL: {{.ContextTTLSeconds}} сек
+💬 Макс. сообщений: {{.ContextMaxMessages}}
+🪙 Макс. токенов: {{.ContextMaxTokens}}
+
+**📊 Лимиты использования:**
+👁️ Vision: {{.UsageVisionDaily}}/день, {{.UsageVisionMonthly}}/мес
+💬 Dialer: {{.UsageDialerDaily}}/день, {{.UsageDialerMonthly}}/мес
+🎤 Whisper: {{.UsageWhisperDaily}}/день, {{.UsageWhisperMonthly}}/мес
+
+**💰 Лимиты расходов:**
+📅 Дневной: {{.SpendingDailyLimit}}
+📆 Месячный: {{.SpendingMonthlyLimit}}
+
+📅 **Создан:** {{.CreatedAt}}"""
