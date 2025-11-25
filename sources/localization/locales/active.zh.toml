@@ -644,7 +644,9 @@ other = """🏷️ **Xi Manager 套餐管理**
 ```json
 {
   "display_name": "名称",
-  "dialer_models": ["model1", "model2"],
+  "dialer_models": [
+    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
+  ],
   "dialer_reasoning_effort": "high",
   "context_ttl_seconds": 3600,
   "context_max_messages": 50,
@@ -680,6 +682,12 @@ other = "💢 无效的 reasoning_effort 值。有效值：low、medium、high�
 
 [MsgTariffErrorInvalidLimit]
 other = "💢 限制值必须为非负数。"
+
+[MsgTariffErrorModelsEmpty]
+other = "💢 模型列表不能为空。"
+
+[MsgTariffErrorModelNameEmpty]
+other = "💢 模型名称不能为空。"
 
 [MsgTariffErrorCreate]
 other = "💢 创建套餐时发生错误。"

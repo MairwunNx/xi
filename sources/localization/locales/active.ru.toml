@@ -645,7 +645,9 @@ other = """🏷️ **Управление тарифами Xi Manager**
 ```json
 {
   "display_name": "Название",
-  "dialer_models": ["model1", "model2"],
+  "dialer_models": [
+    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
+  ],
   "dialer_reasoning_effort": "high",
   "context_ttl_seconds": 3600,
   "context_max_messages": 50,
@@ -681,6 +683,12 @@ other = "💢 Недопустимое значение reasoning_effort. Доп
 
 [MsgTariffErrorInvalidLimit]
 other = "💢 Значения лимитов должны быть неотрицательными."
+
+[MsgTariffErrorModelsEmpty]
+other = "💢 Список моделей (dialer_models) не может быть пустым."
+
+[MsgTariffErrorModelNameEmpty]
+other = "💢 Название модели (name) не может быть пустым."
 
 [MsgTariffErrorCreate]
 other = "💢 Произошла ошибка при создании тарифа."

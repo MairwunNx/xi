@@ -644,7 +644,9 @@ other = """🏷️ **Xi Manager Tariff Management**
 ```json
 {
   "display_name": "Name",
-  "dialer_models": ["model1", "model2"],
+  "dialer_models": [
+    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
+  ],
   "dialer_reasoning_effort": "high",
   "context_ttl_seconds": 3600,
   "context_max_messages": 50,
@@ -680,6 +682,12 @@ other = "💢 Invalid reasoning_effort value. Valid: low, medium, high."
 
 [MsgTariffErrorInvalidLimit]
 other = "💢 Limit values must be non-negative."
+
+[MsgTariffErrorModelsEmpty]
+other = "💢 Dialer models list cannot be empty."
+
+[MsgTariffErrorModelNameEmpty]
+other = "💢 Model name cannot be empty."
 
 [MsgTariffErrorCreate]
 other = "💢 An error occurred while creating the tariff."
