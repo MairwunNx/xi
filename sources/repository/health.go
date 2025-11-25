@@ -2,21 +2,31 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"time"
+	"ximanager/sources/configuration"
 	"ximanager/sources/persistence/gormdao/query"
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
 	"github.com/redis/go-redis/v9"
+	openrouter "github.com/revrost/go-openrouter"
 )
 
 type HealthRepository struct {
-	redis *redis.Client
+	redis        *redis.Client
+	openrouter   *openrouter.Client
+	httpClient   *http.Client
+	config       *configuration.Config
 }
 
-func NewHealthRepository(redis *redis.Client) *HealthRepository {
+func NewHealthRepository(redis *redis.Client, openrouter *openrouter.Client, httpClient *http.Client, config *configuration.Config) *HealthRepository {
 	return &HealthRepository{
-		redis: redis,
+		redis:      redis,
+		openrouter: openrouter,
+		httpClient: httpClient,
+		config:     config,
 	}
 }
 
@@ -48,5 +58,80 @@ func (x *HealthRepository) CheckRedisHealth(logger *tracing.Logger) error {
 	}
 
 	logger.I("Redis health check passed")
+	return nil
+}
+
+func (x *HealthRepository) CheckProxyHealth(logger *tracing.Logger) error {
+	defer tracing.ProfilePoint(logger, "Health check proxy completed", "repository.health.check.proxy")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Test proxy by making a request to a known endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://httpbin.org/ip", nil)
+	if err != nil {
+		logger.E("Proxy health check failed: request creation error", tracing.InnerError, err)
+		return err
+	}
+
+	resp, err := x.httpClient.Do(req)
+	if err != nil {
+		logger.E("Proxy health check failed: request error", tracing.InnerError, err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("proxy health check failed: status %d", resp.StatusCode)
+		logger.E("Proxy health check failed", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Proxy health check passed")
+	return nil
+}
+
+func (x *HealthRepository) CheckOpenRouterHealth(logger *tracing.Logger) error {
+	defer tracing.ProfilePoint(logger, "Health check openrouter completed", "repository.health.check.openrouter")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, err := x.openrouter.ListModels(ctx)
+	if err != nil {
+		logger.E("OpenRouter health check failed", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("OpenRouter health check passed")
+	return nil
+}
+
+func (x *HealthRepository) CheckUnleashHealth(logger *tracing.Logger) error {
+	defer tracing.ProfilePoint(logger, "Health check unleash completed", "repository.health.check.unleash")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	unleashURL := "http://ximanager-unleash:4242/health"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, unleashURL, nil)
+	if err != nil {
+		logger.E("Unleash health check failed: request creation error", tracing.InnerError, err)
+		return err
+	}
+
+	// Use a simple HTTP client without proxy for internal services
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.E("Unleash health check failed: request error", tracing.InnerError, err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("unleash health check failed: status %d", resp.StatusCode)
+		logger.E("Unleash health check failed", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Unleash health check passed")
 	return nil
 }
