@@ -623,3 +623,10 @@ other = "💢 An error occurred while saving your feedback."
 
 [MsgFeedbackNotYourMessage]
 other = "🈲 Only the person the response was addressed to can rate it."
+
+# Streaming Status
+[MsgStreamingThinking]
+other = "💭 Thinking"
+
+[MsgStreamingSearching]
+other = "🔍 Searching"

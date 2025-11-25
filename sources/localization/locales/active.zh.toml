@@ -623,3 +623,10 @@ other = "💢 保存评价时发生错误。"
 
 [MsgFeedbackNotYourMessage]
 other = "🈲 只有收到回复的人才能评价。"
+
+# Streaming Status
+[MsgStreamingThinking]
+other = "💭 思考中"
+
+[MsgStreamingSearching]
+other = "🔍 搜索中"
