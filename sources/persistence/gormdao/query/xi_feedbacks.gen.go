@@ -31,6 +31,7 @@ func newFeedback(db *gorm.DB, opts ...gen.DOOption) feedback {
 	_feedback.ID = field.NewField(tableName, "id")
 	_feedback.UserID = field.NewField(tableName, "user_id")
 	_feedback.Liked = field.NewInt(tableName, "liked")
+	_feedback.Kind = field.NewString(tableName, "kind")
 	_feedback.CreatedAt = field.NewTime(tableName, "created_at")
 	_feedback.User = feedbackHasOneUser{
 		db: db.Session(&gorm.Session{}),
@@ -163,6 +164,7 @@ type feedback struct {
 	ID        field.Field
 	UserID    field.Field
 	Liked     field.Int
+	Kind      field.String
 	CreatedAt field.Time
 	User      feedbackHasOneUser
 
@@ -184,6 +186,7 @@ func (f *feedback) updateTableName(table string) *feedback {
 	f.ID = field.NewField(table, "id")
 	f.UserID = field.NewField(table, "user_id")
 	f.Liked = field.NewInt(table, "liked")
+	f.Kind = field.NewString(table, "kind")
 	f.CreatedAt = field.NewTime(table, "created_at")
 
 	f.fillFieldMap()
@@ -209,10 +212,11 @@ func (f *feedback) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (f *feedback) fillFieldMap() {
-	f.fieldMap = make(map[string]field.Expr, 5)
+	f.fieldMap = make(map[string]field.Expr, 6)
 	f.fieldMap["id"] = f.ID
 	f.fieldMap["user_id"] = f.UserID
 	f.fieldMap["liked"] = f.Liked
+	f.fieldMap["kind"] = f.Kind
 	f.fieldMap["created_at"] = f.CreatedAt
 
 }

@@ -24,6 +24,7 @@ type (
 		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID    uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
 		Liked     int       `gorm:"not null" json:"liked"`
+		Kind      string    `gorm:"size:20;not null;default:dialer" json:"kind"`
 		CreatedAt time.Time `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
