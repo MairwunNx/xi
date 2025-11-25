@@ -393,7 +393,7 @@ other = """🧠 **上下文信息**
 
 # 系统健康
 [MsgHealthTitle]
-other = "🏥 **Xi Manager 系统状态：**\n\n"
+other = "🏥 **Xi Manager 系统状态**\n\n"
 
 [MsgHealthDatabase]
 other = "🗄️ **数据库：** {{.Status}}\n"
@@ -401,8 +401,17 @@ other = "🗄️ **数据库：** {{.Status}}\n"
 [MsgHealthRedis]
 other = "🔴 **Redis：** {{.Status}}\n"
 
+[MsgHealthProxy]
+other = "🌐 **代理：** {{.Status}}\n"
+
+[MsgHealthOpenRouter]
+other = "🤖 **OpenRouter API：** {{.Status}}\n"
+
+[MsgHealthUnleash]
+other = "🎛️ **功能开关：** {{.Status}}\n"
+
 [MsgHealthSystem]
-other = "⚙️ **系统：** {{.Status}}\n"
+other = "⚙️ **总体状态：** {{.Status}}\n\n"
 
 [MsgHealthUptime]
 other = "⏰ **运行时间：** {{.Uptime}}\n"
@@ -411,13 +420,13 @@ other = "⏰ **运行时间：** {{.Uptime}}\n"
 other = "🏷️ **版本：** {{.Version}}\n"
 
 [MsgHealthBuildTime]
-other = "🔨 **构建时间：** {{.BuildTime}}\n\n"
+other = "🔨 **构建时间：** {{.BuildTime}}"
 
 [MsgHealthStatusOk]
-other = "✅ 运行良好"
+other = "✅ 运行正常"
 
 [MsgHealthStatusFail]
-other = "❌ 需要党组织关注"
+other = "❌ 不可用"
 
 [MsgHealthError]
 other = "💢 检查系统状态时发生错误。"

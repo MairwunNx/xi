@@ -393,7 +393,7 @@ other = """🧠 **Context Information**
 
 # System health
 [MsgHealthTitle]
-other = "🏥 **Xi Manager system status:**\n\n"
+other = "🏥 **Xi Manager System Status**\n\n"
 
 [MsgHealthDatabase]
 other = "🗄️ **Database:** {{.Status}}\n"
@@ -401,8 +401,17 @@ other = "🗄️ **Database:** {{.Status}}\n"
 [MsgHealthRedis]
 other = "🔴 **Redis:** {{.Status}}\n"
 
+[MsgHealthProxy]
+other = "🌐 **Proxy:** {{.Status}}\n"
+
+[MsgHealthOpenRouter]
+other = "🤖 **OpenRouter API:** {{.Status}}\n"
+
+[MsgHealthUnleash]
+other = "🎛️ **Feature Flags:** {{.Status}}\n"
+
 [MsgHealthSystem]
-other = "⚙️ **System:** {{.Status}}\n"
+other = "⚙️ **Overall Status:** {{.Status}}\n\n"
 
 [MsgHealthUptime]
 other = "⏰ **Uptime:** {{.Uptime}}\n"
@@ -411,13 +420,13 @@ other = "⏰ **Uptime:** {{.Uptime}}\n"
 other = "🏷️ **Version:** {{.Version}}\n"
 
 [MsgHealthBuildTime]
-other = "🔨 **Build time:** {{.BuildTime}}\n\n"
+other = "🔨 **Build Time:** {{.BuildTime}}"
 
 [MsgHealthStatusOk]
 other = "✅ Healthy"
 
 [MsgHealthStatusFail]
-other = "❌ Needs party attention"
+other = "❌ Unavailable"
 
 [MsgHealthError]
 other = "💢 Error while checking system health."

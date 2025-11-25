@@ -394,7 +394,7 @@ other = """🧠 **Информация о контексте**
 
 # Здоровье системы
 [MsgHealthTitle]
-other = "🏥 **Состояние системы Xi Manager:**\n\n"
+other = "🏥 **Состояние системы Xi Manager**\n\n"
 
 [MsgHealthDatabase]
 other = "🗄️ **База данных:** {{.Status}}\n"
@@ -402,8 +402,17 @@ other = "🗄️ **База данных:** {{.Status}}\n"
 [MsgHealthRedis]
 other = "🔴 **Redis:** {{.Status}}\n"
 
+[MsgHealthProxy]
+other = "🌐 **Прокси:** {{.Status}}\n"
+
+[MsgHealthOpenRouter]
+other = "🤖 **OpenRouter API:** {{.Status}}\n"
+
+[MsgHealthUnleash]
+other = "🎛️ **Feature Flags:** {{.Status}}\n"
+
 [MsgHealthSystem]
-other = "⚙️ **Система:** {{.Status}}\n"
+other = "⚙️ **Общее состояние:** {{.Status}}\n\n"
 
 [MsgHealthUptime]
 other = "⏰ **Время работы:** {{.Uptime}}\n"
@@ -412,13 +421,13 @@ other = "⏰ **Время работы:** {{.Uptime}}\n"
 other = "🏷️ **Версия:** {{.Version}}\n"
 
 [MsgHealthBuildTime]
-other = "🔨 **Дата сборки:** {{.BuildTime}}\n\n"
+other = "🔨 **Дата сборки:** {{.BuildTime}}"
 
 [MsgHealthStatusOk]
-other = "✅ Процветает"
+other = "✅ Работает"
 
 [MsgHealthStatusFail]
-other = "❌ Требует внимания партии"
+other = "❌ Недоступен"
 
 [MsgHealthError]
 other = "💢 Ошибка при проверке состояния системы."
