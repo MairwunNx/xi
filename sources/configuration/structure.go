@@ -70,7 +70,7 @@ type AI_AgentsConfig struct {
 	ResponseLength          AI_AgentConfig         `yaml:"response_length"`
 	Summarization           AI_SummarizationConfig `yaml:"summarization"`
 	WebSearch               AI_WebSearchConfig     `yaml:"web_search"`
-	PersonalizationExtrctor AI_AgentConfig         `yaml:"personalization_extractor"`
+	PersonalizationExtractor AI_AgentConfig         `yaml:"personalization_extractor"`
 }
 
 type AI_AgentConfig struct {
