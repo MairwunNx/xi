@@ -18,30 +18,9 @@ services:
         condition: service_healthy
       ximanager-redis:
         condition: service_healthy
-    env_file: .env.dev
     environment:
-      AGENT_CONTEXT_SELECTION_PROMPT: ${AGENT_CONTEXT_SELECTION_PROMPT}
-      AGENT_MODEL_SELECTION_PROMPT: ${AGENT_MODEL_SELECTION_PROMPT}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_SSLMODE: ${POSTGRES_SSLMODE}
-      POSTGRES_TIMEZONE: ${POSTGRES_TIMEZONE}
-      POSTGRES_USER: ${POSTGRES_USER}
-      PROXY_ADDRESS: ${PROXY_ADDRESS}
-      PROXY_PASS: ${PROXY_PASS}
-      PROXY_USER: ${PROXY_USER}
-      REDIS_DB: ${REDIS_DB}
-      REDIS_DIAL_TIMEOUT: ${REDIS_DIAL_TIMEOUT}
-      REDIS_HOST: ${REDIS_HOST}
-      REDIS_MAX_RETRIES: ${REDIS_MAX_RETRIES}
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      REDIS_PORT: ${REDIS_PORT}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      TZ: ${TZ}
+      CONFIG_PATH: config.dev.yaml
+      TZ: Europe/Moscow
     healthcheck:
       disable: true
     logging:
@@ -53,9 +32,9 @@ services:
     mem_reservation: 300m
     networks: [ default ]
     ports:
-      - ${OUTSIDERS_STARTUP_PORT}:10000
-      - ${OUTSIDERS_SYSTEM_METRICS_PORT:-9090}:9090
-      - ${OUTSIDERS_APPLICATION_METRICS_PORT:-9091}:9091
+      - "10000:10000"
+      - "9090:9090"
+      - "9091:9091"
     restart: unless-stopped
     security_opt: [ "seccomp:unconfined" ]
     volumes:
@@ -63,19 +42,12 @@ services:
       - ximanager-go-cache-dev:/go/pkg/mod
       - ximanager-go-build-cache-dev:/home/devuser/.cache/go-build
   ximanager-flyway:
-    command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate'
+    command: '-url=jdbc:postgresql://ximanager-postgres-dev:5432/ximanager -user=ximanager -password=dev123 -connectRetries=60 migrate'
     container_name: ximanager-flyway-dev
     cpus: '0.2'
     depends_on:
       ximanager-postgres:
         condition: service_healthy
-    env_file: .env.dev
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
     image: flyway/flyway:11.17.0-alpine
     logging:
       driver: local
@@ -88,18 +60,15 @@ services:
   ximanager-postgres:
     container_name: ximanager-postgres-dev
     cpus: '0.5'
-    env_file: .env.dev
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      TZ: ${TZ}
+      POSTGRES_DB: ximanager
+      POSTGRES_USER: ximanager
+      POSTGRES_PASSWORD: dev123
+      TZ: Europe/Moscow
     healthcheck:
       interval: 10s
       retries: 6
-      test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB || exit 1"]
+      test: ["CMD-SHELL", "pg_isready -U ximanager -d ximanager || exit 1"]
       timeout: 5s
     image: postgres:18.1-alpine3.21
     logging:
@@ -111,7 +80,7 @@ services:
     mem_reservation: 200m
     networks: [ default ]
     ports:
-      - ${POSTGRES_PORT}:5432
+      - "5432:5432"
     restart: unless-stopped
     volumes:
       - ximanager-postgres-data-dev:/var/lib/postgresql/data
@@ -121,18 +90,16 @@ services:
       redis-server --port 6379
       --loglevel warning
       --save 20 1
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass dev123
     container_name: ximanager-redis-dev
     cpus: '0.5'
-    env_file: [ .env.dev ]
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
-      TZ: ${TZ}
+      TZ: Europe/Moscow
     healthcheck:
       interval: 10s
       retries: 3
       start_period: 10s
-      test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a dev123 --no-auth-warning ping"]
       timeout: 5s
     image: redis:8.2-alpine
     logging:
@@ -154,17 +121,16 @@ services:
     depends_on:
       ximanager-postgres:
         condition: service_healthy
-    env_file: .env.dev
     environment:
       DATABASE_HOST: ximanager-postgres-dev
       DATABASE_NAME: unleash
-      DATABASE_USERNAME: ${POSTGRES_USER}
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_USERNAME: ximanager
+      DATABASE_PASSWORD: dev123
       DATABASE_PORT: "5432"
       DATABASE_SSL: "false"
       LOG_LEVEL: "warn"
-      INIT_ADMIN_API_TOKENS: ${UNLEASH_ADMIN_TOKEN}
-      TZ: ${TZ}
+      INIT_ADMIN_API_TOKENS: "*:*.unleash-admin-token-dev"
+      TZ: Europe/Moscow
     healthcheck:
       interval: 10s
       retries: 5
