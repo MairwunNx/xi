@@ -1069,17 +1069,46 @@ func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.
 // =========================  /health command handlers  =========================
 
 func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	dbStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
+	defer tracing.ProfilePoint(log, "Health command completed", "telegram.command.health", "chat_id", msg.Chat.ID)()
+
+	statusOk := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
+	statusFail := x.localization.LocalizeBy(msg, "MsgHealthStatusFail")
+
+	// Database check
+	dbStatus := statusOk
 	if err := x.health.CheckDatabaseHealth(log); err != nil {
-		dbStatus = x.localization.LocalizeBy(msg, "MsgHealthStatusFail")
+		dbStatus = statusFail
 	}
 
-	redisStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
+	// Redis check
+	redisStatus := statusOk
 	if err := x.health.CheckRedisHealth(log); err != nil {
-		redisStatus = x.localization.LocalizeBy(msg, "MsgHealthStatusFail")
+		redisStatus = statusFail
 	}
 
-	systemStatus := x.localization.LocalizeBy(msg, "MsgHealthStatusOk")
+	// Proxy check
+	proxyStatus := statusOk
+	if err := x.health.CheckProxyHealth(log); err != nil {
+		proxyStatus = statusFail
+	}
+
+	// OpenRouter API check
+	openrouterStatus := statusOk
+	if err := x.health.CheckOpenRouterHealth(log); err != nil {
+		openrouterStatus = statusFail
+	}
+
+	// Unleash check
+	unleashStatus := statusOk
+	if err := x.health.CheckUnleashHealth(log); err != nil {
+		unleashStatus = statusFail
+	}
+
+	// System status (overall)
+	systemStatus := statusOk
+	if dbStatus == statusFail || redisStatus == statusFail {
+		systemStatus = statusFail
+	}
 
 	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
 	version := platform.GetAppVersion()
@@ -1093,6 +1122,18 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 
 	redisMsg := x.localization.LocalizeByTd(msg, "MsgHealthRedis", map[string]interface{}{
 		"Status": redisStatus,
+	})
+
+	proxyMsg := x.localization.LocalizeByTd(msg, "MsgHealthProxy", map[string]interface{}{
+		"Status": proxyStatus,
+	})
+
+	openrouterMsg := x.localization.LocalizeByTd(msg, "MsgHealthOpenRouter", map[string]interface{}{
+		"Status": openrouterStatus,
+	})
+
+	unleashMsg := x.localization.LocalizeByTd(msg, "MsgHealthUnleash", map[string]interface{}{
+		"Status": unleashStatus,
 	})
 
 	systemMsg := x.localization.LocalizeByTd(msg, "MsgHealthSystem", map[string]interface{}{
@@ -1111,7 +1152,7 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 		"BuildTime": buildTime,
 	})
 
-	response := title + dbMsg + redisMsg + systemMsg + uptimeMsg + versionMsg + buildTimeMsg
+	response := title + dbMsg + redisMsg + proxyMsg + openrouterMsg + unleashMsg + systemMsg + uptimeMsg + versionMsg + buildTimeMsg
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
