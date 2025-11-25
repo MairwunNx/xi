@@ -626,3 +626,104 @@ other = "💭 思考中"
 
 [MsgStreamingSearching]
 other = "🔍 搜索中"
+
+# Tariffs
+[MsgTariffNoAccess]
+other = "🈲 你没有权限管理套餐。你的社会信用已被**降低**！"
+
+[MsgTariffHelpText]
+other = """🏷️ **Xi Manager 套餐管理**
+
+**可用命令：**
+
+1️⃣ `/tariff add <key> '<config>'` - 添加新套餐
+2️⃣ `/tariff list` - 显示套餐列表
+3️⃣ `/tariff get <key>` - 获取套餐信息
+
+**配置格式 (JSON)：**
+```json
+{
+  "display_name": "名称",
+  "dialer_models": ["model1", "model2"],
+  "dialer_reasoning_effort": "high",
+  "context_ttl_seconds": 3600,
+  "context_max_messages": 50,
+  "context_max_tokens": 8000,
+  "usage_vision_daily": 10,
+  "usage_vision_monthly": 100,
+  "usage_dialer_daily": 50,
+  "usage_dialer_monthly": 500,
+  "usage_whisper_daily": 10,
+  "usage_whisper_monthly": 100,
+  "spending_daily_limit": "1.00",
+  "spending_monthly_limit": "10.00"
+}
+```"""
+
+[MsgTariffErrorConfigParse]
+other = "💢 解析套餐 JSON 配置时发生错误。"
+
+[MsgTariffErrorKeyEmpty]
+other = "💢 套餐密钥不能为空。"
+
+[MsgTariffErrorKeyTooLong]
+other = "💢 套餐密钥不能超过 50 个字符。"
+
+[MsgTariffErrorNameEmpty]
+other = "💢 套餐显示名称不能为空。"
+
+[MsgTariffErrorNameTooLong]
+other = "💢 套餐显示名称不能超过 100 个字符。"
+
+[MsgTariffErrorInvalidEffort]
+other = "💢 无效的 reasoning_effort 值。有效值：low、medium、high。"
+
+[MsgTariffErrorInvalidLimit]
+other = "💢 限制值必须为非负数。"
+
+[MsgTariffErrorCreate]
+other = "💢 创建套餐时发生错误。"
+
+[MsgTariffAdded]
+other = "✅ 套餐 **{{.Key}}** ({{.DisplayName}}) 已添加。ID: {{.ID}}"
+
+[MsgTariffErrorList]
+other = "💢 获取套餐列表时发生错误。"
+
+[MsgTariffNoTariffs]
+other = "🤷‍♂️ 尚未创建任何套餐。"
+
+[MsgTariffListHeader]
+other = "🏷️ **套餐列表：**\n\n"
+
+[MsgTariffListItem]
+other = "▶️ **{{.Key}}** — {{.DisplayName}} (ID: {{.ID}})\n"
+
+[MsgTariffNotFound]
+other = "🈲 未找到套餐 **{{.Key}}**。"
+
+[MsgTariffInfo]
+other = """🏷️ **套餐信息**
+
+🔑 **ID：** {{.ID}}
+📛 **密钥：** {{.Key}}
+📝 **显示名称：** {{.DisplayName}}
+
+**⚙️ 对话设置：**
+🧠 推理强度：{{.DialerReasoningEffort}}
+
+**📚 上下文：**
+⏱️ TTL：{{.ContextTTLSeconds}} 秒
+💬 最大消息数：{{.ContextMaxMessages}}
+🪙 最大令牌数：{{.ContextMaxTokens}}
+
+**📊 使用限制：**
+👁️ 视觉：{{.UsageVisionDaily}}/天，{{.UsageVisionMonthly}}/月
+💬 对话：{{.UsageDialerDaily}}/天，{{.UsageDialerMonthly}}/月
+🎤 语音：{{.UsageWhisperDaily}}/天，{{.UsageWhisperMonthly}}/月
+
+**💰 消费限制：**
+📅 每日：{{.SpendingDailyLimit}}
+📆 每月：{{.SpendingMonthlyLimit}}
+
+📅 **创建时间：** {{.CreatedAt}}"""
