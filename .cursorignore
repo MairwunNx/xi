@@ -1,3 +1,4 @@
 !.env.draft
 !.env
 !.env.dev
+!.devcontainer/devcontainer.draft.env
