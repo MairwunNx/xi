@@ -210,7 +210,8 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 
 	args := msg.CommandArguments()
 	if args == "" {
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		// Show context info when no arguments
+		x.ContextCommandInfo(log, user, msg)
 		return
 	}
 
@@ -229,6 +230,20 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 			return
 		}
 		x.ContextCommandRefresh(log, user, msg)
+	case "enable":
+		if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+			noAccessMsg := x.localization.LocalizeBy(msg, "MsgContextNoAccess")
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
+			return
+		}
+		x.ContextCommandEnable(log, user, msg)
+	case "disable":
+		if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+			noAccessMsg := x.localization.LocalizeBy(msg, "MsgContextNoAccess")
+			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
+			return
+		}
+		x.ContextCommandDisable(log, user, msg)
 	case "help":
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
