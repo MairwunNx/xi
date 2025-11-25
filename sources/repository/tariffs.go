@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -12,6 +13,14 @@ import (
 
 	"github.com/shopspring/decimal"
 )
+
+type ModelMeta struct {
+	Name            string `json:"name"`
+	AAI             int    `json:"aai"`
+	InputPricePerM  string `json:"input_price_per_m"`
+	OutputPricePerM string `json:"output_price_per_m"`
+	CtxTokens       string `json:"ctx_tokens"`
+}
 
 var (
 	ErrTariffNotFound      = errors.New("tariff not found")
@@ -82,8 +91,8 @@ func (x *TariffsRepository) GetAllLatest(log *tracing.Logger) ([]*entities.Tarif
 type TariffConfig struct {
 	DisplayName string `json:"display_name"`
 
-	DialerModels          []string `json:"dialer_models"`
-	DialerReasoningEffort string   `json:"dialer_reasoning_effort"`
+	DialerModels          []ModelMeta `json:"dialer_models"`
+	DialerReasoningEffort string      `json:"dialer_reasoning_effort"`
 
 	ContextTTLSeconds  int `json:"context_ttl_seconds"`
 	ContextMaxMessages int `json:"context_max_messages"`
@@ -195,20 +204,9 @@ func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config
 	return tariff, nil
 }
 
-func serializeDialerModels(models []string) ([]byte, error) {
-	if len(models) == 0 {
-		return []byte("[]"), nil
+func serializeDialerModels(models []ModelMeta) ([]byte, error) {
+	if models == nil {
+		models = []ModelMeta{}
 	}
-
-	// Simple JSON array serialization
-	result := "["
-	for i, m := range models {
-		if i > 0 {
-			result += ","
-		}
-		result += fmt.Sprintf(`"%s"`, m)
-	}
-	result += "]"
-
-	return []byte(result), nil
+	return json.Marshal(models)
 }
