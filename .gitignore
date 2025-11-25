@@ -115,8 +115,9 @@ fabric.properties
 go.work
 go.work.sum
 
-# env file
+# env files
 .env
+.devcontainer/devcontainer.env
 data/
 dickobot
 dickobot.zip
