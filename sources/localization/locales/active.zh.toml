@@ -541,6 +541,44 @@ few = "{{.Count}} 年前"
 many = "{{.Count}} 年前"
 other = "{{.Count}} 年前"
 
+# 运行时间格式
+[UptimeJustStarted]
+other = "刚刚启动"
+
+[UptimeYears]
+one = "{{.Count}} 年"
+few = "{{.Count}} 年"
+many = "{{.Count}} 年"
+other = "{{.Count}} 年"
+
+[UptimeMonths]
+one = "{{.Count}} 个月"
+few = "{{.Count}} 个月"
+many = "{{.Count}} 个月"
+other = "{{.Count}} 个月"
+
+[UptimeDays]
+one = "{{.Count}} 天"
+few = "{{.Count}} 天"
+many = "{{.Count}} 天"
+other = "{{.Count}} 天"
+
+[UptimeHours]
+one = "{{.Count}} 小时"
+few = "{{.Count}} 小时"
+many = "{{.Count}} 小时"
+other = "{{.Count}} 小时"
+
+[UptimeMinutes]
+one = "{{.Count}} 分钟"
+few = "{{.Count}} 分钟"
+many = "{{.Count}} 分钟"
+other = "{{.Count}} 分钟"
+
+# 构建时间格式
+[BuildTimeFormat]
+other = "2006年01月02日 15:04"
+
 # 封禁时间格式
 [BanExpiryFormat]
 other = "2006-01-02 15:04"

@@ -542,6 +542,44 @@ few = "{{.Count}} года назад"
 many = "{{.Count}} лет назад"
 other = "{{.Count}} лет назад"
 
+# Форматирование времени работы (uptime)
+[UptimeJustStarted]
+other = "только что запущен"
+
+[UptimeYears]
+one = "{{.Count}} год"
+few = "{{.Count}} года"
+many = "{{.Count}} лет"
+other = "{{.Count}} лет"
+
+[UptimeMonths]
+one = "{{.Count}} месяц"
+few = "{{.Count}} месяца"
+many = "{{.Count}} месяцев"
+other = "{{.Count}} месяцев"
+
+[UptimeDays]
+one = "{{.Count}} день"
+few = "{{.Count}} дня"
+many = "{{.Count}} дней"
+other = "{{.Count}} дней"
+
+[UptimeHours]
+one = "{{.Count}} час"
+few = "{{.Count}} часа"
+many = "{{.Count}} часов"
+other = "{{.Count}} часов"
+
+[UptimeMinutes]
+one = "{{.Count}} минута"
+few = "{{.Count}} минуты"
+many = "{{.Count}} минут"
+other = "{{.Count}} минут"
+
+# Формат даты сборки
+[BuildTimeFormat]
+other = "02.01.2006 в 15:04"
+
 # Форматирование банов
 [BanExpiryFormat]
 other = "02.01.2006 в 15:04"

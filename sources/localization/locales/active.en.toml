@@ -541,6 +541,44 @@ few = "{{.Count}} years ago"
 many = "{{.Count}} years ago"
 other = "{{.Count}} years ago"
 
+# Uptime formatting
+[UptimeJustStarted]
+other = "just started"
+
+[UptimeYears]
+one = "{{.Count}} year"
+few = "{{.Count}} years"
+many = "{{.Count}} years"
+other = "{{.Count}} years"
+
+[UptimeMonths]
+one = "{{.Count}} month"
+few = "{{.Count}} months"
+many = "{{.Count}} months"
+other = "{{.Count}} months"
+
+[UptimeDays]
+one = "{{.Count}} day"
+few = "{{.Count}} days"
+many = "{{.Count}} days"
+other = "{{.Count}} days"
+
+[UptimeHours]
+one = "{{.Count}} hour"
+few = "{{.Count}} hours"
+many = "{{.Count}} hours"
+other = "{{.Count}} hours"
+
+[UptimeMinutes]
+one = "{{.Count}} minute"
+few = "{{.Count}} minutes"
+many = "{{.Count}} minutes"
+other = "{{.Count}} minutes"
+
+# Build time format
+[BuildTimeFormat]
+other = "Jan 2, 2006 at 15:04"
+
 # Ban formatting
 [BanExpiryFormat]
 other = "01/02/2006 at 15:04"
