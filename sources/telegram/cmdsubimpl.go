@@ -56,7 +56,8 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	defer tracing.ProfilePoint(log, "Xi command photo completed", "telegram.command.xi.photo", "chat_id", msg.Chat.ID)()
-	x.diplomat.SendTyping(log, msg.Chat.ID)
+	x.diplomat.StartTyping(msg.Chat.ID)
+	defer x.diplomat.StopTyping(msg.Chat.ID)
 
 	photo := msg.Photo[len(msg.Photo)-1]
 
@@ -92,7 +93,8 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
 	defer tracing.ProfilePoint(log, "Xi command audio completed", "telegram.command.xi.audio", "chat_id", msg.Chat.ID)()
-	x.diplomat.SendTyping(log, msg.Chat.ID)
+	x.diplomat.StartTyping(msg.Chat.ID)
+	defer x.diplomat.StopTyping(msg.Chat.ID)
 
 	var fileID string
 	var fileExt string
