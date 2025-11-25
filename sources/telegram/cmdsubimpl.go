@@ -1110,9 +1110,12 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 		systemStatus = statusFail
 	}
 
-	uptime := time.Since(platform.GetAppStartTime()).Truncate(time.Second)
+	uptime := time.Since(platform.GetAppStartTime())
+	uptimeFormatted := x.dateTimeFormatter.Uptimeify(msg, uptime)
+	
 	version := platform.GetAppVersion()
 	buildTime := platform.GetAppBuildTime()
+	buildTimeFormatted := x.dateTimeFormatter.FormatBuildTime(msg, buildTime)
 
 	title := x.localization.LocalizeBy(msg, "MsgHealthTitle")
 
@@ -1141,7 +1144,7 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 	})
 
 	uptimeMsg := x.localization.LocalizeByTd(msg, "MsgHealthUptime", map[string]interface{}{
-		"Uptime": uptime,
+		"Uptime": uptimeFormatted,
 	})
 
 	versionMsg := x.localization.LocalizeByTd(msg, "MsgHealthVersion", map[string]interface{}{
@@ -1149,7 +1152,7 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 	})
 
 	buildTimeMsg := x.localization.LocalizeByTd(msg, "MsgHealthBuildTime", map[string]interface{}{
-		"BuildTime": buildTime,
+		"BuildTime": buildTimeFormatted,
 	})
 
 	response := title + dbMsg + redisMsg + proxyMsg + openrouterMsg + unleashMsg + systemMsg + uptimeMsg + versionMsg + buildTimeMsg
