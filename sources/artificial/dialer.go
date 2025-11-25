@@ -479,10 +479,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 			switch e := err.(type) {
 			case *openrouter.APIError:
 				if e.Code == 402 {
+					insufficientMsg := x.localization.LocalizeBy(msg, "MsgInsufficientCredits")
 					if streamCallback != nil {
-						streamCallback(StreamChunk{Done: true, Error: err})
+						streamCallback(StreamChunk{Content: insufficientMsg, Done: true, Error: nil})
 					}
-					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
+					return insufficientMsg, nil
 				}
 				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
 				if streamCallback != nil {
