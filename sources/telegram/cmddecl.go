@@ -111,3 +111,17 @@ type PardonCmd struct {
 type BroadcastCmd struct {
 	Text string `arg:"" help:"Text to broadcast"`
 }
+
+type TariffCmd struct {
+	Add struct {
+		Key    string `arg:"" help:"Tariff key (e.g., bronze, silver, gold)"`
+		Config string `arg:"" help:"Tariff configuration (JSON)"`
+	} `cmd:"" help:"Add a new tariff"`
+
+	List struct {
+	} `cmd:"" help:"List all tariffs"`
+
+	Get struct {
+		Key string `arg:"" help:"Tariff key to get"`
+	} `cmd:"" help:"Get tariff by key"`
+}
