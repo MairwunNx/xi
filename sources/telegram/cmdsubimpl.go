@@ -1336,10 +1336,13 @@ func (x *TelegramHandler) TariffCommandGet(log *tracing.Logger, msg *tgbotapi.Me
 		return
 	}
 
+	modelsFormatted := x.formatTariffModels(log, msg, tariff.DialerModels)
+
 	infoMsg := x.localization.LocalizeByTd(msg, "MsgTariffInfo", map[string]interface{}{
 		"ID":                    tariff.ID,
 		"Key":                   tariff.Key,
 		"DisplayName":           tariff.DisplayName,
+		"Models":                modelsFormatted,
 		"DialerReasoningEffort": tariff.DialerReasoningEffort,
 		"ContextTTLSeconds":     tariff.ContextTTLSeconds,
 		"ContextMaxMessages":    tariff.ContextMaxMessages,
@@ -1355,6 +1358,35 @@ func (x *TelegramHandler) TariffCommandGet(log *tracing.Logger, msg *tgbotapi.Me
 		"CreatedAt":             tariff.CreatedAt.Format("02.01.2006 15:04:05"),
 	})
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+}
+
+func (x *TelegramHandler) formatTariffModels(log *tracing.Logger, msg *tgbotapi.Message, modelsJSON []byte) string {
+	var models []repository.ModelMeta
+	if err := json.Unmarshal(modelsJSON, &models); err != nil {
+		log.W("Failed to parse tariff models for display", tracing.InnerError, err)
+		return x.localization.LocalizeBy(msg, "MsgTariffModelsParseError")
+	}
+
+	if len(models) == 0 {
+		return x.localization.LocalizeBy(msg, "MsgTariffNoModels")
+	}
+
+	var builder strings.Builder
+	for i, model := range models {
+		itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffModelItem", map[string]interface{}{
+			"Name":      model.Name,
+			"AAI":       model.AAI,
+			"InputCost": model.InputPricePerM,
+			"OutputCost": model.OutputPricePerM,
+			"Context":   model.CtxTokens,
+		})
+		builder.WriteString(itemMsg)
+		if i < len(models)-1 {
+			builder.WriteString("\n")
+		}
+	}
+
+	return builder.String()
 }
 
 func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, text string) {
