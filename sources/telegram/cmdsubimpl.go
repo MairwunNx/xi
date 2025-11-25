@@ -942,6 +942,62 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
 }
 
+func (x *TelegramHandler) ContextCommandEnable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	err := x.contextManager.SetEnabled(log, platform.ChatID(msg.Chat.ID), true)
+	if err != nil {
+		log.E("Failed to enable context", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgContextEnableError")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	successMsg := x.localization.LocalizeBy(msg, "MsgContextEnabled")
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
+}
+
+func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	err := x.contextManager.SetEnabled(log, platform.ChatID(msg.Chat.ID), false)
+	if err != nil {
+		log.E("Failed to disable context", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgContextDisableError")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	successMsg := x.localization.LocalizeBy(msg, "MsgContextDisabled")
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
+}
+
+func (x *TelegramHandler) ContextCommandInfo(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	grade, err := x.donations.GetUserGrade(log, user)
+	if err != nil {
+		log.W("Failed to get user grade, using bronze", tracing.InnerError, err)
+		grade = platform.GradeBronze
+	}
+
+	stats, err := x.contextManager.GetStats(log, platform.ChatID(msg.Chat.ID), grade)
+	if err != nil {
+		log.E("Failed to get context stats", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgContextInfoError")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	statusText := x.localization.LocalizeBy(msg, "MsgContextStatusEnabled")
+	if !stats.Enabled {
+		statusText = x.localization.LocalizeBy(msg, "MsgContextStatusDisabled")
+	}
+
+	infoMsg := x.localization.LocalizeByTd(msg, "MsgContextInfo", map[string]interface{}{
+		"Status":          statusText,
+		"CurrentMessages": format.Numberify(int64(stats.CurrentMessages)),
+		"MaxMessages":     format.Numberify(int64(stats.MaxMessages)),
+		"CurrentTokens":   format.Numberify(int64(stats.CurrentTokens)),
+		"MaxTokens":       format.Numberify(int64(stats.MaxTokens)),
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+}
+
 // =========================  /ban and /pardon command handlers  =========================
 
 func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string, reason string, duration string) {
