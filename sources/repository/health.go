@@ -66,7 +66,6 @@ func (x *HealthRepository) CheckProxyHealth(logger *tracing.Logger) error {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Test proxy by making a request to a known endpoint
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://httpbin.org/ip", nil)
 	if err != nil {
 		logger.E("Proxy health check failed: request creation error", tracing.InnerError, err)
@@ -117,7 +116,6 @@ func (x *HealthRepository) CheckUnleashHealth(logger *tracing.Logger) error {
 		return err
 	}
 
-	// Use a simple HTTP client without proxy for internal services
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
