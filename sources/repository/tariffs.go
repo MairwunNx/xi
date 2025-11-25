@@ -23,13 +23,15 @@ type ModelMeta struct {
 }
 
 var (
-	ErrTariffNotFound      = errors.New("tariff not found")
-	ErrTariffKeyEmpty      = errors.New("tariff key cannot be empty")
-	ErrTariffKeyTooLong    = errors.New("tariff key cannot exceed 50 characters")
-	ErrTariffNameEmpty     = errors.New("tariff display name cannot be empty")
-	ErrTariffNameTooLong   = errors.New("tariff display name cannot exceed 100 characters")
-	ErrTariffInvalidEffort = errors.New("invalid reasoning effort (must be: low, medium, high)")
-	ErrTariffInvalidLimit  = errors.New("limit values must be non-negative")
+	ErrTariffNotFound       = errors.New("tariff not found")
+	ErrTariffKeyEmpty       = errors.New("tariff key cannot be empty")
+	ErrTariffKeyTooLong     = errors.New("tariff key cannot exceed 50 characters")
+	ErrTariffNameEmpty      = errors.New("tariff display name cannot be empty")
+	ErrTariffNameTooLong    = errors.New("tariff display name cannot exceed 100 characters")
+	ErrTariffInvalidEffort  = errors.New("invalid reasoning effort (must be: low, medium, high)")
+	ErrTariffInvalidLimit   = errors.New("limit values must be non-negative")
+	ErrTariffModelsEmpty    = errors.New("dialer_models cannot be empty")
+	ErrTariffModelNameEmpty = errors.New("model name cannot be empty")
 )
 
 type TariffsRepository struct{}
@@ -139,6 +141,16 @@ func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config
 	}
 	if !effortValid {
 		return nil, ErrTariffInvalidEffort
+	}
+
+	// Validate dialer models
+	if len(config.DialerModels) == 0 {
+		return nil, ErrTariffModelsEmpty
+	}
+	for _, model := range config.DialerModels {
+		if model.Name == "" {
+			return nil, ErrTariffModelNameEmpty
+		}
 	}
 
 	// Validate non-negative limits
