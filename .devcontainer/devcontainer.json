@@ -74,5 +74,9 @@
     "ximanager-unleash",
     "ximanager"
   ],
-  "shutdownAction": "stopCompose"
+  "shutdownAction": "stopCompose",
+  "runArgs": [
+    "--env-file",
+    ".devcontainer/devcontainer.env"
+  ]
 }
