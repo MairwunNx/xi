@@ -121,5 +121,12 @@ data/
 dickobot
 dickobot.zip
 
+# ximanager binary
+ximanager
+
+# air hot-reload
+tmp/
+build-errors.log
+
 prompt0.*
 prompt1.*

@@ -60,6 +60,8 @@ services:
     security_opt: [ "seccomp:unconfined" ]
     volumes:
       - .:/workspace:cached
+      - ximanager-go-cache-dev:/go/pkg/mod
+      - ximanager-go-build-cache-dev:/home/devuser/.cache/go-build
   ximanager-flyway:
     command: '-url=jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB} -user=${POSTGRES_USER} -password=${POSTGRES_PASSWORD} -connectRetries=60 migrate'
     container_name: ximanager-flyway-dev
@@ -190,4 +192,8 @@ volumes:
   ximanager-postgres-data-dev:
     driver: local
   ximanager-redis-data-dev:
+    driver: local
+  ximanager-go-cache-dev:
+    driver: local
+  ximanager-go-build-cache-dev:
     driver: local
