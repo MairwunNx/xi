@@ -57,8 +57,8 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 			var rows [][]tgbotapi.InlineKeyboardButton
 
 			if x.features.IsEnabled(features.FeatureFeedbackButtons) {
-				likeData := fmt.Sprintf("feedback_like_%d", msg.From.ID)
-				dislikeData := fmt.Sprintf("feedback_dislike_%d", msg.From.ID)
+				likeData := fmt.Sprintf("feedback_like_dialer_%d", msg.From.ID)
+				dislikeData := fmt.Sprintf("feedback_dislike_dialer_%d", msg.From.ID)
 				rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackLikeEmoji"), likeData),
 					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackDislikeEmoji"), dislikeData),
@@ -106,6 +106,47 @@ func (x *Diplomat) SendTyping(logger *tracing.Logger, chatID int64) {
 	action := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
 	if _, err := x.bot.Send(action); err != nil {
 		logger.W("Failed to send typing action", tracing.InnerError, err)
+	}
+}
+
+// ReplyAudio sends a reply with whisper transcription and feedback buttons
+func (x *Diplomat) ReplyAudio(logger *tracing.Logger, msg *tgbotapi.Message, text string) {
+	defer tracing.ProfilePoint(logger, "Diplomat reply audio completed", "diplomat.reply_audio")()
+
+	chunks := transform.Chunks(text, x.config.Telegram.DiplomatChunkSize)
+
+	for i, chunk := range chunks {
+		chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(chunk))
+		chattable.ReplyToMessageID = msg.MessageID
+		chattable.ParseMode = tgbotapi.ModeMarkdownV2
+
+		isLastChunk := i == len(chunks)-1
+
+		if isLastChunk && x.features.IsEnabled(features.FeatureFeedbackButtons) {
+			likeData := fmt.Sprintf("feedback_like_whisper_%d", msg.From.ID)
+			dislikeData := fmt.Sprintf("feedback_dislike_whisper_%d", msg.From.ID)
+			rows := [][]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackLikeEmoji"), likeData),
+					tgbotapi.NewInlineKeyboardButtonData(x.localization.LocalizeBy(msg, "MsgFeedbackDislikeEmoji"), dislikeData),
+				),
+			}
+			chattable.ReplyMarkup = tgbotapi.NewInlineKeyboardMarkup(rows...)
+		}
+
+		if _, err := x.bot.Send(chattable); err != nil {
+			logger.E("Audio message chunk sending error", tracing.InnerError, err)
+			x.metrics.RecordMessageSent("error")
+			emsg := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(x.localization.LocalizeBy(msg, "MsgXiError")))
+			emsg.ReplyToMessageID = msg.MessageID
+			emsg.ParseMode = tgbotapi.ModeMarkdownV2
+
+			if _, err := x.bot.Send(emsg); err != nil {
+				logger.E("Failed to send fallback message", tracing.InnerError, err)
+			}
+			break
+		}
+		x.metrics.RecordMessageSent("success")
 	}
 }
 
@@ -226,8 +267,8 @@ func (sr *StreamingReply) Finish(text string) error {
 	var rows [][]tgbotapi.InlineKeyboardButton
 
 	if sr.diplomat.features.IsEnabled(features.FeatureFeedbackButtons) {
-		likeData := fmt.Sprintf("feedback_like_%d", sr.userID)
-		dislikeData := fmt.Sprintf("feedback_dislike_%d", sr.userID)
+		likeData := fmt.Sprintf("feedback_like_dialer_%d", sr.userID)
+		dislikeData := fmt.Sprintf("feedback_dislike_dialer_%d", sr.userID)
 		rows = append(rows, tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData(sr.diplomat.localization.LocalizeBy(sr.originalMsg, "MsgFeedbackLikeEmoji"), likeData),
 			tgbotapi.NewInlineKeyboardButtonData(sr.diplomat.localization.LocalizeBy(sr.originalMsg, "MsgFeedbackDislikeEmoji"), dislikeData),
