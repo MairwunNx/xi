@@ -208,46 +208,6 @@ other = "✅ Stack for user **@{{.Username}}** is now {{.Status}}."
 [MsgUsersRemoved]
 other = "✅ User **@{{.Username}}** has been removed."
 
-# Donations
-[MsgDonationsUnknownCommand]
-other = "🈲 Unknown donations management command."
-
-[MsgDonationsNoAccess]
-other = "🈲 You are not allowed to manage donations. Your social credit **has been lowered**!"
-
-[MsgDonationsErrorAdd]
-other = "💢 An error occurred while adding the donation."
-
-[MsgDonationsAdded]
-other = "✅ Donation for user **@{{.Username}}** in the amount of **{{.Amount}}** has been added."
-
-[MsgDonationsErrorList]
-other = "💢 Error while getting the donations list."
-
-[MsgDonationsNoDonations]
-other = "🤷‍♂️ The imperial treasury is empty. No subject has shown loyalty yet!"
-
-[MsgDonationsListHeader]
-other = "📜 **List of benefactors of the Great Xi:**\n\n"
-
-[MsgDonationsListTopHeader]
-other = "🏆 **Top 3 most generous subjects:**\n"
-
-[MsgDonationsListTop1Item]
-other = "👑 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListTop2Item]
-other = "💎 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListTop3Item]
-other = "💠 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListOthersHeader]
-other = "\n📜 **Other benefactors:**\n"
-
-[MsgDonationsListItem]
-other = "❤️‍🔥 **{{.Username}}** — {{.Amount}} ₽\n"
-
 # Personalization
 [MsgPersonalizationAdded]
 other = "✅ Your personal information has been saved!"
@@ -312,11 +272,6 @@ other = "🈲 User **@{{.Username}}** was not found."
 other = "🈲 Username **not specified**! Please provide a username in the format **@username**."
 
 # Help texts
-[MsgDonationsHelpText]
-other = """🈲 Invalid command format. Use:
-
-1️⃣ /donations add @username <sum> - add a donation"""
-
 [MsgUsersInvalidRights]
 other = """🈲 Invalid rights specified. Available rights:
 

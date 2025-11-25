@@ -208,46 +208,6 @@ other = "✅ 用户 **@{{.Username}}** 的堆栈功能已设置为 {{.Status}}�
 [MsgUsersRemoved]
 other = "✅ 用户 **@{{.Username}}** 已被删除。"
 
-# 捐赠
-[MsgDonationsUnknownCommand]
-other = "🈲 未知的捐赠管理命令。"
-
-[MsgDonationsNoAccess]
-other = "🈲 你无权管理捐赠，你的社会信用已被**降低**！"
-
-[MsgDonationsErrorAdd]
-other = "💢 添加捐赠记录时发生错误。"
-
-[MsgDonationsAdded]
-other = "✅ 已为用户 **@{{.Username}}** 添加捐赠金额 **{{.Amount}}**。"
-
-[MsgDonationsErrorList]
-other = "💢 获取捐赠列表时发生错误。"
-
-[MsgDonationsNoDonations]
-other = "🤷‍♂️ 帝国国库依然空空如也，还没有任何子民表达忠诚！"
-
-[MsgDonationsListHeader]
-other = "📜 **伟大习主席的捐赠者名单：**\n\n"
-
-[MsgDonationsListTopHeader]
-other = "🏆 **最慷慨的前三位子民：**\n"
-
-[MsgDonationsListTop1Item]
-other = "👑 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListTop2Item]
-other = "💎 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListTop3Item]
-other = "💠 **{{.Username}}** — {{.Amount}} ₽\n"
-
-[MsgDonationsListOthersHeader]
-other = "\n📜 **其他捐赠者：**\n"
-
-[MsgDonationsListItem]
-other = "❤️‍🔥 **{{.Username}}** — {{.Amount}} ₽\n"
-
 # 个性化
 [MsgPersonalizationAdded]
 other = "✅ 你的个人信息已成功保存！"
@@ -312,11 +272,6 @@ other = "🈲 未找到用户 **@{{.Username}}**。"
 other = "🈲 未指定用户名！请使用 **@username** 的格式。"
 
 # 帮助文本
-[MsgDonationsHelpText]
-other = """🈲 命令格式不正确。正确用法：
-
-1️⃣ /donations add @username <sum> - 添加捐赠记录"""
-
 [MsgUsersInvalidRights]
 other = """🈲 权限值不正确。可用权限：
 
