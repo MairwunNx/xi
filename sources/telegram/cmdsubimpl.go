@@ -1241,6 +1241,118 @@ func getGradeNameRu(grade platform.UserGrade) string {
 
 // =========================  /broadcast command handlers  =========================
 
+// =========================  /tariff command handlers  =========================
+
+func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Message, key string, configJSON string) {
+	defer tracing.ProfilePoint(log, "Tariff command add completed", "telegram.command.tariff.add", "key", key)()
+
+	var config repository.TariffConfig
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffErrorConfigParse")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	tariff, err := x.tariffs.CreateTariff(log, key, &config)
+	if err != nil {
+		log.E("Failed to create tariff", tracing.InnerError, err)
+
+		var errorMsg string
+		switch {
+		case errors.Is(err, repository.ErrTariffKeyEmpty):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorKeyEmpty")
+		case errors.Is(err, repository.ErrTariffKeyTooLong):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorKeyTooLong")
+		case errors.Is(err, repository.ErrTariffNameEmpty):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorNameEmpty")
+		case errors.Is(err, repository.ErrTariffNameTooLong):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorNameTooLong")
+		case errors.Is(err, repository.ErrTariffInvalidEffort):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidEffort")
+		case errors.Is(err, repository.ErrTariffInvalidLimit):
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidLimit")
+		default:
+			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorCreate")
+		}
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	successMsg := x.localization.LocalizeByTd(msg, "MsgTariffAdded", map[string]interface{}{
+		"Key":         tariff.Key,
+		"DisplayName": tariff.DisplayName,
+		"ID":          tariff.ID,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
+}
+
+func (x *TelegramHandler) TariffCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Tariff command list completed", "telegram.command.tariff.list")()
+
+	tariffs, err := x.tariffs.GetAllLatest(log)
+	if err != nil {
+		log.E("Failed to get tariffs list", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffErrorList")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	if len(tariffs) == 0 {
+		noTariffsMsg := x.localization.LocalizeBy(msg, "MsgTariffNoTariffs")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noTariffsMsg))
+		return
+	}
+
+	var builder strings.Builder
+	header := x.localization.LocalizeBy(msg, "MsgTariffListHeader")
+	builder.WriteString(header)
+
+	for _, t := range tariffs {
+		itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffListItem", map[string]interface{}{
+			"Key":         t.Key,
+			"DisplayName": t.DisplayName,
+			"ID":          t.ID,
+		})
+		builder.WriteString(itemMsg)
+	}
+
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, builder.String()))
+}
+
+func (x *TelegramHandler) TariffCommandGet(log *tracing.Logger, msg *tgbotapi.Message, key string) {
+	defer tracing.ProfilePoint(log, "Tariff command get completed", "telegram.command.tariff.get", "key", key)()
+
+	tariff, err := x.tariffs.GetLatestByKey(log, key)
+	if err != nil {
+		log.E("Failed to get tariff", tracing.InnerError, err, "key", key)
+		errorMsg := x.localization.LocalizeByTd(msg, "MsgTariffNotFound", map[string]interface{}{
+			"Key": key,
+		})
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	infoMsg := x.localization.LocalizeByTd(msg, "MsgTariffInfo", map[string]interface{}{
+		"ID":                    tariff.ID,
+		"Key":                   tariff.Key,
+		"DisplayName":           tariff.DisplayName,
+		"DialerReasoningEffort": tariff.DialerReasoningEffort,
+		"ContextTTLSeconds":     tariff.ContextTTLSeconds,
+		"ContextMaxMessages":    tariff.ContextMaxMessages,
+		"ContextMaxTokens":      tariff.ContextMaxTokens,
+		"UsageVisionDaily":      tariff.UsageVisionDaily,
+		"UsageVisionMonthly":    tariff.UsageVisionMonthly,
+		"UsageDialerDaily":      tariff.UsageDialerDaily,
+		"UsageDialerMonthly":    tariff.UsageDialerMonthly,
+		"UsageWhisperDaily":     tariff.UsageWhisperDaily,
+		"UsageWhisperMonthly":   tariff.UsageWhisperMonthly,
+		"SpendingDailyLimit":    tariff.SpendingDailyLimit.String(),
+		"SpendingMonthlyLimit":  tariff.SpendingMonthlyLimit.String(),
+		"CreatedAt":             tariff.CreatedAt.Format("02.01.2006 15:04:05"),
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+}
+
 func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, text string) {
 	defer tracing.ProfilePoint(log, "Broadcast command apply completed", "telegram.command.broadcast.apply", "user_id", user.ID)()
 
