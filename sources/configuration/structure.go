@@ -44,6 +44,8 @@ type RedisConfig struct {
 
 type TelegramConfig struct {
 	BotToken          string   `yaml:"bot_token"`
+	APIEndpoint       string   `yaml:"api_endpoint"`
+	FileAPIEndpoint   string   `yaml:"file_api_endpoint"`
 	PollerTimeout     int      `yaml:"poller_timeout"`
 	AllowedUpdates    []string `yaml:"allowed_updates"`
 	DiplomatChunkSize int      `yaml:"diplomat_chunk_size"`

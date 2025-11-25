@@ -124,7 +124,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 		return
 	}
 
-	iurl := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", x.diplomat.bot.Token, file.FilePath)
+	iurl := fmt.Sprintf(GetFileAPIEndpoint(x.diplomat.config), x.diplomat.bot.Token, file.FilePath)
 
 	req := ""
 
@@ -231,7 +231,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 		return
 	}
 
-	fileURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", x.diplomat.bot.Token, file.FilePath)
+	fileURL := fmt.Sprintf(GetFileAPIEndpoint(x.diplomat.config), x.diplomat.bot.Token, file.FilePath)
 
 	tempFile, err := x.downloadAudioFile(log, fileURL, fileExt)
 	if err != nil {

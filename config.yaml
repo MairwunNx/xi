@@ -22,6 +22,8 @@ redis:
 
 telegram:
   bot_token: ${TELEGRAM_BOT_TOKEN}
+  api_endpoint: ${TELEGRAM_API_ENDPOINT:https://api.telegram.org/bot%s/%s}
+  file_api_endpoint: ${TELEGRAM_FILE_API_ENDPOINT:https://api.telegram.org/file/bot%s/%s}
   poller_timeout: 120
   allowed_updates: [message]
   diplomat_chunk_size: 4096
