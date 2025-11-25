@@ -253,7 +253,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 	}
 
 	if userPrompt != "" {
-    persona := msg.From.FirstName+" "+msg.From.LastName + " (@" + msg.From.UserName + ")"
+		persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 		response, err := x.dialer.Dial(log, msg, transcriptedText, "", persona, false, nil)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
@@ -262,7 +262,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 		}
 		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, response))
 	} else {
-		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, transcriptedText))
+		x.diplomat.ReplyAudio(log, msg, x.personality.XiifyAudio(msg, transcriptedText))
 	}
 }
 
