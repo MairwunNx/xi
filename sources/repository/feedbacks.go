@@ -17,8 +17,15 @@ func NewFeedbacksRepository() *FeedbacksRepository {
 	return &FeedbacksRepository{}
 }
 
-func (x *FeedbacksRepository) CreateFeedback(logger *tracing.Logger, userID uuid.UUID, liked int) (*entities.Feedback, error) {
-	defer tracing.ProfilePoint(logger, "Feedbacks create feedback completed", "repository.feedbacks.create", "user_id", userID, "liked", liked)()
+type FeedbackKind string
+
+const (
+	FeedbackKindDialer  FeedbackKind = "dialer"
+	FeedbackKindWhisper FeedbackKind = "whisper"
+)
+
+func (x *FeedbacksRepository) CreateFeedback(logger *tracing.Logger, userID uuid.UUID, liked int, kind FeedbackKind) (*entities.Feedback, error) {
+	defer tracing.ProfilePoint(logger, "Feedbacks create feedback completed", "repository.feedbacks.create", "user_id", userID, "liked", liked, "kind", kind)()
 
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
@@ -28,6 +35,7 @@ func (x *FeedbacksRepository) CreateFeedback(logger *tracing.Logger, userID uuid
 	feedback := &entities.Feedback{
 		UserID: userID,
 		Liked:  liked,
+		Kind:   string(kind),
 	}
 
 	if err := q.Feedback.Create(feedback); err != nil {
@@ -35,7 +43,7 @@ func (x *FeedbacksRepository) CreateFeedback(logger *tracing.Logger, userID uuid
 		return nil, err
 	}
 
-	logger.I("Feedback created successfully", "feedback_id", feedback.ID, "user_id", userID, "liked", liked)
+	logger.I("Feedback created successfully", "feedback_id", feedback.ID, "user_id", userID, "liked", liked, "kind", kind)
 	return feedback, nil
 }
 
