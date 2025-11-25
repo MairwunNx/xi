@@ -408,7 +408,7 @@ other = "🌐 **Proxy:** {{.Status}}\n"
 other = "🤖 **OpenRouter API:** {{.Status}}\n"
 
 [MsgHealthUnleash]
-other = "🎛️ **Feature Flags:** {{.Status}}\n"
+other = "🎛️ **Unleash:** {{.Status}}\n"
 
 [MsgHealthSystem]
 other = "⚙️ **Overall Status:** {{.Status}}\n\n"

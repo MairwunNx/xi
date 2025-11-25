@@ -408,7 +408,7 @@ other = "🌐 **代理：** {{.Status}}\n"
 other = "🤖 **OpenRouter API：** {{.Status}}\n"
 
 [MsgHealthUnleash]
-other = "🎛️ **功能开关：** {{.Status}}\n"
+other = "🎛️ **Unleash：** {{.Status}}\n"
 
 [MsgHealthSystem]
 other = "⚙️ **总体状态：** {{.Status}}\n\n"
