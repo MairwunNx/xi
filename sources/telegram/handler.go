@@ -226,26 +226,17 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 
 func (x *TelegramHandler) handleFeedbackCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
 	// Parse callback data format: feedback_{like|dislike}_{kind}_{userID}
-	// Old format (backwards compatible): feedback_{like|dislike}_{userID}
 	parts := strings.Split(query.Data, "_")
-	if len(parts) < 3 {
+	if len(parts) != 4 {
 		log.E("Invalid feedback callback data format", "data", query.Data)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgFeedbackError"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
 	isLike := parts[1] == "like"
-	var kind repository.FeedbackKind
-	var targetUserIDStr string
-
-	if len(parts) == 4 {
-		// New format: feedback_like_dialer_12345
-		kind = repository.FeedbackKind(parts[2])
-		targetUserIDStr = parts[3]
-	} else {
-		// Old format: feedback_like_12345 (default to dialer)
-		kind = repository.FeedbackKindDialer
-		targetUserIDStr = parts[2]
-	}
+	kind := repository.FeedbackKind(parts[2])
+	targetUserIDStr := parts[3]
 
 	targetUserID, err := strconv.ParseInt(targetUserIDStr, 10, 64)
 	if err != nil {
