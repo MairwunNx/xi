@@ -316,3 +316,38 @@ func (x *TelegramHandler) HandleBroadcastCommand(log *tracing.Logger, user *enti
 
 	x.BroadcastCommandApply(log, user, msg, cmd.Text)
 }
+
+func (x *TelegramHandler) HandleTariffCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	if !x.rights.IsUserHasRight(log, user, "manage_tariffs") {
+		noAccessMsg := x.localization.LocalizeBy(msg, "MsgTariffNoAccess")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
+		return
+	}
+
+	helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
+
+	args := msg.CommandArguments()
+	if args == "" {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		return
+	}
+
+	var cmd TariffCmd
+	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		return
+	}
+
+	switch ctx.Command() {
+	case "add <key> <config>":
+		x.TariffCommandAdd(log, msg, cmd.Add.Key, cmd.Add.Config)
+	case "list":
+		x.TariffCommandList(log, msg)
+	case "get <key>":
+		x.TariffCommandGet(log, msg, cmd.Get.Key)
+	default:
+		log.W("Unknown tariff subcommand", tracing.InternalCommand, ctx.Command())
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+	}
+}
