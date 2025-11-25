@@ -10,6 +10,7 @@ import (
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/redis/go-redis/v9"
 	openrouter "github.com/revrost/go-openrouter"
 )
@@ -131,5 +132,24 @@ func (x *HealthRepository) CheckUnleashHealth(logger *tracing.Logger) error {
 	}
 
 	logger.I("Unleash health check passed")
+	return nil
+}
+
+func (x *HealthRepository) CheckTelegramHealth(logger *tracing.Logger, bot *tgbotapi.BotAPI) error {
+	defer tracing.ProfilePoint(logger, "Health check telegram completed", "repository.health.check.telegram")()
+
+	if bot == nil {
+		err := fmt.Errorf("telegram bot is nil")
+		logger.E("Telegram health check failed", tracing.InnerError, err)
+		return err
+	}
+
+	_, err := bot.GetMe()
+	if err != nil {
+		logger.E("Telegram health check failed", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Telegram health check passed")
 	return nil
 }
