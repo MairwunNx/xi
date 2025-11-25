@@ -73,7 +73,7 @@ func (a *StatusAnimator) animate() {
 		case <-a.ticker.C:
 			a.mu.Lock()
 			if !a.stopped {
-				a.dotIndex = (a.dotIndex + 1) % 4
+				a.dotIndex = (a.dotIndex + 1) % 3
 				a.updateDisplay()
 			}
 			a.mu.Unlock()
@@ -92,8 +92,8 @@ func (a *StatusAnimator) updateDisplay() {
 		return
 	}
 
-	// Animate dots: "...", " ..", "  .", "..."
-	dots := []string{"...", " ..", "  .", "..."}
+	// Animate dots: "...", "..", "."
+	dots := []string{"...", "..", "."}
 	text := baseText + dots[a.dotIndex]
 
 	a.reply.Update(text)
