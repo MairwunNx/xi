@@ -5,6 +5,7 @@
   ],
   "service": "ximanager",
   "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {},
     "ghcr.io/devcontainers/features/git:1": {},
@@ -17,7 +18,9 @@
     5432,
     6379,
     10000,
-    10001
+    9090,
+    9091,
+    4242
   ],
   "portsAttributes": {
     "5432": {
@@ -32,9 +35,17 @@
       "label": "Xi Manager API",
       "onAutoForward": "notify"
     },
-    "10001": {
-      "label": "Xi Manager Metrics",
+    "9090": {
+      "label": "Xi Manager System Metrics",
       "onAutoForward": "silent"
+    },
+    "9091": {
+      "label": "Xi Manager Application Metrics",
+      "onAutoForward": "silent"
+    },
+    "4242": {
+      "label": "Unleash Feature Flags",
+      "onAutoForward": "notify"
     }
   },
   "customizations": {
@@ -64,6 +75,7 @@
     "ximanager-postgres",
     "ximanager-redis",
     "ximanager-flyway",
+    "ximanager-unleash",
     "ximanager"
   ],
   "shutdownAction": "stopCompose"
