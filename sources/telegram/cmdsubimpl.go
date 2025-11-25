@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -1104,11 +1105,24 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 		unleashStatus = statusFail
 	}
 
+	// Telegram API check
+	telegramStatus := statusOk
+	if err := x.health.CheckTelegramHealth(log, x.diplomat.bot); err != nil {
+		telegramStatus = statusFail
+	}
+
 	// System status (overall)
 	systemStatus := statusOk
 	if dbStatus == statusFail || redisStatus == statusFail {
 		systemStatus = statusFail
 	}
+
+	// Runtime metrics
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+	memoryMB := float64(memStats.Alloc) / 1000 / 1000
+	goroutines := runtime.NumGoroutine()
+	goVersion := runtime.Version()
 
 	uptime := time.Since(platform.GetAppStartTime())
 	uptimeFormatted := x.dateTimeFormatter.Uptimeify(msg, uptime)
@@ -1139,12 +1153,28 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 		"Status": unleashStatus,
 	})
 
+	telegramMsg := x.localization.LocalizeByTd(msg, "MsgHealthTelegram", map[string]interface{}{
+		"Status": telegramStatus,
+	})
+
 	systemMsg := x.localization.LocalizeByTd(msg, "MsgHealthSystem", map[string]interface{}{
 		"Status": systemStatus,
 	})
 
 	uptimeMsg := x.localization.LocalizeByTd(msg, "MsgHealthUptime", map[string]interface{}{
 		"Uptime": uptimeFormatted,
+	})
+
+	memoryMsg := x.localization.LocalizeByTd(msg, "MsgHealthMemory", map[string]interface{}{
+		"Memory": fmt.Sprintf("%.2f", memoryMB),
+	})
+
+	goroutinesMsg := x.localization.LocalizeByTd(msg, "MsgHealthGoroutines", map[string]interface{}{
+		"Count": goroutines,
+	})
+
+	goVersionMsg := x.localization.LocalizeByTd(msg, "MsgHealthGoVersion", map[string]interface{}{
+		"Version": goVersion,
 	})
 
 	versionMsg := x.localization.LocalizeByTd(msg, "MsgHealthVersion", map[string]interface{}{
@@ -1155,7 +1185,7 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 		"BuildTime": buildTimeFormatted,
 	})
 
-	response := title + dbMsg + redisMsg + proxyMsg + openrouterMsg + unleashMsg + systemMsg + uptimeMsg + versionMsg + buildTimeMsg
+	response := title + dbMsg + redisMsg + proxyMsg + openrouterMsg + unleashMsg + telegramMsg + systemMsg + uptimeMsg + memoryMsg + goroutinesMsg + goVersionMsg + versionMsg + buildTimeMsg
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
