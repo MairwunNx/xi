@@ -30,7 +30,6 @@ type (
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
 
-
 	Broadcast struct {
 		ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID    uuid.UUID `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
@@ -50,12 +49,12 @@ type (
 	}
 
 	Message struct {
-		ID           uuid.UUID       `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
-		ChatID       int64           `gorm:"not null" json:"chat_id"`
-		MessageTime  time.Time       `gorm:"default:CURRENT_TIMESTAMP" json:"message_time"`
-		IsXiResponse bool            `gorm:"not null" json:"is_xi_response"`
-		IsRemoved    bool            `gorm:"not null;default:false" json:"is_removed"`
-		UserID       *uuid.UUID      `gorm:"type:uuid" json:"user_id"`
+		ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:uuid_generate_v4()" json:"id"`
+		ChatID       int64      `gorm:"not null" json:"chat_id"`
+		MessageTime  time.Time  `gorm:"default:CURRENT_TIMESTAMP" json:"message_time"`
+		IsXiResponse bool       `gorm:"not null" json:"is_xi_response"`
+		IsRemoved    bool       `gorm:"not null;default:false" json:"is_removed"`
+		UserID       *uuid.UUID `gorm:"type:uuid" json:"user_id"`
 
 		User *User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
@@ -68,8 +67,8 @@ type (
 		Prompt    string     `gorm:"type:text;not null" json:"prompt"`
 		Config    *string    `gorm:"type:json;column:config" json:"config"`
 		Grade     *string    `gorm:"size:50;column:grade" json:"grade"`
-		Final     *bool       `gorm:"not null;default:false" json:"final"`
-		IsEnabled *bool       `gorm:"not null;default:true" json:"is_enabled"`
+		Final     *bool      `gorm:"not null;default:false" json:"final"`
+		IsEnabled *bool      `gorm:"not null;default:true" json:"is_enabled"`
 		CreatedAt time.Time  `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 		CreatedBy *uuid.UUID `gorm:"type:uuid" json:"created_by"`
 
@@ -99,14 +98,14 @@ type (
 	}
 
 	Usage struct {
-		ID           uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		UserID       uuid.UUID        `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
-		Cost         decimal.Decimal  `gorm:"type:decimal(10,6);not null" json:"cost"`
-		Tokens       int              `gorm:"not null" json:"tokens"`
-		AnotherCost  *decimal.Decimal `gorm:"type:decimal(10,6)" json:"another_cost"`
-		AnotherTokens *int            `gorm:"" json:"another_tokens"`
-		ChatID       int64            `gorm:"not null" json:"chat_id"`
-		CreatedAt    time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
+		ID            uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+		UserID        uuid.UUID        `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
+		Cost          decimal.Decimal  `gorm:"type:decimal(10,6);not null" json:"cost"`
+		Tokens        int              `gorm:"not null" json:"tokens"`
+		AnotherCost   *decimal.Decimal `gorm:"type:decimal(10,6)" json:"another_cost"`
+		AnotherTokens *int             `gorm:"" json:"another_tokens"`
+		ChatID        int64            `gorm:"not null" json:"chat_id"`
+		CreatedAt     time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
@@ -133,15 +132,40 @@ type (
 		Usages           []Usage           `gorm:"foreignKey:UserID;references:ID" json:"usages"`
 		Bans             []Ban             `gorm:"foreignKey:UserID;references:ID" json:"bans"`
 	}
+
+	Tariff struct {
+		ID          int64     `gorm:"column:id;primaryKey;autoIncrement"`
+		Key         string    `gorm:"column:key;not null;index:idx_key_created,priority:1"`
+		DisplayName string    `gorm:"column:display_name;not null"`
+		CreatedAt   time.Time `gorm:"column:created_at;default:now();index:idx_key_created,priority:2,sort:desc"`
+
+		DialerModels          []byte `gorm:"column:dialer_models;type:jsonb;not null"`
+		DialerReasoningEffort string `gorm:"column:dialer_reasoning_effort;not null"`
+
+		ContextTTLSeconds  int `gorm:"column:context_ttl_seconds;not null"`
+		ContextMaxMessages int `gorm:"column:context_max_messages;not null"`
+		ContextMaxTokens   int `gorm:"column:context_max_tokens;not null"`
+
+		UsageVisionDaily    int `gorm:"column:usage_vision_daily;not null"`
+		UsageVisionMonthly  int `gorm:"column:usage_vision_monthly;not null"`
+		UsageDialerDaily    int `gorm:"column:usage_dialer_daily;not null"`
+		UsageDialerMonthly  int `gorm:"column:usage_dialer_monthly;not null"`
+		UsageWhisperDaily   int `gorm:"column:usage_whisper_daily;not null"`
+		UsageWhisperMonthly int `gorm:"column:usage_whisper_monthly;not null"`
+
+		SpendingDailyLimit   decimal.Decimal `gorm:"column:spending_daily_limit;type:decimal(10,2);not null"`
+		SpendingMonthlyLimit decimal.Decimal `gorm:"column:spending_monthly_limit;type:decimal(10,2);not null"`
+	}
 )
 
-func (Ban) TableName() string               { return "xi_bans" }
-func (Broadcast) TableName() string         { return "xi_broadcasts" }
-func (Donation) TableName() string          { return "xi_donations" }
-func (Feedback) TableName() string          { return "xi_feedbacks" }
-func (Message) TableName() string           { return "xi_messages" }
-func (Mode) TableName() string              { return "xi_modes" }
-func (Personalization) TableName() string   { return "xi_personalizations" }
-func (SelectedMode) TableName() string      { return "xi_selected_modes" }
-func (Usage) TableName() string             { return "xi_usage" }
-func (User) TableName() string              { return "xi_users" }
+func (Ban) TableName() string             { return "xi_bans" }
+func (Broadcast) TableName() string       { return "xi_broadcasts" }
+func (Donation) TableName() string        { return "xi_donations" }
+func (Feedback) TableName() string        { return "xi_feedbacks" }
+func (Message) TableName() string         { return "xi_messages" }
+func (Mode) TableName() string            { return "xi_modes" }
+func (Personalization) TableName() string { return "xi_personalizations" }
+func (SelectedMode) TableName() string    { return "xi_selected_modes" }
+func (Usage) TableName() string           { return "xi_usage" }
+func (User) TableName() string            { return "xi_users" }
+func (Tariff) TableName() string          { return "xi_tariffs" }
