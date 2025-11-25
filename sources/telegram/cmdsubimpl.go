@@ -48,7 +48,24 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 			return
 		}
 
+		// Status animation state
+		statusAnimator := NewStatusAnimator(
+			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
+			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
+			streamReply,
+		)
+		defer statusAnimator.Stop()
+
 		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
+			// Handle status changes
+			if chunk.Status != artificial.StreamStatusNone {
+				statusAnimator.SetStatus(chunk.Status)
+				return
+			}
+
+			// Stop animation when content arrives
+			statusAnimator.Stop()
+
 			if chunk.Error != nil {
 				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
 				streamReply.FinishWithError(errorMsg)
@@ -61,7 +78,10 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 				} else {
 					streamReply.Finish(finalText)
 				}
+				return
 			}
+			// Update with partial content (no Xiify during streaming for performance)
+			streamReply.Update(chunk.Content)
 		}
 
 		_, err = x.dialer.Dial(log, msg, req, "", persona, true, streamCallback)
@@ -119,6 +139,57 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 	}
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
+
+	if x.features.IsEnabled(features.FeatureStreamingResponses) {
+		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
+		if err != nil {
+			log.E("Failed to start streaming reply for photo", tracing.InnerError, err)
+			x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
+			return
+		}
+
+		statusAnimator := NewStatusAnimator(
+			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
+			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
+			streamReply,
+		)
+		defer statusAnimator.Stop()
+
+		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
+			if chunk.Status != artificial.StreamStatusNone {
+				statusAnimator.SetStatus(chunk.Status)
+				return
+			}
+
+			statusAnimator.Stop()
+
+			if chunk.Error != nil {
+				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
+				streamReply.FinishWithError(errorMsg)
+				return
+			}
+			if chunk.Done {
+				finalText := x.personality.Xiify(msg, chunk.Content)
+				if strings.TrimSpace(chunk.Content) == "" {
+					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
+				} else {
+					streamReply.Finish(finalText)
+				}
+				return
+			}
+			streamReply.Update(chunk.Content)
+		}
+
+		_, err = x.dialer.Dial(log, msg, req, iurl, persona, true, streamCallback)
+		if err != nil {
+			log.E("Error from dialer in streaming mode for photo", tracing.InnerError, err)
+		}
+	} else {
+		x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
+	}
+}
+
+func (x *TelegramHandler) xiCommandPhotoNonStreaming(log *tracing.Logger, msg *tgbotapi.Message, req, iurl, persona string) {
 	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true, nil)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
