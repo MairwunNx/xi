@@ -42,6 +42,9 @@ func formatUserRequest(persona string, req string) string {
 
 	return fmt.Sprintf(UserRequestTemplate, timestamp, persona, req)
 }
+
+// todo: remove all prompts.
+
 func getDefaultContextSelectionPrompt() string {
 	return `You are a context selection agent. Your task is to analyze a conversation history and select which messages are relevant for answering the new user question.
 
