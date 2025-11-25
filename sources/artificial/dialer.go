@@ -148,7 +148,7 @@ func (x *Dialer) runAgentsParallel(
 	return results, nil
 }
 
-func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool) (string, error) {
+func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool, streamCallback StreamCallback) (string, error) {
 	defer tracing.ProfilePoint(log, "Dialer dial completed", "artificial.dialer.dial")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -479,12 +479,21 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 			switch e := err.(type) {
 			case *openrouter.APIError:
 				if e.Code == 402 {
+					if streamCallback != nil {
+						streamCallback(StreamChunk{Done: true, Error: err})
+					}
 					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 				}
 				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
+				if streamCallback != nil {
+					streamCallback(StreamChunk{Done: true, Error: err})
+				}
 				return "", err
 			default:
 				log.E("Failed to dial", tracing.InnerError, err)
+				if streamCallback != nil {
+					streamCallback(StreamChunk{Done: true, Error: err})
+				}
 				return "", err
 			}
 		}
@@ -574,6 +583,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	if banNotice != "" {
 		responseText += banNotice
+	}
+
+	if streamCallback != nil {
+		streamCallback(StreamChunk{Content: responseText, Done: true, Error: nil})
 	}
 
 	return responseText, nil
