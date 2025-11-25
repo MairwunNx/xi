@@ -6,7 +6,7 @@ services:
   ximanager:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     cap_add: [ "SYS_PTRACE" ]
     command: ["sleep", "infinity"]
     container_name: ximanager-dev
