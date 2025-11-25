@@ -1003,7 +1003,7 @@ func (a *AgentSystem) ExtractPersonalization(
 	defer tracing.ProfilePoint(log, "Agent extract personalization completed", "artificial.agents.extract.personalization", "message_length", len(userMessage))()
 	a.metrics.RecordAgentUsage("personalization_extraction")
 
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.PersonalizationExtrctor.Timeout)*time.Second)
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.PersonalizationExtractor.Timeout)*time.Second)
 	defer cancel()
 
 	prompt := a.getPersonalizationExtractionPrompt()
@@ -1020,7 +1020,7 @@ func (a *AgentSystem) ExtractPersonalization(
 		},
 	}
 
-	model := a.config.AI.Agents.PersonalizationExtrctor.Model
+	model := a.config.AI.Agents.PersonalizationExtractor.Model
 
 	request := openrouter.ChatCompletionRequest{
 		Model:    model,
