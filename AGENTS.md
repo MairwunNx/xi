@@ -1,7 +1,3 @@
-# Commits Rules
-
-Name commits shortly in Russian language (in previous times). Use emoji before summary of commit which describes changes.
-
 # Communication Rules
 
 Communicate with user in preferly in russian language, but you can thinking in american english. For chatting you can use emoji.
