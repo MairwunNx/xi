@@ -8,3 +8,9 @@ const (
 	UserRightManageUsers   UserRight = "manage_users"
 	UserRightManageContext UserRight = "manage_context"
 )
+
+const (
+	TariffKeyBronze = "bronze"
+	TariffKeySilver = "silver"
+	TariffKeyGold   = "gold"
+)
