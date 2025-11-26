@@ -26,24 +26,24 @@ var (
 )
 
 type ModeConfig struct {
-	Prompt string `json:"prompt"`
+	Prompt string    `json:"prompt"`
 	Params *AIParams `json:"params,omitempty"`
-	Final  bool   `json:"final,omitempty"`
+	Final  bool      `json:"final,omitempty"`
 }
 
 type AIParams struct {
 	// Nucleus sampling (0.1-1.0) - меньшие значения = более фокусированные ответы
 	TopP *float32 `json:"top_p,omitempty"`
-	
+
 	// Top-K sampling (1-100) - количество наиболее вероятных токенов (специфично для Anthropic)
 	TopK *int `json:"top_k,omitempty"`
 
 	// Штраф за повторение тем (0.0-2.0) - не поддерживается Anthropic
 	PresencePenalty *float32 `json:"presence_penalty,omitempty"`
-	
-	// Штраф за повторение слов (0.0-2.0) - не поддерживается Anthropic  
+
+	// Штраф за повторение слов (0.0-2.0) - не поддерживается Anthropic
 	FrequencyPenalty *float32 `json:"frequency_penalty,omitempty"`
-	
+
 	// Температура (0-2) - управляет случайностью ответов
 	Temperature *float32 `json:"temperature,omitempty"`
 }
@@ -52,10 +52,10 @@ func DefaultModeConfig(prompt string) *ModeConfig {
 	if strings.TrimSpace(prompt) == "" {
 		prompt = fallbackPrompt
 	}
-	
+
 	return &ModeConfig{
 		Prompt: prompt,
-		Final:  false,
+		Final:  true,
 		Params: &AIParams{
 			TopP:             nil,
 			TopK:             nil,
@@ -75,64 +75,363 @@ func NewModesRepository(users *UsersRepository, donations *DonationsRepository) 
 	return &ModesRepository{users: users, donations: donations}
 }
 
-func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userID int64) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes switch mode completed", "repository.modes.switch.mode", "chat_id", chatID, "user_id", userID)()
+func (x *ModesRepository) GetAllModes(logger *tracing.Logger) ([]*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get all completed", "repository.modes.get.all")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
 
-	currentMode, err := x.GetModeByChat(logger, chatID)
+	// Get all modes, then filter to get latest by type
+	modes, err := q.Mode.
+		Where(query.Mode.IsEnabled.Is(true)).
+		Order(query.Mode.CreatedAt.Desc()).
+		Find()
+
 	if err != nil {
-		logger.E("Error getting current mode for switch", tracing.InnerError, err)
+		logger.E("Failed to get all modes", tracing.InnerError, err)
 		return nil, err
 	}
 
-	user, err := x.users.GetUserByEid(logger, userID)
-	if err != nil {
-		logger.E("Error getting user for mode switch", tracing.InnerError, err)
-		return nil, err
-	}
-
-	availableModes, err := x.GetModesByChat(logger, chatID, user)
-	if err != nil {
-		logger.E("Error getting available modes for switch", tracing.InnerError, err)
-		return nil, err
-	}
-
-	if len(availableModes) <= 1 {
-		logger.W("Not enough modes to switch", "count", len(availableModes))
-		return nil, errors.New("недостаточно режимов для переключения")
-	}
-
-	var nextMode *entities.Mode
-	for i, mode := range availableModes {
-		if mode.ID == currentMode.ID {
-			nextIndex := (i + 1) % len(availableModes)
-			nextMode = availableModes[nextIndex]
-			break
+	// Distinct by type - keep only the latest version for each type
+	modesByType := make(map[string]*entities.Mode)
+	for _, mode := range modes {
+		if _, exists := modesByType[mode.Type]; !exists {
+			modesByType[mode.Type] = mode
 		}
 	}
 
-	if nextMode == nil {
-		logger.E("Current mode not found in available modes list")
-		return nil, errors.New("текущий режим не найден в списке доступных режимов")
+	result := make([]*entities.Mode, 0, len(modesByType))
+	for _, mode := range modesByType {
+		result = append(result, mode)
 	}
 
-	selectedMode := &entities.SelectedMode{
-		ChatID:     chatID,
-		ModeID:     nextMode.ID,
-		SwitchedBy: user.ID,
-	}
+	logger.I("Retrieved all modes", "count", len(result))
+	return result, nil
+}
 
-	err = q.SelectedMode.Create(selectedMode)
+func (x *ModesRepository) GetAllModesIncludingDisabled(logger *tracing.Logger) ([]*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get all including disabled completed", "repository.modes.get.all.including.disabled")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	modes, err := q.Mode.
+		Order(query.Mode.CreatedAt.Desc()).
+		Find()
+
 	if err != nil {
-		logger.E("Error creating selected mode record", tracing.InnerError, err)
+		logger.E("Failed to get all modes", tracing.InnerError, err)
 		return nil, err
 	}
 
-	logger.I("Mode switched successfully", tracing.ModeId, nextMode.ID, tracing.ModeName, nextMode.Name)
-	return nextMode, nil
+	// Distinct by type - keep only the latest version for each type
+	modesByType := make(map[string]*entities.Mode)
+	for _, mode := range modes {
+		if _, exists := modesByType[mode.Type]; !exists {
+			modesByType[mode.Type] = mode
+		}
+	}
+
+	result := make([]*entities.Mode, 0, len(modesByType))
+	for _, mode := range modesByType {
+		result = append(result, mode)
+	}
+
+	logger.I("Retrieved all modes including disabled", "count", len(result))
+	return result, nil
+}
+
+func (x *ModesRepository) GetModesForUser(logger *tracing.Logger, user *entities.User) ([]*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get for user completed", "repository.modes.get.for.user", "user_id", user.ID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	userGrade, err := x.donations.GetUserGrade(logger, user)
+	if err != nil {
+		logger.E("Failed to get user grade", tracing.InnerError, err)
+		return nil, err
+	}
+
+	allowedGrades := x.getAllowedGrades(userGrade)
+
+	q := query.Q.WithContext(ctx)
+
+	modes, err := q.Mode.Where(
+		query.Mode.IsEnabled.Is(true),
+		q.Mode.Or(query.Mode.Grade.In(allowedGrades...), query.Mode.Grade.IsNull()),
+	).Order(query.Mode.CreatedAt.Desc()).Find()
+
+	if err != nil {
+		logger.E("Failed to get modes for user", tracing.InnerError, err)
+		return nil, err
+	}
+
+	// Distinct by type - keep only the latest version for each type
+	modesByType := make(map[string]*entities.Mode)
+	for _, mode := range modes {
+		if _, exists := modesByType[mode.Type]; !exists {
+			modesByType[mode.Type] = mode
+		}
+	}
+
+	result := make([]*entities.Mode, 0, len(modesByType))
+	for _, mode := range modesByType {
+		result = append(result, mode)
+	}
+
+	logger.I("Retrieved modes for user", "count", len(result), "user_grade", userGrade)
+	return result, nil
+}
+
+func (x *ModesRepository) GetAllModesWithAvailability(logger *tracing.Logger, user *entities.User) (available []*entities.Mode, unavailable []*entities.Mode, userGrade platform.UserGrade, err error) {
+	defer tracing.ProfilePoint(logger, "Modes get with availability completed", "repository.modes.get.with.availability", "user_id", user.ID)()
+
+	userGrade, err = x.donations.GetUserGrade(logger, user)
+	if err != nil {
+		logger.E("Failed to get user grade", tracing.InnerError, err)
+		return nil, nil, "", err
+	}
+
+	allModes, err := x.GetAllModes(logger)
+	if err != nil {
+		return nil, nil, "", err
+	}
+
+	allowedGrades := x.getAllowedGrades(userGrade)
+
+	for _, mode := range allModes {
+		if x.isModeAvailableForGrades(mode, allowedGrades) {
+			available = append(available, mode)
+		} else {
+			unavailable = append(unavailable, mode)
+		}
+	}
+
+	logger.I("Got modes with availability", "available", len(available), "unavailable", len(unavailable), "user_grade", userGrade)
+	return available, unavailable, userGrade, nil
+}
+
+func (x *ModesRepository) getAllowedGrades(userGrade platform.UserGrade) []string {
+	allowedGrades := []string{}
+	switch userGrade {
+	case platform.GradeGold:
+		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver, platform.GradeGold}
+	case platform.GradeSilver:
+		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver}
+	case platform.GradeBronze:
+		allowedGrades = []string{platform.GradeBronze}
+	default:
+		allowedGrades = []string{platform.GradeBronze}
+	}
+	allowedGrades = append(allowedGrades, "")
+	return allowedGrades
+}
+
+func (x *ModesRepository) isModeAvailableForGrades(mode *entities.Mode, allowedGrades []string) bool {
+	if mode.Grade == nil || *mode.Grade == "" {
+		return true
+	}
+	for _, g := range allowedGrades {
+		if *mode.Grade == g {
+			return true
+		}
+	}
+	return false
+}
+
+func (x *ModesRepository) GetModeByType(logger *tracing.Logger, modeType string) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get by type completed", "repository.modes.get.by.type", "mode_type", modeType)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	mode, err := q.Mode.
+		Where(query.Mode.Type.Eq(modeType), query.Mode.IsEnabled.Is(true)).
+		Order(query.Mode.CreatedAt.Desc()).
+		First()
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrModeNotFound
+		}
+		logger.E("Failed to get mode by type", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Got mode by type", "mode_id", mode.ID, "mode_name", mode.Name)
+	return mode, nil
+}
+
+func (x *ModesRepository) GetModeByID(logger *tracing.Logger, modeID uuid.UUID) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get by id completed", "repository.modes.get.by.id", "mode_id", modeID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	mode, err := q.Mode.
+		Where(query.Mode.ID.Eq(modeID)).
+		First()
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrModeNotFound
+		}
+		logger.E("Failed to get mode by id", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Got mode by id", "mode_id", mode.ID, "mode_name", mode.Name)
+	return mode, nil
+}
+
+func (x *ModesRepository) SetModeForChat(logger *tracing.Logger, chatID int64, modeID uuid.UUID, userID uuid.UUID) error {
+	defer tracing.ProfilePoint(logger, "Modes set for chat completed", "repository.modes.set.for.chat", "chat_id", chatID, "mode_id", modeID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	selectedMode := &entities.SelectedMode{
+		ChatID:     chatID,
+		ModeID:     modeID,
+		SwitchedBy: userID,
+	}
+
+	err := q.SelectedMode.Create(selectedMode)
+	if err != nil {
+		logger.E("Error creating selected mode record", tracing.InnerError, err)
+		return err
+	}
+
+	logger.I("Mode set for chat successfully", "chat_id", chatID, "mode_id", modeID)
+	return nil
+}
+
+func (x *ModesRepository) GetCurrentModeForChat(logger *tracing.Logger, chatID int64) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get current for chat completed", "repository.modes.get.current.for.chat", "chat_id", chatID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	selectedMode, err := q.SelectedMode.
+		Where(query.SelectedMode.ChatID.Eq(chatID)).
+		Order(query.SelectedMode.SwitchedAt.Desc()).
+		First()
+
+	if err == nil {
+		mode, err := q.Mode.
+			Where(
+				query.Mode.ID.Eq(selectedMode.ModeID),
+				query.Mode.IsEnabled.Is(true),
+			).
+			First()
+
+		if err == nil {
+			logger.I("Gathered selected mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
+			return mode, nil
+		} else {
+			logger.W("Selected mode not found or disabled, falling back to default",
+				"selected_mode_id", selectedMode.ModeID, tracing.InnerError, err)
+		}
+	} else {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.I("No selected mode for chat, falling back to default")
+		} else {
+			logger.E("Failed to get selected mode, falling back to default", tracing.InnerError, err)
+		}
+	}
+
+	// Fallback: get any enabled mode
+	mode, err := q.Mode.
+		Where(query.Mode.IsEnabled.Is(true)).
+		Order(query.Mode.CreatedAt.Desc()).
+		First()
+
+	if err == nil {
+		logger.I("Using fallback mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
+		return mode, nil
+	}
+
+	// Last fallback: default mode
+	dmode, err := x.GetDefaultMode(logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return dmode, nil
+}
+
+func (x *ModesRepository) GetDefaultMode(logger *tracing.Logger) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get default mode completed", "repository.modes.get.default.mode")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	mode, err := q.Mode.Where(
+		query.Mode.IsEnabled.Is(true),
+	).Order(query.Mode.CreatedAt.Asc()).First()
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.E("No default mode")
+			return nil, errors.New("no default mode")
+		} else {
+			logger.E("Failed to get default mode", tracing.InnerError, err)
+			return nil, err
+		}
+	}
+
+	logger.I("Gathered default mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
+	return mode, nil
+}
+
+func (x *ModesRepository) CreateMode(logger *tracing.Logger, modeType string, name string, config *ModeConfig, grade string, creatorEUID int64) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes create completed", "repository.modes.create", "mode_type", modeType, "name", name)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	user, err := x.users.GetUserByEid(logger, creatorEUID)
+	if err != nil {
+		return nil, err
+	}
+
+	configJSON, err := x.SerializeModeConfig(config)
+	if err != nil {
+		logger.E("Failed to serialize mode config", tracing.InnerError, err)
+		return nil, err
+	}
+
+	var gradePtr *string
+	if grade != "" {
+		gradePtr = &grade
+	}
+
+	newMode := &entities.Mode{
+		Type:      modeType,
+		Name:      name,
+		Config:    &configJSON,
+		Grade:     gradePtr,
+		Final:     platform.BoolPtr(config.Final),
+		IsEnabled: platform.BoolPtr(true),
+		CreatedBy: &user.ID,
+	}
+
+	err = q.Mode.Create(newMode)
+	if err != nil {
+		logger.E("Failed to create mode", tracing.InnerError, err)
+		return nil, err
+	}
+
+	logger.I("Created new mode", tracing.ModeId, newMode.ID, tracing.ModeName, newMode.Name, "grade", grade)
+	return newMode, nil
 }
 
 func (x *ModesRepository) UpdateMode(logger *tracing.Logger, mode *entities.Mode) (*entities.Mode, error) {
@@ -156,175 +455,7 @@ func (x *ModesRepository) UpdateMode(logger *tracing.Logger, mode *entities.Mode
 	return mode, nil
 }
 
-func (x *ModesRepository) MustUpdateMode(logger *tracing.Logger, mode *entities.Mode) *entities.Mode {
-	mode, err := x.UpdateMode(logger, mode)
-	if err != nil {
-		logger.F("Got error while not expected", tracing.InnerError, err)
-	}
-
-	return mode
-}
-
-func (x *ModesRepository) GetModesByChat(logger *tracing.Logger, cid int64, user *entities.User) ([]*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes get modes by chat completed", "repository.modes.get.modes.by.chat", "chat_id", cid)()
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
-	defer cancel()
-
-	userGrade, err := x.donations.GetUserGrade(logger, user)
-	if err != nil {
-		logger.E("Failed to get user grade", tracing.InnerError, err)
-		return nil, err
-	}
-
-	allowedGrades := []string{}
-	switch userGrade {
-	case platform.GradeGold:
-		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver, platform.GradeGold}
-	case platform.GradeSilver:
-		allowedGrades = []string{platform.GradeBronze, platform.GradeSilver}
-	case platform.GradeBronze:
-		allowedGrades = []string{platform.GradeBronze}
-	default:
-		allowedGrades = []string{platform.GradeBronze}
-	}
-
-	allowedGrades = append(allowedGrades, "")
-
-	q := query.Q.WithContext(ctx)
-
-	modes, err := q.Mode.Where(
-		query.Mode.ChatID.In(cid, 0),
-		query.Mode.IsEnabled.Is(true),
-		q.Mode.Or(query.Mode.Grade.In(allowedGrades...), query.Mode.Grade.IsNull()),
-	).Order(query.Mode.CreatedAt.Desc()).Find()
-
-	if err != nil {
-		logger.E("Failed to get modes", tracing.InnerError, err)
-		return nil, err
-	}
-
-	logger.I("Retrieved modes")
-	return modes, nil
-}
-
-func (x *ModesRepository) AddModeForChat(logger *tracing.Logger, cid int64, modeType string, name string, prompt string, euid int64) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes add mode for chat completed", "repository.modes.add.mode.for.chat", "chat_id", cid, "mode_type", modeType, "name", name, "euid", euid)()
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
-	defer cancel()
-
-	q := query.Q.WithContext(ctx)
-
-	user, err := x.users.GetUserByEid(logger, euid)
-	if err != nil {
-		return nil, err
-	}
-
-	newMode := &entities.Mode{
-		ChatID:    cid,
-		Type:      modeType,
-		Name:      name,
-		Prompt:    prompt,
-		Final:     platform.BoolPtr(false),
-		IsEnabled: platform.BoolPtr(true),
-		CreatedBy: &user.ID,
-	}
-
-	err = q.Mode.Create(newMode)
-	if err != nil {
-		logger.E("Failed to create mode", tracing.InnerError, err)
-		return nil, err
-	}
-
-	logger.I("Created new mode", tracing.ModeId, newMode.ID, tracing.ModeName, newMode.Name, tracing.ChatId, cid)
-	return newMode, nil
-}
-
-func (r *ModesRepository) GetModeByChat(logger *tracing.Logger, cid int64) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes get mode by chat completed", "repository.modes.get.mode.by.chat", "chat_id", cid)()
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
-	defer cancel()
-
-	q := query.Q.WithContext(ctx)
-
-	selectedMode, err := q.SelectedMode.
-		Where(query.SelectedMode.ChatID.Eq(cid)).
-		Order(query.SelectedMode.SwitchedAt.Desc()).
-		First()
-
-	if err == nil {
-		mode, err := q.Mode.
-			Where(
-				query.Mode.ID.Eq(selectedMode.ModeID),
-				query.Mode.IsEnabled.Is(true),
-				query.Mode.ChatID.In(cid, 0),
-			).
-			First()
-		
-		if err == nil {
-			logger.I("Gathered selected mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
-			return mode, nil
-		} else {
-			logger.W("Selected mode not found or disabled, falling back to default", 
-				"selected_mode_id", selectedMode.ModeID, tracing.InnerError, err)
-		}
-	} else {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.I("No selected mode for chat, falling back to default")
-		} else {
-			logger.E("Failed to get selected mode, falling back to default", tracing.InnerError, err)
-		}
-	}
-
-	// Fallback: ищем любой доступный режим для чата или глобальный
-	mode, err := q.Mode.
-		Where(
-			query.Mode.ChatID.In(cid, 0),
-			query.Mode.IsEnabled.Is(true),
-		).
-		Order(query.Mode.CreatedAt.Desc()).
-		First()
-	
-	if err == nil {
-		logger.I("Using fallback mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
-		return mode, nil
-	}
-
-	// Последний fallback: дефолтный режим
-	dmode, err := r.GetDefaultMode(logger)
-	if err != nil {
-		return nil, err
-	}
-
-	return dmode, nil
-}
-
-func (r *ModesRepository) GetDefaultMode(logger *tracing.Logger) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes get default mode completed", "repository.modes.get.default.mode")()
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
-	defer cancel()
-
-	q := query.Q.WithContext(ctx)
-
-	mode, err := q.Mode.Where(
-		query.Mode.ChatID.Eq(0),
-		query.Mode.IsEnabled.Is(true),
-	).Order(query.Mode.CreatedAt.Desc()).First()
-
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.E("No default mode")
-			return nil, errors.New("no default mode")
-		} else {
-			logger.E("Failed to get default mode", tracing.InnerError, err)
-			return nil, err
-		}
-	}
-
-	logger.I("Gathered default mode", tracing.ModeId, mode.ID, tracing.ModeName, mode.Name)
-	return mode, nil
-}
-
-func (r *ModesRepository) DeleteMode(logger *tracing.Logger, mode *entities.Mode) error {
+func (x *ModesRepository) DeleteMode(logger *tracing.Logger, mode *entities.Mode) error {
 	defer tracing.ProfilePoint(logger, "Modes delete mode completed", "repository.modes.delete.mode", "mode_id", mode.ID, "mode_name", mode.Name)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
@@ -341,39 +472,25 @@ func (r *ModesRepository) DeleteMode(logger *tracing.Logger, mode *entities.Mode
 	return nil
 }
 
-func (r *ModesRepository) MustDeleteMode(logger *tracing.Logger, mode *entities.Mode) {
-	err := r.DeleteMode(logger, mode)
-	if err != nil {
-		logger.F("Got error while not expected", tracing.InnerError, err)
-	}
-}
-
 func (x *ModesRepository) ParseModeConfig(mode *entities.Mode, logger *tracing.Logger) *ModeConfig {
 	defer tracing.ProfilePoint(logger, "Modes parse mode config completed", "repository.modes.parse.mode.config", "mode_id", mode.ID)()
 	if mode.Config != nil && *mode.Config != "" {
 		var config ModeConfig
 		if err := json.Unmarshal([]byte(*mode.Config), &config); err != nil {
-			logger.E("Failed to parse mode config JSON, falling back to prompt", "mode_id", mode.ID, tracing.InnerError, err)
-			// Fallback на старый формат
-			return DefaultModeConfig(mode.Prompt)
+			logger.E("Failed to parse mode config JSON, using fallback", "mode_id", mode.ID, tracing.InnerError, err)
+			return DefaultModeConfig("")
 		}
-		
+
 		if strings.TrimSpace(config.Prompt) == "" {
-			logger.W("Empty prompt in mode config JSON, using mode.Prompt as fallback", "mode_id", mode.ID)
-			config.Prompt = mode.Prompt
-		}
-		
-		if strings.TrimSpace(config.Prompt) == "" {
-			logger.E("Both config.Prompt and mode.Prompt are empty, using default prompt", "mode_id", mode.ID)
+			logger.E("Empty prompt in mode config JSON, using default prompt", "mode_id", mode.ID)
 			config.Prompt = fallbackPrompt
 		}
-		
+
 		return &config
 	}
-	
-	// Fallback на старый формат, если нет JSON конфигурации
+
 	logger.I("Using fallback mode config", "mode_id", mode.ID)
-	return DefaultModeConfig(mode.Prompt)
+	return DefaultModeConfig("")
 }
 
 func (x *ModesRepository) SerializeModeConfig(config *ModeConfig) (string, error) {
@@ -384,16 +501,16 @@ func (x *ModesRepository) SerializeModeConfig(config *ModeConfig) (string, error
 	return string(data), nil
 }
 
-func (x *ModesRepository) GetModeConfigByChat(logger *tracing.Logger, chatID int64) (*ModeConfig, error) {
-	defer tracing.ProfilePoint(logger, "Modes get mode config by chat completed", "repository.modes.get.mode.config.by.chat", "chat_id", chatID)()
-	mode, err := x.GetModeByChat(logger, chatID)
+func (x *ModesRepository) GetModeConfigForChat(logger *tracing.Logger, chatID int64) (*ModeConfig, error) {
+	defer tracing.ProfilePoint(logger, "Modes get mode config for chat completed", "repository.modes.get.mode.config.for.chat", "chat_id", chatID)()
+	mode, err := x.GetCurrentModeForChat(logger, chatID)
 	if err != nil {
 		return nil, err
 	}
 	if mode == nil {
 		return nil, nil
 	}
-	
+
 	return x.ParseModeConfig(mode, logger), nil
 }
 
@@ -409,7 +526,7 @@ func (x *ModesRepository) UpdateModeConfig(logger *tracing.Logger, modeID uuid.U
 	}
 
 	q := query.Q.WithContext(ctx)
-	_, err = q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"prompt": config.Prompt, "config": configJSON, "final":  config.Final})
+	_, err = q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"config": configJSON, "final": config.Final})
 	if err != nil {
 		logger.E("Failed to update mode config", tracing.InnerError, err)
 		return err
@@ -419,18 +536,31 @@ func (x *ModesRepository) UpdateModeConfig(logger *tracing.Logger, modeID uuid.U
 	return nil
 }
 
+func (x *ModesRepository) UpdateModePrompt(logger *tracing.Logger, modeID uuid.UUID, prompt string) error {
+	defer tracing.ProfilePoint(logger, "Modes update mode prompt completed", "repository.modes.update.mode.prompt", "mode_id", modeID)()
+
+	mode, err := x.GetModeByID(logger, modeID)
+	if err != nil {
+		return err
+	}
+
+	config := x.ParseModeConfig(mode, logger)
+	config.Prompt = prompt
+
+	return x.UpdateModeConfig(logger, modeID, config)
+}
+
+// GetAISettingsForMode merges mode-specific settings with global settings
 func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSettings *AIParams) *AIParams {
 	if config.Params == nil {
 		return globalSettings
 	}
-	
-	// Создаем копию глобальных настроек
+
 	result := &AIParams{}
 	if globalSettings != nil {
 		*result = *globalSettings
 	}
-	
-	// Переопределяем только те значения, которые заданы в конфигурации режима
+
 	if config.Params.TopP != nil {
 		result.TopP = config.Params.TopP
 	}
@@ -446,45 +576,22 @@ func (x *ModesRepository) GetAISettingsForMode(config *ModeConfig, globalSetting
 	if config.Params.Temperature != nil {
 		result.Temperature = config.Params.Temperature
 	}
-	
+
 	return result
 }
 
-func (x *ModesRepository) AddModeWithConfig(logger *tracing.Logger, cid int64, modeType string, name string, config *ModeConfig, euid int64) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes add mode with config completed", "repository.modes.add.mode.with.config", "chat_id", cid, "mode_type", modeType, "name", name, "euid", euid)()
-  ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+func (x *ModesRepository) UpdateModeName(logger *tracing.Logger, modeID uuid.UUID, name string) error {
+	defer tracing.ProfilePoint(logger, "Modes update mode name completed", "repository.modes.update.mode.name", "mode_id", modeID)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-
-	user, err := x.users.GetUserByEid(logger, euid)
+	_, err := q.Mode.Where(query.Mode.ID.Eq(modeID)).Updates(map[string]interface{}{"name": name})
 	if err != nil {
-		return nil, err
+		logger.E("Failed to update mode name", tracing.InnerError, err)
+		return err
 	}
 
-	configJSON, err := x.SerializeModeConfig(config)
-	if err != nil {
-		logger.E("Failed to serialize mode config", tracing.InnerError, err)
-		return nil, err
-	}
-
-	newMode := &entities.Mode{
-		ChatID:    cid,
-		Type:      modeType,
-		Name:      name,
-		Prompt:    config.Prompt,
-		Config:    &configJSON,
-		Final:     platform.BoolPtr(config.Final),
-		IsEnabled: platform.BoolPtr(true),
-		CreatedBy: &user.ID,
-	}
-
-	err = q.Mode.Create(newMode)
-	if err != nil {
-		logger.E("Failed to create mode", tracing.InnerError, err)
-		return nil, err
-	}
-
-	logger.I("Created new mode with config", tracing.ModeId, newMode.ID, tracing.ModeName, newMode.Name, tracing.ChatId, cid, "final", platform.BoolValue(newMode.Final, false))
-	return newMode, nil
+	logger.I("Mode name updated", "mode_id", modeID, "new_name", name)
+	return nil
 }
