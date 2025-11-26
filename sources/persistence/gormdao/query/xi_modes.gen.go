@@ -29,10 +29,8 @@ func newMode(db *gorm.DB, opts ...gen.DOOption) mode {
 	tableName := _mode.modeDo.TableName()
 	_mode.ALL = field.NewAsterisk(tableName)
 	_mode.ID = field.NewField(tableName, "id")
-	_mode.ChatID = field.NewInt64(tableName, "chat_id")
 	_mode.Type = field.NewString(tableName, "type")
 	_mode.Name = field.NewString(tableName, "name")
-	_mode.Prompt = field.NewString(tableName, "prompt")
 	_mode.Config = field.NewString(tableName, "config")
 	_mode.Grade = field.NewString(tableName, "grade")
 	_mode.Final = field.NewBool(tableName, "final")
@@ -234,10 +232,8 @@ type mode struct {
 
 	ALL           field.Asterisk
 	ID            field.Field
-	ChatID        field.Int64
 	Type          field.String
 	Name          field.String
-	Prompt        field.String
 	Config        field.String
 	Grade         field.String
 	Final         field.Bool
@@ -264,10 +260,8 @@ func (m mode) As(alias string) *mode {
 func (m *mode) updateTableName(table string) *mode {
 	m.ALL = field.NewAsterisk(table)
 	m.ID = field.NewField(table, "id")
-	m.ChatID = field.NewInt64(table, "chat_id")
 	m.Type = field.NewString(table, "type")
 	m.Name = field.NewString(table, "name")
-	m.Prompt = field.NewString(table, "prompt")
 	m.Config = field.NewString(table, "config")
 	m.Grade = field.NewString(table, "grade")
 	m.Final = field.NewBool(table, "final")
@@ -298,12 +292,10 @@ func (m *mode) GetFieldByName(fieldName string) (field.OrderExpr, bool) {
 }
 
 func (m *mode) fillFieldMap() {
-	m.fieldMap = make(map[string]field.Expr, 13)
+	m.fieldMap = make(map[string]field.Expr, 11)
 	m.fieldMap["id"] = m.ID
-	m.fieldMap["chat_id"] = m.ChatID
 	m.fieldMap["type"] = m.Type
 	m.fieldMap["name"] = m.Name
-	m.fieldMap["prompt"] = m.Prompt
 	m.fieldMap["config"] = m.Config
 	m.fieldMap["grade"] = m.Grade
 	m.fieldMap["final"] = m.Final
