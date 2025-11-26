@@ -61,10 +61,8 @@ type (
 
 	Mode struct {
 		ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-		ChatID    int64      `gorm:"not null" json:"chat_id"`
 		Type      string     `gorm:"size:50;not null" json:"type"`
 		Name      string     `gorm:"size:255;not null" json:"name"`
-		Prompt    string     `gorm:"type:text;not null" json:"prompt"`
 		Config    *string    `gorm:"type:json;column:config" json:"config"`
 		Grade     *string    `gorm:"size:50;column:grade" json:"grade"`
 		Final     *bool      `gorm:"not null;default:false" json:"final"`
