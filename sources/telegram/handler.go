@@ -38,6 +38,7 @@ type TelegramHandler struct {
 	broadcast         *repository.BroadcastRepository
 	feedbacks         *repository.FeedbacksRepository
 	tariffs           *repository.TariffsRepository
+	chatState         *repository.ChatStateRepository
 	features          *features.FeatureManager
 	localization      *localization.LocalizationManager
 	personality       *personality.XiPersonality
@@ -45,7 +46,7 @@ type TelegramHandler struct {
 	metrics           *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, tariffs *repository.TariffsRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, tariffs *repository.TariffsRepository, chatState *repository.ChatStateRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
 	return &TelegramHandler{
 		diplomat:          diplomat,
 		users:             users,
@@ -65,6 +66,7 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		broadcast:         broadcast,
 		feedbacks:         feedbacks,
 		tariffs:           tariffs,
+		chatState:         chatState,
 		features:          fm,
 		localization:      localization,
 		personality:       personality,
@@ -147,10 +149,15 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.HandlePardonCommand(log, user, msg)
 		case "tariff":
 			x.HandleTariffCommand(log, user, msg)
+		case "cancel":
+			x.HandleCancelCommand(log, user, msg)
 		default:
 			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUnknownCommand"))
 		}
 	} else {
+		if handled := x.handleChatStateMessage(log, user, msg); handled {
+			return nil
+		}
 		if msg.GroupChatCreated || msg.SuperGroupChatCreated || msg.ChannelChatCreated ||
 			msg.MigrateToChatID != 0 || msg.MigrateFromChatID != 0 ||
 			msg.PinnedMessage != nil || msg.NewChatMembers != nil || msg.LeftChatMember != nil ||
@@ -220,6 +227,30 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 
 	if strings.HasPrefix(query.Data, "feedback_like_") || strings.HasPrefix(query.Data, "feedback_dislike_") {
 		x.handleFeedbackCallback(log, query, user)
+		return nil
+	}
+
+	// Mode selection callbacks: mode_select_{modeType}
+	if strings.HasPrefix(query.Data, "mode_select_") {
+		x.handleModeSelectCallback(log, query, user)
+		return nil
+	}
+
+	// Mode edit callbacks: mode_edit_{action}_{modeType}
+	if strings.HasPrefix(query.Data, "mode_edit_") {
+		x.handleModeEditCallback(log, query, user)
+		return nil
+	}
+
+	// Mode delete confirmation callbacks: mode_delete_{confirm|cancel}_{modeType}
+	if strings.HasPrefix(query.Data, "mode_delete_") {
+		x.handleModeDeleteCallback(log, query, user)
+		return nil
+	}
+
+	// Mode info callback: mode_info_{modeType}
+	if strings.HasPrefix(query.Data, "mode_info_") {
+		x.handleModeInfoCallback(log, query, user)
 		return nil
 	}
 
