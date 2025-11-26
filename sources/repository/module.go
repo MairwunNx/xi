@@ -16,5 +16,6 @@ var Module = fx.Module("repository",
 		NewBansRepository,
 		NewBroadcastRepository,
 		NewFeedbacksRepository,
+		NewChatStateRepository,
 	),
 )
