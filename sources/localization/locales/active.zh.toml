@@ -99,14 +99,11 @@ other = "🈲 你本月已超过该功能的使用上限。"
 other = "💢 帝国国库已见底！如果没有你的支持（每月 15 美元起），伟大习主席将无法继续为人民服务。支持项目请联系 @MairwunNx。"
 
 # 模式（Modes）
-[MsgModeNoAccess]
-other = "🈲 你无权切换模式，你的社会信用已被**降低**！"
-
 [MsgModeModifyNoAccess]
 other = "🈲 你无权修改模式配置，你的社会信用已被**降低**！"
 
-[MsgModeNotFoundGeneral]
-other = "🈲 当前聊天中未找到模式 **{{.Mode}}**。"
+[MsgModeNotFound]
+other = "🈲 未找到模式 **{{.Type}}**。"
 
 [MsgModeErrorEdit]
 other = "💢 修改模式配置时发生错误。"
@@ -135,8 +132,11 @@ other = "💢 解析模式配置 JSON 时发生错误。"
 [MsgModeErrorConfigPrompt]
 other = "💢 模式配置中必须包含字段 'prompt'。"
 
-[MsgModeEdited]
-other = "✅ 模式 **{{.Name}}** ({{.Type}}) 的配置已更新。"
+[MsgModePromptUpdated]
+other = "✅ 模式 **{{.Name}}** 的提示词已更新。"
+
+[MsgModeConfigUpdated]
+other = "✅ 模式 **{{.Name}}** 的配置已更新。"
 
 [MsgModeDeleted]
 other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已删除。"
@@ -153,17 +153,182 @@ other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已成功添加。"
 [MsgModeChanged]
 other = "🎭 伟大习主席的行为模式已切换为：**{{.Name}}** ({{.Type}})"
 
-[MsgModeListHeader]
-other = "🀄️ 可用模式：\n\n"
+[MsgModeChangedCallback]
+other = "✅ 模式已切换为：{{.Name}}"
 
-[MsgModeListItemCurrent]
-other = "▶️ **{{.Name}}** ({{.Type}})\n"
+[MsgModeAlreadySelected]
+other = "ℹ️ 此模式已被选中"
 
-[MsgModeListItem]
-other = "▶️ {{.Name}} ({{.Type}})\n"
+[MsgModeNotAvailableForGrade]
+other = "🈲 模式 {{.Name}} 不适用于您的等级。需要：{{.RequiredGrade}}"
 
 [MsgModeNoModesAvailable]
 other = "🈲 此处尚未为伟大习主席配置任何模式。请联系 @MairwunNx。"
+
+# 模式列表与可用性
+[MsgModeListTitle]
+other = """🎭 **习主席行为模式**
+
+请从下方列表中选择模式。当前模式已标记。"""
+
+[MsgModeListAvailable]
+other = "\n\n✅ **可用模式：**"
+
+[MsgModeListUnavailable]
+other = "\n\n🔒 **不可用模式：**"
+
+[MsgModeListItemAvailable]
+other = "\n▶️ **{{.Name}}** ({{.Type}})"
+
+[MsgModeListItemCurrent]
+other = "\n▶️ **{{.Name}}** ({{.Type}}) ← 当前"
+
+[MsgModeListItemUnavailable]
+other = "\n🔒 {{.Name}} — _{{.Grade}}及以上可用_"
+
+[MsgModeListFooter]
+other = "\n\n💡 使用 `/mode help` 获取详细帮助"
+
+# 模式编辑
+[MsgModeEditTitle]
+other = "🔧 **编辑模式 {{.Name}}**\n\n请选择操作："
+
+[MsgModeEditPromptBtn]
+other = "📝 修改提示词"
+
+[MsgModeEditConfigBtn]
+other = "⚙️ 修改设置"
+
+[MsgModeEditDisableBtn]
+other = "🚫 禁用"
+
+[MsgModeEditEnableBtn]
+other = "✅ 启用"
+
+[MsgModeEditDeleteBtn]
+other = "🗑️ 删除"
+
+[MsgModeAwaitingPrompt]
+other = """📝 **修改模式 {{.Name}} 的提示词**
+
+请发送新的提示词文本。
+
+💡 在公共群组中，请**回复**此消息。
+
+取消操作请使用 /cancel"""
+
+[MsgModeAwaitingConfig]
+other = """⚙️ **修改模式 {{.Name}} 的设置**
+
+请发送 JSON 格式的配置：
+```json
+{
+  "top_p": 0.9,
+  "temperature": 1.0
+}
+```
+
+💡 在公共群组中，请**回复**此消息。
+
+取消操作请使用 /cancel"""
+
+# 模式删除
+[MsgModeDeleteConfirm]
+other = "🗑️ **确定要删除模式 {{.Name}} 吗？**\n\n此操作无法撤销！"
+
+[MsgModeDeleteCancelBtn]
+other = "❌ 取消"
+
+[MsgModeDeleteConfirmBtn]
+other = "🗑️ 删除"
+
+[MsgModeDeleteCancelled]
+other = "✅ 已取消删除模式 **{{.Name}}**。"
+
+# 模式创建
+[MsgModeCreateStart]
+other = """🎭 **创建新模式**
+
+请发送模式的**键名**（类型）。
+键名必须唯一，仅可使用拉丁字母和下划线。
+
+示例：`funny`、`serious`、`creative_writer`
+
+取消操作请使用 /cancel"""
+
+[MsgModeCreateAwaitingName]
+other = """✅ 键名：**{{.Type}}**
+
+现在请发送模式的**名称**（可以包含表情符号）。
+
+示例：`😄 有趣的`、`🤖 严肃的`
+
+取消操作请使用 /cancel"""
+
+[MsgModeCreateAwaitingPrompt]
+other = """✅ 键名：**{{.Type}}**
+✅ 名称：**{{.Name}}**
+
+现在请发送模式的**提示词**（系统指令）。
+
+取消操作请使用 /cancel"""
+
+[MsgModeCreateInvalidType]
+other = "🈲 无效的模式键名。请仅使用拉丁字母、数字和下划线。"
+
+[MsgModeCreateTypeExists]
+other = "⚠️ 键名为 **{{.Type}}** 的模式已存在。将创建新版本。"
+
+# 模式信息
+[MsgModeInfoTitle]
+other = "ℹ️ **请选择要查看信息的模式：**"
+
+[MsgModeInfo]
+other = """ℹ️ **模式信息**
+
+🔑 **键名：** {{.Type}}
+📛 **名称：** {{.Name}}
+🏷️ **等级：** {{.Grade}}
+📊 **状态：** {{.Status}}
+
+**⚙️ 设置：**
+🌡️ Temperature：{{.Temperature}}
+📊 Top P：{{.TopP}}
+📈 Top K：{{.TopK}}
+🔁 Presence Penalty：{{.PresencePenalty}}
+🔄 Frequency Penalty：{{.FrequencyPenalty}}
+🎯 Final：{{.Final}}
+
+📅 **创建时间：** {{.CreatedAt}}"""
+
+[MsgModeInfoStatusEnabled]
+other = "✅ 已启用"
+
+[MsgModeInfoStatusDisabled]
+other = "🚫 已禁用"
+
+[MsgModeInfoNotSet]
+other = "未设置"
+
+# 取消命令
+[MsgCancelSuccess]
+other = "✅ 操作已取消。"
+
+[MsgCancelNothingToCancel]
+other = "🤷 没有需要取消的操作。"
+
+# 模式等级
+[MsgGradeBronze]
+other = "🥉 铜牌"
+
+[MsgGradeSilver]
+other = "🥈 银牌"
+
+[MsgGradeGold]
+other = "💎 金牌"
+
+[MsgGradeAll]
+other = "👥 所有人"
 
 # 用户管理
 [MsgUsersUnknownCommand]
@@ -291,22 +456,21 @@ other = """🈲 命令格式不正确。正确用法：
 7️⃣ /users stack @username <true/false> - 启用或禁用堆栈"""
 
 [MsgModeHelpText]
-other = """🈲 命令格式不正确。正确用法：
+other = """🎭 **Xi Manager 模式管理**
 
-1️⃣ /mode - 切换模式
-2️⃣ /mode add <chatid> <type> '<name>' '<config>' - 添加模式
-3️⃣ /mode list <chatid> - 查看模式列表
-4️⃣ /mode disable <chatid> <type> - 禁用模式
-5️⃣ /mode enable <chatid> <type> - 启用模式
-6️⃣ /mode delete <chatid> <type> - 删除模式
-7️⃣ /mode edit <chatid> <type> '<config>' - 修改模式配置
+**可用命令：**
 
-**其中 <config> 为如下格式的 JSON 配置：**
-```json
-{"prompt": "<system prompt>"}
-```
+1️⃣ `/mode` — 显示模式列表并切换
+2️⃣ `/mode create` — 创建新模式（需要 edit_mode 权限）
+3️⃣ `/mode edit <键名>` — 编辑模式（需要 edit_mode 权限）
+4️⃣ `/mode info` — 显示模式信息（需要 edit_mode 权限）
+5️⃣ `/mode help` — 此帮助信息
 
-关于配置格式的更多说明，请使用模式配置帮助命令。"""
+**什么是模式？**
+模式定义了习主席的行为——其提示词和生成设置。
+每个模式可以限制为特定用户等级。
+
+💡 要取消任何操作，请使用 `/cancel`"""
 
 [MsgPersonalizationHelpText]
 other = """👤 **Xi Manager 个性化设置管理**

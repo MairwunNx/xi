@@ -99,14 +99,11 @@ other = "🈲 You have exceeded your monthly limit for this feature."
 other = "💢 The imperial treasury is empty! Without your support (from $15/month) the Great Xi will not be able to continue serving the people. To support the project, contact @MairwunNx."
 
 # Modes
-[MsgModeNoAccess]
-other = "🈲 You do not have permission to switch modes. Your social credit **has been lowered**!"
-
 [MsgModeModifyNoAccess]
 other = "🈲 You do not have permission to edit modes. Your social credit **has been lowered**!"
 
-[MsgModeNotFoundGeneral]
-other = "🈲 Mode **{{.Mode}}** for the current chat was not found."
+[MsgModeNotFound]
+other = "🈲 Mode **{{.Type}}** was not found."
 
 [MsgModeErrorEdit]
 other = "💢 An error occurred while editing the mode configuration."
@@ -135,8 +132,11 @@ other = "💢 An error occurred while parsing the mode JSON configuration."
 [MsgModeErrorConfigPrompt]
 other = "💢 The 'prompt' field is required in the mode configuration."
 
-[MsgModeEdited]
-other = "✅ Mode configuration **{{.Name}}** ({{.Type}}) has been updated."
+[MsgModePromptUpdated]
+other = "✅ Prompt for mode **{{.Name}}** has been updated."
+
+[MsgModeConfigUpdated]
+other = "✅ Configuration for mode **{{.Name}}** has been updated."
 
 [MsgModeDeleted]
 other = "✅ Mode **{{.Name}}** ({{.Type}}) has been deleted."
@@ -153,17 +153,182 @@ other = "✅ Mode **{{.Name}}** ({{.Type}}) has been added."
 [MsgModeChanged]
 other = "🎭 Xi's behavior mode has been changed to: **{{.Name}}** ({{.Type}})"
 
-[MsgModeListHeader]
-other = "🀄️ Available modes:\n\n"
+[MsgModeChangedCallback]
+other = "✅ Mode changed to: {{.Name}}"
 
-[MsgModeListItemCurrent]
-other = "▶️ **{{.Name}}** ({{.Type}})\n"
+[MsgModeAlreadySelected]
+other = "ℹ️ This mode is already selected"
 
-[MsgModeListItem]
-other = "▶️ {{.Name}} ({{.Type}})\n"
+[MsgModeNotAvailableForGrade]
+other = "🈲 Mode {{.Name}} is not available for your grade. Required: {{.RequiredGrade}}"
 
 [MsgModeNoModesAvailable]
-other = "🈲 There are no modes configured for the Emperor Xi in this chat. Please contact @MairwunNx"
+other = "🈲 There are no modes configured for the Emperor Xi. Please contact @MairwunNx"
+
+# Mode list with availability
+[MsgModeListTitle]
+other = """🎭 **Xi Behavior Modes**
+
+Select a mode from the list below. Current mode is highlighted."""
+
+[MsgModeListAvailable]
+other = "\n\n✅ **Available modes:**"
+
+[MsgModeListUnavailable]
+other = "\n\n🔒 **Unavailable modes:**"
+
+[MsgModeListItemAvailable]
+other = "\n▶️ **{{.Name}}** ({{.Type}})"
+
+[MsgModeListItemCurrent]
+other = "\n▶️ **{{.Name}}** ({{.Type}}) ← current"
+
+[MsgModeListItemUnavailable]
+other = "\n🔒 {{.Name}} — _available from {{.Grade}}_"
+
+[MsgModeListFooter]
+other = "\n\n💡 Use `/mode help` for detailed help"
+
+# Mode editing
+[MsgModeEditTitle]
+other = "🔧 **Editing mode {{.Name}}**\n\nSelect an action:"
+
+[MsgModeEditPromptBtn]
+other = "📝 Edit prompt"
+
+[MsgModeEditConfigBtn]
+other = "⚙️ Edit settings"
+
+[MsgModeEditDisableBtn]
+other = "🚫 Disable"
+
+[MsgModeEditEnableBtn]
+other = "✅ Enable"
+
+[MsgModeEditDeleteBtn]
+other = "🗑️ Delete"
+
+[MsgModeAwaitingPrompt]
+other = """📝 **Editing prompt for mode {{.Name}}**
+
+Send the new prompt text.
+
+💡 In public groups, **reply** to this message.
+
+To cancel, use /cancel"""
+
+[MsgModeAwaitingConfig]
+other = """⚙️ **Editing settings for mode {{.Name}}**
+
+Send JSON configuration in format:
+```json
+{
+  "top_p": 0.9,
+  "temperature": 1.0
+}
+```
+
+💡 In public groups, **reply** to this message.
+
+To cancel, use /cancel"""
+
+# Mode deletion
+[MsgModeDeleteConfirm]
+other = "🗑️ **Are you sure you want to delete mode {{.Name}}?**\n\nThis action cannot be undone!"
+
+[MsgModeDeleteCancelBtn]
+other = "❌ Cancel"
+
+[MsgModeDeleteConfirmBtn]
+other = "🗑️ Delete"
+
+[MsgModeDeleteCancelled]
+other = "✅ Deletion of mode **{{.Name}}** cancelled."
+
+# Mode creation
+[MsgModeCreateStart]
+other = """🎭 **Creating a new mode**
+
+Send the **key** (type) for the mode.
+The key must be unique, use Latin letters and underscores only.
+
+Examples: `funny`, `serious`, `creative_writer`
+
+To cancel, use /cancel"""
+
+[MsgModeCreateAwaitingName]
+other = """✅ Key: **{{.Type}}**
+
+Now send the **name** for the mode (with emoji if you like).
+
+Examples: `😄 Funny`, `🤖 Serious`
+
+To cancel, use /cancel"""
+
+[MsgModeCreateAwaitingPrompt]
+other = """✅ Key: **{{.Type}}**
+✅ Name: **{{.Name}}**
+
+Now send the **prompt** (system instruction) for the mode.
+
+To cancel, use /cancel"""
+
+[MsgModeCreateInvalidType]
+other = "🈲 Invalid mode key. Use only Latin letters, numbers, and underscores."
+
+[MsgModeCreateTypeExists]
+other = "⚠️ Mode with key **{{.Type}}** already exists. A new version will be created."
+
+# Mode info
+[MsgModeInfoTitle]
+other = "ℹ️ **Select a mode to view information:**"
+
+[MsgModeInfo]
+other = """ℹ️ **Mode Information**
+
+🔑 **Key:** {{.Type}}
+📛 **Name:** {{.Name}}
+🏷️ **Grade:** {{.Grade}}
+📊 **Status:** {{.Status}}
+
+**⚙️ Settings:**
+🌡️ Temperature: {{.Temperature}}
+📊 Top P: {{.TopP}}
+📈 Top K: {{.TopK}}
+🔁 Presence Penalty: {{.PresencePenalty}}
+🔄 Frequency Penalty: {{.FrequencyPenalty}}
+🎯 Final: {{.Final}}
+
+📅 **Created:** {{.CreatedAt}}"""
+
+[MsgModeInfoStatusEnabled]
+other = "✅ Active"
+
+[MsgModeInfoStatusDisabled]
+other = "🚫 Disabled"
+
+[MsgModeInfoNotSet]
+other = "not set"
+
+# Cancel command
+[MsgCancelSuccess]
+other = "✅ Operation cancelled."
+
+[MsgCancelNothingToCancel]
+other = "🤷 Nothing to cancel. No active operations."
+
+# Mode grades
+[MsgGradeBronze]
+other = "🥉 Bronze"
+
+[MsgGradeSilver]
+other = "🥈 Silver"
+
+[MsgGradeGold]
+other = "💎 Gold"
+
+[MsgGradeAll]
+other = "👥 All"
 
 # User management
 [MsgUsersUnknownCommand]
@@ -291,22 +456,21 @@ other = """🈲 Invalid command format. Use:
 7️⃣ /users stack @username <true/false> - enable or disable stack"""
 
 [MsgModeHelpText]
-other = """🈲 Invalid command format. Use:
+other = """🎭 **Xi Manager Mode Management**
 
-1️⃣ /mode - switch mode
-2️⃣ /mode add <chatid> <type> '<name>' '<config>' - add a mode
-3️⃣ /mode list <chatid> - list modes
-4️⃣ /mode disable <chatid> <type> - disable a mode
-5️⃣ /mode enable <chatid> <type> - enable a mode
-6️⃣ /mode delete <chatid> <type> - delete a mode
-7️⃣ /mode edit <chatid> <type> '<config>' - edit a mode configuration
+**Available commands:**
 
-**Where <config> is a JSON configuration in the format:**
-```json
-{"prompt": "<system prompt>"}
-```
+1️⃣ `/mode` — show mode list and switch
+2️⃣ `/mode create` — create a new mode (requires edit_mode right)
+3️⃣ `/mode edit <key>` — edit a mode (requires edit_mode right)
+4️⃣ `/mode info` — show mode information (requires edit_mode right)
+5️⃣ `/mode help` — this help
 
-For more details about the format, use the mode configuration help command."""
+**What are modes?**
+Modes define Xi's behavior — its prompt and generation settings.
+Each mode can be restricted to a specific user grade.
+
+💡 To cancel any operation, use `/cancel`"""
 
 [MsgPersonalizationHelpText]
 other = """👤 **Managing Xi Manager personalization**
