@@ -242,16 +242,26 @@ func (x *ModesRepository) isModeAvailableForGrades(mode *entities.Mode, allowedG
 }
 
 func (x *ModesRepository) GetModeByType(logger *tracing.Logger, modeType string) (*entities.Mode, error) {
-	defer tracing.ProfilePoint(logger, "Modes get by type completed", "repository.modes.get.by.type", "mode_type", modeType)()
+	return x.getModeByType(logger, modeType, true)
+}
+
+func (x *ModesRepository) GetModeByTypeIncludingDisabled(logger *tracing.Logger, modeType string) (*entities.Mode, error) {
+	return x.getModeByType(logger, modeType, false)
+}
+
+func (x *ModesRepository) getModeByType(logger *tracing.Logger, modeType string, enabledOnly bool) (*entities.Mode, error) {
+	defer tracing.ProfilePoint(logger, "Modes get by type completed", "repository.modes.get.by.type", "mode_type", modeType, "enabled_only", enabledOnly)()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
 
-	mode, err := q.Mode.
-		Where(query.Mode.Type.Eq(modeType), query.Mode.IsEnabled.Is(true)).
-		Order(query.Mode.CreatedAt.Desc()).
-		First()
+	modeQuery := q.Mode.Where(query.Mode.Type.Eq(modeType))
+	if enabledOnly {
+		modeQuery = modeQuery.Where(query.Mode.IsEnabled.Is(true))
+	}
+
+	mode, err := modeQuery.Order(query.Mode.CreatedAt.Desc()).First()
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

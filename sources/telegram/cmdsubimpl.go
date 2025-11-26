@@ -371,7 +371,7 @@ func (x *TelegramHandler) ModeCommandCreateStart(log *tracing.Logger, user *enti
 func (x *TelegramHandler) ModeCommandEditStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, modeType string) {
 	defer tracing.ProfilePoint(log, "Mode command edit start completed", "telegram.command.mode.edit.start", "chat_id", msg.Chat.ID, "mode_type", modeType)()
 
-	mode, err := x.modes.GetModeByType(log, modeType)
+	mode, err := x.modes.GetModeByTypeIncludingDisabled(log, modeType)
 	if err != nil {
 		errorMsg := x.localization.LocalizeByTd(msg, "MsgModeNotFound", map[string]interface{}{
 			"Type": modeType,
@@ -776,7 +776,7 @@ func (x *TelegramHandler) handleModeEditCallback(log *tracing.Logger, query *tgb
 	action := parts[0]
 	modeType := parts[1]
 
-	mode, err := x.modes.GetModeByType(log, modeType)
+	mode, err := x.modes.GetModeByTypeIncludingDisabled(log, modeType)
 	if err != nil {
 		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
 			"Type": modeType,
@@ -798,7 +798,7 @@ func (x *TelegramHandler) handleModeEditCallback(log *tracing.Logger, query *tgb
 		x.diplomat.bot.Request(callback)
 
 		nameMsg := x.localization.LocalizeByTd(query.Message, "MsgModeAwaitingName", map[string]interface{}{
-			"Name": mode.Name,
+		"Name": mode.Name,
 		})
 		x.diplomat.SendMessage(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(nameMsg))
 
@@ -823,8 +823,8 @@ func (x *TelegramHandler) handleModeEditCallback(log *tracing.Logger, query *tgb
 		err = x.chatState.InitConfigEdit(log, query.Message.Chat.ID, query.From.ID, mode.ID)
 		if err != nil {
 			log.E("Failed to init config edit state", tracing.InnerError, err)
-			return
-		}
+		return
+	}
 
 		callback := tgbotapi.NewCallback(query.ID, "")
 		x.diplomat.bot.Request(callback)
@@ -837,11 +837,11 @@ func (x *TelegramHandler) handleModeEditCallback(log *tracing.Logger, query *tgb
 	case "disable":
 		mode.IsEnabled = platform.BoolPtr(false)
 		_, err = x.modes.UpdateMode(log, mode)
-		if err != nil {
+	if err != nil {
 			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorDisable"))
 			x.diplomat.bot.Request(callback)
-			return
-		}
+		return
+	}
 
 		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeDisabled", map[string]interface{}{
 			"Name": mode.Name,
@@ -924,7 +924,7 @@ func (x *TelegramHandler) handleModeDeleteCallback(log *tracing.Logger, query *t
 	action := parts[0]
 	modeType := parts[1]
 
-	mode, err := x.modes.GetModeByType(log, modeType)
+	mode, err := x.modes.GetModeByTypeIncludingDisabled(log, modeType)
 	if err != nil {
 		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
 			"Type": modeType,
@@ -985,7 +985,7 @@ func (x *TelegramHandler) handleModeInfoCallback(log *tracing.Logger, query *tgb
 	// Extract mode type from callback data: mode_info_{modeType}
 	modeType := strings.TrimPrefix(query.Data, "mode_info_")
 
-	mode, err := x.modes.GetModeByType(log, modeType)
+	mode, err := x.modes.GetModeByTypeIncludingDisabled(log, modeType)
 	if err != nil {
 		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
 			"Type": modeType,
