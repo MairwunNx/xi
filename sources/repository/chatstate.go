@@ -13,12 +13,13 @@ import (
 )
 
 const (
-	ChatStateNone              = 0
-	ChatStateAwaitingModeType  = 1
-	ChatStateAwaitingModeName  = 2
-	ChatStateAwaitingPrompt    = 3
-	ChatStateAwaitingConfig    = 4
-	ChatStateConfirmDelete     = 5
+	ChatStateNone               = 0
+	ChatStateAwaitingModeType   = 1
+	ChatStateAwaitingModeName   = 2
+	ChatStateAwaitingPrompt     = 3
+	ChatStateAwaitingConfig     = 4
+	ChatStateConfirmDelete      = 5
+	ChatStateAwaitingNewName    = 6
 )
 
 const (
@@ -187,6 +188,15 @@ func (r *ChatStateRepository) InitDeleteConfirmation(logger *tracing.Logger, cha
 	return r.SetState(logger, chatID, userID, state)
 }
 
+func (r *ChatStateRepository) InitNameEdit(logger *tracing.Logger, chatID int64, userID int64, modeID uuid.UUID) error {
+	state := &ChatStateData{
+		Status: ChatStateAwaitingNewName,
+		UserID: userID,
+		ModeID: modeID.String(),
+	}
+	return r.SetState(logger, chatID, userID, state)
+}
+
 func GetStatusName(status int) string {
 	switch status {
 	case ChatStateNone:
@@ -201,6 +211,8 @@ func GetStatusName(status int) string {
 		return "awaiting_config"
 	case ChatStateConfirmDelete:
 		return "confirm_delete"
+	case ChatStateAwaitingNewName:
+		return "awaiting_new_name"
 	default:
 		return "unknown"
 	}
