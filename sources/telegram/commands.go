@@ -3,6 +3,7 @@ package telegram
 import (
 	"os"
 	"ximanager/sources/persistence/entities"
+	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -43,13 +44,15 @@ func (x *TelegramHandler) HandleXiCommand(log *tracing.Logger, user *entities.Us
 
 func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	args := msg.CommandArguments()
+
 	if args == "" {
-		if !x.rights.IsUserHasRight(log, user, "switch_mode") {
-			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeNoAccess")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
-			return
-		}
-		x.ModeCommandSwitch(log, user, msg)
+		x.ModeCommandShowList(log, user, msg)
+		return
+	}
+
+	if args == "help" {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgModeHelpText")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
@@ -62,53 +65,53 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 	}
 
 	switch ctx.Command() {
-	case "add <chatid> <type> <name> <config>":
+	case "create":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
 			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
 			return
 		}
-		x.ModeCommandAdd(log, user, msg, int64(cmd.Add.ChatID), cmd.Add.Type, cmd.Add.Name, cmd.Add.Config)
-	case "list <chatid>":
-		if !x.rights.IsUserHasRight(log, user, "switch_mode") {
-			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeNoAccess")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
-			return
-		}
-		x.ModeCommandList(log, msg, int64(cmd.List.ChatID))
-	case "disable <chatid> <type>":
+		x.ModeCommandCreateStart(log, user, msg)
+	case "edit <type>":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
 			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
 			return
 		}
-		x.ModeCommandDisable(log, msg, int64(cmd.Disable.ChatID), cmd.Disable.Type)
-	case "enable <chatid> <type>":
+		x.ModeCommandEditStart(log, user, msg, cmd.Edit.Type)
+	case "info":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
 			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
 			return
 		}
-		x.ModeCommandEnable(log, msg, int64(cmd.Enable.ChatID), cmd.Enable.Type)
-	case "delete <chatid> <type>":
-		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
-			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
-			return
-		}
-		x.ModeCommandDelete(log, msg, int64(cmd.Delete.ChatID), cmd.Delete.Type)
-	case "edit <chatid> <type> <config>":
-		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
-			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
-			return
-		}
-		x.ModeCommandEdit(log, msg, int64(cmd.Edit.ChatID), cmd.Edit.Type, cmd.Edit.Config)
+		x.ModeCommandInfoList(log, user, msg)
 	default:
 		log.W("Unknown mode subcommand", tracing.InternalCommand, ctx.Command())
 		helpMsg := x.localization.LocalizeBy(msg, "MsgModeHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
+}
+
+func (x *TelegramHandler) HandleCancelCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	state, err := x.chatState.GetState(log, msg.Chat.ID, msg.From.ID)
+	if err != nil {
+		log.E("Failed to get chat state", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgCancelNothingToCancel"))
+		return
+	}
+
+	if state == nil || state.Status == repository.ChatStateNone {
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgCancelNothingToCancel"))
+		return
+	}
+
+	err = x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+	if err != nil {
+		log.E("Failed to clear chat state", tracing.InnerError, err)
+	}
+
+	x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgCancelSuccess"))
 }
 
 func (x *TelegramHandler) HandleUsersCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
