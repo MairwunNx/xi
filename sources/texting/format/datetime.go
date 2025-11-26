@@ -112,3 +112,8 @@ func (f *DateTimeFormatter) FormatBuildTime(msg *tgbotapi.Message, buildTime str
 	formatStr := f.localization.LocalizeBy(msg, "BuildTimeFormat")
 	return parsed.Format(formatStr)
 }
+
+func (f *DateTimeFormatter) Dateify(msg *tgbotapi.Message, t time.Time) string {
+	formatStr := f.localization.LocalizeBy(msg, "BuildTimeFormat")
+	return t.Format(formatStr)
+}
