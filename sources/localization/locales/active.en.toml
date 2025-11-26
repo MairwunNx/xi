@@ -132,11 +132,17 @@ other = "💢 An error occurred while parsing the mode JSON configuration."
 [MsgModeErrorConfigPrompt]
 other = "💢 The 'prompt' field is required in the mode configuration."
 
+[MsgModeNameUpdated]
+other = "✅ Mode name changed: **{{.OldName}}** → **{{.NewName}}**"
+
 [MsgModePromptUpdated]
 other = "✅ Prompt for mode **{{.Name}}** has been updated."
 
 [MsgModeConfigUpdated]
 other = "✅ Configuration for mode **{{.Name}}** has been updated."
+
+[MsgModeErrorNameLength]
+other = "💢 Name must be between 2 and 100 characters."
 
 [MsgModeDeleted]
 other = "✅ Mode **{{.Name}}** ({{.Type}}) has been deleted."
@@ -193,6 +199,9 @@ other = "\n\n💡 Use `/mode help` for detailed help"
 [MsgModeEditTitle]
 other = "🔧 **Editing mode {{.Name}}**\n\nSelect an action:"
 
+[MsgModeEditNameBtn]
+other = "✏️ Edit name"
+
 [MsgModeEditPromptBtn]
 other = "📝 Edit prompt"
 
@@ -207,6 +216,15 @@ other = "✅ Enable"
 
 [MsgModeEditDeleteBtn]
 other = "🗑️ Delete"
+
+[MsgModeAwaitingName]
+other = """✏️ **Editing name for mode {{.Name}}**
+
+Send the new name (2 to 100 characters).
+
+💡 In public groups, **reply** to this message.
+
+To cancel, use /cancel"""
 
 [MsgModeAwaitingPrompt]
 other = """📝 **Editing prompt for mode {{.Name}}**

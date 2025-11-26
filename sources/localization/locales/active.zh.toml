@@ -132,11 +132,17 @@ other = "💢 解析模式配置 JSON 时发生错误。"
 [MsgModeErrorConfigPrompt]
 other = "💢 模式配置中必须包含字段 'prompt'。"
 
+[MsgModeNameUpdated]
+other = "✅ 模式名称已更改：**{{.OldName}}** → **{{.NewName}}**"
+
 [MsgModePromptUpdated]
 other = "✅ 模式 **{{.Name}}** 的提示词已更新。"
 
 [MsgModeConfigUpdated]
 other = "✅ 模式 **{{.Name}}** 的配置已更新。"
+
+[MsgModeErrorNameLength]
+other = "💢 名称必须在2到100个字符之间。"
 
 [MsgModeDeleted]
 other = "✅ 模式 **{{.Name}}** ({{.Type}}) 已删除。"
@@ -193,6 +199,9 @@ other = "\n\n💡 使用 `/mode help` 获取详细帮助"
 [MsgModeEditTitle]
 other = "🔧 **编辑模式 {{.Name}}**\n\n请选择操作："
 
+[MsgModeEditNameBtn]
+other = "✏️ 修改名称"
+
 [MsgModeEditPromptBtn]
 other = "📝 修改提示词"
 
@@ -207,6 +216,15 @@ other = "✅ 启用"
 
 [MsgModeEditDeleteBtn]
 other = "🗑️ 删除"
+
+[MsgModeAwaitingName]
+other = """✏️ **修改模式 {{.Name}} 的名称**
+
+请发送新名称（2到100个字符）。
+
+💡 在公共群组中，请**回复**此消息。
+
+取消操作请使用 /cancel"""
 
 [MsgModeAwaitingPrompt]
 other = """📝 **修改模式 {{.Name}} 的提示词**
