@@ -269,10 +269,19 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	} else {
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
-		temperature = modelSelection.Temperature
-		if temperature == 0 {
-			temperature = 1.0 // Fallback if temperature is not set
-		}
+
+    if mode.Params.Temperature != nil && mode.Final == false {
+      if *mode.Params.Temperature == 0 {
+        temperature = 1.0
+      } else {
+        temperature = *mode.Params.Temperature
+      }
+    } else {
+      temperature = modelSelection.Temperature
+      if temperature == 0 {
+        temperature = 1.0
+      }
+    }
 
 		// Log successful agent decision details
 		log.I("agent_model_selection_success",
