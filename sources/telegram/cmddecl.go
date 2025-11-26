@@ -2,38 +2,20 @@ package telegram
 
 type ChatID int64
 
+// ModeCmd - команды для управления режимами
 type ModeCmd struct {
-	Add struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-		Type   string `arg:"" name:"type" help:"Mode type"`
-		Name   string `arg:"" name:"name" help:"Mode name"`
-		Config string `arg:"" name:"config" help:"Mode configuration (JSON)"`
-	} `cmd:"" help:"Add a new mode"`
+	// Create - начать интерактивное создание режима
+	Create struct {
+	} `cmd:"" help:"Start interactive mode creation"`
 
-	List struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-	} `cmd:"" help:"List available modes"`
-
-	Disable struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-		Type   string `arg:"" name:"type" help:"Mode type"`
-	} `cmd:"" help:"Disable a mode"`
-
-	Enable struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-		Type   string `arg:"" name:"type" help:"Mode type"`
-	} `cmd:"" help:"Enable a mode"`
-
-	Delete struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-		Type   string `arg:"" name:"type" help:"Mode type"`
-	} `cmd:"" help:"Delete a mode"`
-
+	// Edit - начать интерактивное редактирование режима
 	Edit struct {
-		ChatID ChatID `arg:"" name:"chat_id" help:"Chat ID (use ~ for negative IDs)"`
-		Type   string `arg:"" name:"type" help:"Mode type"`
-		Config string `arg:"" name:"config" help:"Mode configuration (JSON)"`
-	} `cmd:"" help:"Edit mode configuration"`
+		Type string `arg:"" name:"type" help:"Mode type key to edit"`
+	} `cmd:"" help:"Start interactive mode editing"`
+
+	// Info - показать информацию о режиме
+	Info struct {
+	} `cmd:"" help:"Show mode information"`
 }
 
 type UsersCmd struct {
