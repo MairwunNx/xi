@@ -119,8 +119,6 @@ func (x *ModesRepository) SwitchMode(logger *tracing.Logger, chatID int64, userI
 		return nil, errors.New("текущий режим не найден в списке доступных режимов")
 	}
 
-
-
 	selectedMode := &entities.SelectedMode{
 		ChatID:     chatID,
 		ModeID:     nextMode.ID,
