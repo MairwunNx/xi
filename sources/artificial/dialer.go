@@ -270,7 +270,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
 
-    if mode.Params.Temperature != nil && mode.Final == false {
+    if mode.Params.Temperature != nil && mode.Final == true {
       if *mode.Params.Temperature == 0 {
         temperature = 1.0
       } else {
