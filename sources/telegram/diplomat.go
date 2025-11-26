@@ -304,3 +304,48 @@ func (sr *StreamingReply) FinishWithError(errorText string) error {
 func (sr *StreamingReply) GetMessageID() int {
 	return sr.sentMessageID
 }
+
+func (x *Diplomat) ReplyWithKeyboard(logger *tracing.Logger, msg *tgbotapi.Message, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+	defer tracing.ProfilePoint(logger, "Diplomat reply with keyboard completed", "diplomat.reply_with_keyboard")()
+
+	chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(text))
+	chattable.ReplyToMessageID = msg.MessageID
+	chattable.ParseMode = tgbotapi.ModeMarkdownV2
+	chattable.ReplyMarkup = keyboard
+
+	if _, err := x.bot.Send(chattable); err != nil {
+		logger.E("Message with keyboard sending error", tracing.InnerError, err)
+		x.metrics.RecordMessageSent("error")
+		return
+	}
+	x.metrics.RecordMessageSent("success")
+}
+
+func (x *Diplomat) SendMessage(logger *tracing.Logger, chatID int64, text string) {
+	defer tracing.ProfilePoint(logger, "Diplomat send message completed", "diplomat.send_message")()
+
+	chattable := tgbotapi.NewMessage(chatID, markdown.EscapeMarkdownActor(text))
+	chattable.ParseMode = tgbotapi.ModeMarkdownV2
+
+	if _, err := x.bot.Send(chattable); err != nil {
+		logger.E("Message sending error", tracing.InnerError, err)
+		x.metrics.RecordMessageSent("error")
+		return
+	}
+	x.metrics.RecordMessageSent("success")
+}
+
+func (x *Diplomat) SendMessageWithKeyboard(logger *tracing.Logger, chatID int64, text string, keyboard tgbotapi.InlineKeyboardMarkup) {
+	defer tracing.ProfilePoint(logger, "Diplomat send message with keyboard completed", "diplomat.send_message_with_keyboard")()
+
+	chattable := tgbotapi.NewMessage(chatID, markdown.EscapeMarkdownActor(text))
+	chattable.ParseMode = tgbotapi.ModeMarkdownV2
+	chattable.ReplyMarkup = keyboard
+
+	if _, err := x.bot.Send(chattable); err != nil {
+		logger.E("Message with keyboard sending error", tracing.InnerError, err)
+		x.metrics.RecordMessageSent("error")
+		return
+	}
+	x.metrics.RecordMessageSent("success")
+}
