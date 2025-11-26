@@ -465,9 +465,6 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		if mode.Params.FrequencyPenalty != nil {
 			request.FrequencyPenalty = *mode.Params.FrequencyPenalty
 		}
-		if mode.Params.Temperature != nil {
-			request.Temperature = *mode.Params.Temperature
-		}
 	}
 
 	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(selectedContext))
