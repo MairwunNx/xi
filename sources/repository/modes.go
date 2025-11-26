@@ -472,7 +472,18 @@ func (x *ModesRepository) DeleteMode(logger *tracing.Logger, mode *entities.Mode
 
 	q := query.Q.WithContext(ctx)
 
-	_, err := q.Mode.Where(query.Mode.ID.Eq(mode.ID)).Delete(&entities.Mode{})
+	// Cascade delete: remove all selected_modes references first
+	deletedCount, err := q.SelectedMode.Where(query.SelectedMode.ModeID.Eq(mode.ID)).Delete()
+	if err != nil {
+		logger.E("Failed to delete selected modes references", tracing.InnerError, err)
+		return err
+	}
+	if deletedCount.RowsAffected > 0 {
+		logger.I("Deleted selected modes references", "count", deletedCount.RowsAffected)
+	}
+
+	// Delete the mode itself
+	_, err = q.Mode.Where(query.Mode.ID.Eq(mode.ID)).Delete(&entities.Mode{})
 	if err != nil {
 		logger.E("Failed to delete mode", tracing.InnerError, err)
 		return err
