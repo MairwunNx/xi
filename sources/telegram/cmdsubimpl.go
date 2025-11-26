@@ -20,6 +20,7 @@ import (
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/uuid"
 )
 
 // =========================  /xi command handlers  =========================
@@ -288,60 +289,147 @@ func (x *TelegramHandler) downloadAudioFile(log *tracing.Logger, fileURL string,
 	return tempFile, nil
 }
 
-// =========================  /modes command handlers  =========================
+// =========================  /mode command handlers  =========================
 
-func (x *TelegramHandler) ModeCommandSwitch(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	mode, err := x.modes.SwitchMode(log, msg.Chat.ID, msg.From.ID)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorSwitching")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
+// ModeCommandShowList shows the list of modes with selection buttons
+func (x *TelegramHandler) ModeCommandShowList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Mode command show list completed", "telegram.command.mode.show.list", "chat_id", msg.Chat.ID)()
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeChanged", map[string]interface{}{
-		"Name": mode.Name,
-		"Type": mode.Type,
-	})
-	x.diplomat.Reply(log, msg, successMsg)
-}
-
-func (x *TelegramHandler) ModeCommandAdd(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, chatID int64, modeType string, modeName string, configJSON string) {
-	var config repository.ModeConfig
-	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorConfigParse")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	if strings.TrimSpace(config.Prompt) == "" {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorConfigPrompt")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	mode, err := x.modes.AddModeWithConfig(log, chatID, modeType, modeName, &config, msg.From.ID)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorAdd")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
-
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeAdded", map[string]interface{}{
-		"Name": mode.Name,
-		"Type": mode.Type,
-	})
-	x.diplomat.Reply(log, msg, successMsg)
-}
-
-func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Message, chatID int64) {
-	user, err := x.users.GetUserByEid(log, msg.From.ID)
+	available, unavailable, _, err := x.modes.GetAllModesWithAvailability(log, user)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorGettingList")
 		x.diplomat.Reply(log, msg, errorMsg)
 		return
 	}
 
-	modes, err := x.modes.GetModesByChat(log, chatID, user)
+	if len(available) == 0 && len(unavailable) == 0 {
+		noModesMsg := x.localization.LocalizeBy(msg, "MsgModeNoModesAvailable")
+		x.diplomat.Reply(log, msg, noModesMsg)
+		return
+	}
+
+	currentMode, _ := x.modes.GetCurrentModeForChat(log, msg.Chat.ID)
+
+	// Build message
+	message := x.localization.LocalizeBy(msg, "MsgModeListTitle")
+
+	if len(available) > 0 {
+		message += x.localization.LocalizeBy(msg, "MsgModeListAvailable")
+		for _, mode := range available {
+			modeData := map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+			}
+			if currentMode != nil && mode.ID == currentMode.ID {
+				message += x.localization.LocalizeByTd(msg, "MsgModeListItemCurrent", modeData)
+			} else {
+				message += x.localization.LocalizeByTd(msg, "MsgModeListItemAvailable", modeData)
+			}
+		}
+	}
+
+	if len(unavailable) > 0 {
+		message += x.localization.LocalizeBy(msg, "MsgModeListUnavailable")
+		for _, mode := range unavailable {
+			gradeName := x.getGradeDisplayName(msg, mode.Grade)
+			modeData := map[string]interface{}{
+				"Name":  mode.Name,
+				"Grade": gradeName,
+			}
+			message += x.localization.LocalizeByTd(msg, "MsgModeListItemUnavailable", modeData)
+		}
+	}
+
+	message += x.localization.LocalizeBy(msg, "MsgModeListFooter")
+
+	// Build inline keyboard with mode buttons (only for available modes)
+	var buttons [][]tgbotapi.InlineKeyboardButton
+	for _, mode := range available {
+		btn := tgbotapi.NewInlineKeyboardButtonData(mode.Name, "mode_select_"+mode.Type)
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardRow(btn))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	x.diplomat.ReplyWithKeyboard(log, msg, message, keyboard)
+}
+
+func (x *TelegramHandler) ModeCommandCreateStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Mode command create start completed", "telegram.command.mode.create.start", "chat_id", msg.Chat.ID)()
+
+	err := x.chatState.InitModeCreation(log, msg.Chat.ID, msg.From.ID)
+	if err != nil {
+		log.E("Failed to init mode creation state", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorAdd")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	startMsg := x.localization.LocalizeBy(msg, "MsgModeCreateStart")
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, startMsg))
+}
+
+func (x *TelegramHandler) ModeCommandEditStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, modeType string) {
+	defer tracing.ProfilePoint(log, "Mode command edit start completed", "telegram.command.mode.edit.start", "chat_id", msg.Chat.ID, "mode_type", modeType)()
+
+	mode, err := x.modes.GetModeByType(log, modeType)
+	if err != nil {
+		errorMsg := x.localization.LocalizeByTd(msg, "MsgModeNotFound", map[string]interface{}{
+			"Type": modeType,
+		})
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	// Build edit menu
+	editTitle := x.localization.LocalizeByTd(msg, "MsgModeEditTitle", map[string]interface{}{
+		"Name": mode.Name,
+	})
+
+	// Build inline keyboard
+	nameBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgModeEditNameBtn"),
+		"mode_edit_name_"+mode.Type,
+	)
+	promptBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgModeEditPromptBtn"),
+		"mode_edit_prompt_"+mode.Type,
+	)
+	configBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgModeEditConfigBtn"),
+		"mode_edit_config_"+mode.Type,
+	)
+
+	var toggleBtn tgbotapi.InlineKeyboardButton
+	if platform.BoolValue(mode.IsEnabled, true) {
+		toggleBtn = tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgModeEditDisableBtn"),
+			"mode_edit_disable_"+mode.Type,
+		)
+	} else {
+		toggleBtn = tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgModeEditEnableBtn"),
+			"mode_edit_enable_"+mode.Type,
+		)
+	}
+
+	deleteBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgModeEditDeleteBtn"),
+		"mode_edit_delete_"+mode.Type,
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(nameBtn, promptBtn),
+		tgbotapi.NewInlineKeyboardRow(configBtn, toggleBtn),
+		tgbotapi.NewInlineKeyboardRow(deleteBtn),
+	)
+
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, editTitle), keyboard)
+}
+
+func (x *TelegramHandler) ModeCommandInfoList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Mode command info list completed", "telegram.command.mode.info.list", "chat_id", msg.Chat.ID)()
+
+	modes, err := x.modes.GetAllModesIncludingDisabled(log)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorGettingList")
 		x.diplomat.Reply(log, msg, errorMsg)
@@ -354,135 +442,642 @@ func (x *TelegramHandler) ModeCommandList(log *tracing.Logger, msg *tgbotapi.Mes
 		return
 	}
 
-	currentMode, err := x.modes.GetModeByChat(log, chatID)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorGettingList")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
+	infoTitle := x.localization.LocalizeBy(msg, "MsgModeInfoTitle")
 
-	message := x.localization.LocalizeBy(msg, "MsgModeListHeader")
+	// Build inline keyboard with mode buttons
+	var buttons [][]tgbotapi.InlineKeyboardButton
 	for _, mode := range modes {
-		modeData := map[string]interface{}{
-			"Name": mode.Name,
-			"Type": mode.Type,
+		btn := tgbotapi.NewInlineKeyboardButtonData(mode.Name, "mode_info_"+mode.Type)
+		buttons = append(buttons, tgbotapi.NewInlineKeyboardRow(btn))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, infoTitle), keyboard)
+}
+
+func (x *TelegramHandler) handleChatStateMessage(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) bool {
+	state, err := x.chatState.GetState(log, msg.Chat.ID, msg.From.ID)
+	if err != nil || state == nil || state.Status == repository.ChatStateNone {
+		return false
+	}
+
+	// Only process messages from the user who initiated the wizard
+	if state.UserID != msg.From.ID {
+		return false
+	}
+
+	log.I("Processing chat state message", "status", repository.GetStatusName(state.Status))
+
+	switch state.Status {
+	case repository.ChatStateAwaitingModeType:
+		x.handleModeTypeInput(log, user, msg, state)
+		return true
+	case repository.ChatStateAwaitingModeName:
+		x.handleModeNameInput(log, user, msg, state)
+		return true
+	case repository.ChatStateAwaitingPrompt:
+		x.handlePromptInput(log, user, msg, state)
+		return true
+	case repository.ChatStateAwaitingConfig:
+		x.handleConfigInput(log, user, msg, state)
+		return true
+	case repository.ChatStateAwaitingNewName:
+		x.handleNewNameInput(log, user, msg, state)
+		return true
+	}
+
+	return false
+}
+
+func (x *TelegramHandler) handleModeTypeInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	modeType := strings.TrimSpace(msg.Text)
+
+	if !isValidModeType(modeType) {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeCreateInvalidType")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	existingMode, _ := x.modes.GetModeByType(log, modeType)
+	if existingMode != nil {
+		warnMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateTypeExists", map[string]interface{}{
+			"Type": modeType,
+		})
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, warnMsg))
+	}
+
+	// Move to next step
+	err := x.chatState.SetModeType(log, msg.Chat.ID, msg.From.ID, modeType, "")
+	if err != nil {
+		log.E("Failed to set mode type in state", tracing.InnerError, err)
+		return
+	}
+
+	nextMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateAwaitingName", map[string]interface{}{
+		"Type": modeType,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, nextMsg))
+}
+
+func (x *TelegramHandler) handleModeNameInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	modeName := strings.TrimSpace(msg.Text)
+
+	if len(modeName) < 2 || len(modeName) > 100 {
+		return // Invalid name, just ignore
+	}
+
+	// Move to next step
+	err := x.chatState.SetModeName(log, msg.Chat.ID, msg.From.ID, modeName)
+	if err != nil {
+		log.E("Failed to set mode name in state", tracing.InnerError, err)
+		return
+	}
+
+	nextMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateAwaitingPrompt", map[string]interface{}{
+		"Type": state.ModeType,
+		"Name": modeName,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, nextMsg))
+}
+
+func (x *TelegramHandler) handlePromptInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	prompt := strings.TrimSpace(msg.Text)
+
+	if len(prompt) < 10 {
+		return // Too short, ignore
+	}
+
+	// If editing existing mode
+	if state.ModeID != "" {
+		modeID, err := uuid.Parse(state.ModeID)
+		if err != nil {
+			log.E("Failed to parse mode ID", tracing.InnerError, err)
+			return
 		}
 
-		if mode.ID == currentMode.ID {
-			message += x.localization.LocalizeByTd(msg, "MsgModeListItemCurrent", modeData)
-		} else {
-			message += x.localization.LocalizeByTd(msg, "MsgModeListItem", modeData)
+		err = x.modes.UpdateModePrompt(log, modeID, prompt)
+		if err != nil {
+			errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEdit")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+		mode, _ := x.modes.GetModeByID(log, modeID)
+		modeName := state.ModeName
+		if mode != nil {
+			modeName = mode.Name
 		}
-	}
 
-	x.diplomat.Reply(log, msg, message)
-}
+		// Clear state
+		x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
 
-func (x *TelegramHandler) ModeCommandDisable(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) {
-	mode := x.retrieveModeByChat(log, msg, chatID, modeType)
-	if mode == nil {
+		successMsg := x.localization.LocalizeByTd(msg, "MsgModePromptUpdated", map[string]interface{}{
+			"Name": modeName,
+		})
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
 		return
 	}
 
-	mode.IsEnabled = platform.BoolPtr(false)
-	_, err := x.modes.UpdateMode(log, mode)
+	// Creating new mode
+	config := repository.DefaultModeConfig(prompt)
+
+	newMode, err := x.modes.CreateMode(log, state.ModeType, state.ModeName, config, state.ModeGrade, msg.From.ID)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorDisable")
+		log.E("Failed to create mode", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorAdd")
 		x.diplomat.Reply(log, msg, errorMsg)
 		return
 	}
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeDisabled", map[string]interface{}{
-		"Name": mode.Name,
-		"Type": mode.Type,
+	// Clear state
+	x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+
+	successMsg := x.localization.LocalizeByTd(msg, "MsgModeAdded", map[string]interface{}{
+		"Name": newMode.Name,
+		"Type": newMode.Type,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
 }
 
-func (x *TelegramHandler) ModeCommandEnable(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) {
-	mode := x.retrieveModeByChat(log, msg, chatID, modeType)
-	if mode == nil {
-		return
+func (x *TelegramHandler) handleConfigInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	configJSON := strings.TrimSpace(msg.Text)
+
+	if state.ModeID == "" {
+		return // No mode to edit
 	}
 
-	mode.IsEnabled = platform.BoolPtr(true)
-	_, err := x.modes.UpdateMode(log, mode)
+	modeID, err := uuid.Parse(state.ModeID)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEnable")
-		x.diplomat.Reply(log, msg, errorMsg)
+		log.E("Failed to parse mode ID", tracing.InnerError, err)
 		return
 	}
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeEnabled", map[string]interface{}{
-		"Name": mode.Name,
-		"Type": mode.Type,
-	})
-	x.diplomat.Reply(log, msg, successMsg)
-}
-
-func (x *TelegramHandler) ModeCommandDelete(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) {
-	mode := x.retrieveModeByChat(log, msg, chatID, modeType)
-	if mode == nil {
-		return
-	}
-
-	err := x.modes.DeleteMode(log, mode)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorDelete")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
-
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeDeleted", map[string]interface{}{
-		"Name": mode.Name,
-		"Type": mode.Type,
-	})
-	x.diplomat.Reply(log, msg, successMsg)
-}
-
-func (x *TelegramHandler) ModeCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string, configJSON string) {
-	mode := x.retrieveModeByChat(log, msg, chatID, modeType)
-	if mode == nil {
-		return
-	}
-
-	var config repository.ModeConfig
-	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+	// Parse config JSON
+	var params repository.AIParams
+	if err := json.Unmarshal([]byte(configJSON), &params); err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorConfigParse")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
 		return
 	}
 
-	if strings.TrimSpace(config.Prompt) == "" {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorConfigPrompt")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	err := x.modes.UpdateModeConfig(log, mode.ID, &config)
+	// Get current mode config and update params
+	mode, err := x.modes.GetModeByID(log, modeID)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEdit")
 		x.diplomat.Reply(log, msg, errorMsg)
 		return
 	}
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgModeEdited", map[string]interface{}{
+	config := x.modes.ParseModeConfig(mode, log)
+	config.Params = &params
+
+	err = x.modes.UpdateModeConfig(log, modeID, config)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEdit")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	// Clear state
+	x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+
+	successMsg := x.localization.LocalizeByTd(msg, "MsgModeConfigUpdated", map[string]interface{}{
+		"Name": mode.Name,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
+}
+
+func (x *TelegramHandler) handleNewNameInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	newName := strings.TrimSpace(msg.Text)
+
+	if len(newName) < 2 || len(newName) > 100 {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorNameLength")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	if state.ModeID == "" {
+		return
+	}
+
+	modeID, err := uuid.Parse(state.ModeID)
+	if err != nil {
+		log.E("Failed to parse mode ID", tracing.InnerError, err)
+		return
+	}
+
+	mode, err := x.modes.GetModeByID(log, modeID)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEdit")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	oldName := mode.Name
+	err = x.modes.UpdateModeName(log, modeID, newName)
+	if err != nil {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeErrorEdit")
+		x.diplomat.Reply(log, msg, errorMsg)
+		return
+	}
+
+	x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+
+	successMsg := x.localization.LocalizeByTd(msg, "MsgModeNameUpdated", map[string]interface{}{
+		"OldName": oldName,
+		"NewName": newName,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
+}
+
+func (x *TelegramHandler) handleModeSelectCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	// Extract mode type from callback data: mode_select_{modeType}
+	modeType := strings.TrimPrefix(query.Data, "mode_select_")
+
+	mode, err := x.modes.GetModeByType(log, modeType)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
+			"Type": modeType,
+		}))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Check if user has access to this mode
+	available, _, _, err := x.modes.GetAllModesWithAvailability(log, user)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorSwitching"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	isAvailable := false
+	for _, m := range available {
+		if m.Type == modeType {
+			isAvailable = true
+			break
+		}
+	}
+
+	if !isAvailable {
+		gradeName := x.getGradeDisplayName(query.Message, mode.Grade)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotAvailableForGrade", map[string]interface{}{
+			"Name":          mode.Name,
+			"RequiredGrade": gradeName,
+		}))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Check if already selected
+	currentMode, _ := x.modes.GetCurrentModeForChat(log, query.Message.Chat.ID)
+	if currentMode != nil && currentMode.Type == modeType {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeAlreadySelected"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Set the mode
+	err = x.modes.SetModeForChat(log, query.Message.Chat.ID, mode.ID, user.ID)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorSwitching"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Send callback
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeChangedCallback", map[string]interface{}{
+		"Name": mode.Name,
+	}))
+	x.diplomat.bot.Request(callback)
+
+	// Send message
+	successMsg := x.localization.LocalizeByTd(query.Message, "MsgModeChanged", map[string]interface{}{
 		"Name": mode.Name,
 		"Type": mode.Type,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+	x.diplomat.SendMessage(log, query.Message.Chat.ID, successMsg)
 }
 
-func (x *TelegramHandler) retrieveModeByChat(log *tracing.Logger, msg *tgbotapi.Message, chatID int64, modeType string) *entities.Mode {
-	mode, err := x.modes.GetModeByChat(log, chatID)
-	if err != nil {
-		errorMsg := x.localization.LocalizeByTd(msg, "MsgModeNotFoundGeneral", map[string]interface{}{
-			"Mode": modeType,
-		})
-		x.diplomat.Reply(log, msg, errorMsg)
-		return nil
+func (x *TelegramHandler) handleModeEditCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	// Check permissions
+	if !x.rights.IsUserHasRight(log, user, "edit_mode") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeModifyNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
 	}
-	return mode
+
+	// Parse callback data: mode_edit_{action}_{modeType}
+	parts := strings.SplitN(strings.TrimPrefix(query.Data, "mode_edit_"), "_", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	action := parts[0]
+	modeType := parts[1]
+
+	mode, err := x.modes.GetModeByType(log, modeType)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
+			"Type": modeType,
+		}))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	switch action {
+	case "name":
+		// Start name edit wizard
+		err = x.chatState.InitNameEdit(log, query.Message.Chat.ID, query.From.ID, mode.ID)
+		if err != nil {
+			log.E("Failed to init name edit state", tracing.InnerError, err)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		nameMsg := x.localization.LocalizeByTd(query.Message, "MsgModeAwaitingName", map[string]interface{}{
+			"Name": mode.Name,
+		})
+		x.diplomat.SendMessage(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(nameMsg))
+
+	case "prompt":
+		// Start prompt edit wizard
+		err = x.chatState.InitPromptEdit(log, query.Message.Chat.ID, query.From.ID, mode.ID)
+		if err != nil {
+			log.E("Failed to init prompt edit state", tracing.InnerError, err)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		promptMsg := x.localization.LocalizeByTd(query.Message, "MsgModeAwaitingPrompt", map[string]interface{}{
+			"Name": mode.Name,
+		})
+		x.diplomat.SendMessage(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(promptMsg))
+
+	case "config":
+		// Start config edit wizard
+		err = x.chatState.InitConfigEdit(log, query.Message.Chat.ID, query.From.ID, mode.ID)
+		if err != nil {
+			log.E("Failed to init config edit state", tracing.InnerError, err)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		configMsg := x.localization.LocalizeByTd(query.Message, "MsgModeAwaitingConfig", map[string]interface{}{
+			"Name": mode.Name,
+		})
+		x.diplomat.SendMessage(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(configMsg))
+
+	case "disable":
+		mode.IsEnabled = platform.BoolPtr(false)
+		_, err = x.modes.UpdateMode(log, mode)
+		if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorDisable"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeDisabled", map[string]interface{}{
+			"Name": mode.Name,
+			"Type": mode.Type,
+		}))
+		x.diplomat.bot.Request(callback)
+
+		successMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDisabled", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	})
+		enableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(query.Message, "MsgModeEditEnableBtn"),
+			"mode_edit_enable_"+mode.Type,
+		)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(enableBtn))
+		x.diplomat.SendMessageWithKeyboard(log, query.Message.Chat.ID, successMsg, keyboard)
+
+	case "enable":
+		mode.IsEnabled = platform.BoolPtr(true)
+		_, err = x.modes.UpdateMode(log, mode)
+		if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorEnable"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeEnabled", map[string]interface{}{
+			"Name": mode.Name,
+			"Type": mode.Type,
+		}))
+		x.diplomat.bot.Request(callback)
+
+		successMsg := x.localization.LocalizeByTd(query.Message, "MsgModeEnabled", map[string]interface{}{
+			"Name": mode.Name,
+			"Type": mode.Type,
+		})
+		disableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(query.Message, "MsgModeEditDisableBtn"),
+			"mode_edit_disable_"+mode.Type,
+		)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(disableBtn))
+		x.diplomat.SendMessageWithKeyboard(log, query.Message.Chat.ID, successMsg, keyboard)
+
+	case "delete":
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		confirmMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDeleteConfirm", map[string]interface{}{
+			"Name": mode.Name,
+		})
+
+		cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(query.Message, "MsgModeDeleteCancelBtn"),
+			"mode_delete_cancel_"+mode.Type,
+		)
+		confirmBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(query.Message, "MsgModeDeleteConfirmBtn"),
+			"mode_delete_confirm_"+mode.Type,
+		)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(tgbotapi.NewInlineKeyboardRow(cancelBtn, confirmBtn))
+
+		x.diplomat.SendMessageWithKeyboard(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(confirmMsg), keyboard)
+	}
+}
+
+func (x *TelegramHandler) handleModeDeleteCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	if !x.rights.IsUserHasRight(log, user, "edit_mode") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeModifyNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Parse callback data: mode_delete_{confirm|cancel}_{modeType}
+	parts := strings.SplitN(strings.TrimPrefix(query.Data, "mode_delete_"), "_", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	action := parts[0]
+	modeType := parts[1]
+
+	mode, err := x.modes.GetModeByType(log, modeType)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
+			"Type": modeType,
+		}))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	switch action {
+	case "cancel":
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeDeleteCancelled", map[string]interface{}{
+			"Name": mode.Name,
+		}))
+		x.diplomat.bot.Request(callback)
+
+		// Remove the keyboard by editing the message
+		editMarkup := tgbotapi.NewEditMessageReplyMarkup(query.Message.Chat.ID, query.Message.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
+		x.diplomat.bot.Request(editMarkup)
+
+		cancelMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDeleteCancelled", map[string]interface{}{
+			"Name": mode.Name,
+		})
+		x.diplomat.SendMessage(log, query.Message.Chat.ID, cancelMsg)
+
+	case "confirm":
+		err = x.modes.DeleteMode(log, mode)
+	if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeErrorDelete"))
+			x.diplomat.bot.Request(callback)
+		return
+	}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeDeleted", map[string]interface{}{
+			"Name": mode.Name,
+			"Type": mode.Type,
+		}))
+		x.diplomat.bot.Request(callback)
+
+		// Remove the keyboard
+		editMarkup := tgbotapi.NewEditMessageReplyMarkup(query.Message.Chat.ID, query.Message.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
+		x.diplomat.bot.Request(editMarkup)
+
+		successMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDeleted", map[string]interface{}{
+		"Name": mode.Name,
+		"Type": mode.Type,
+	})
+		x.diplomat.SendMessage(log, query.Message.Chat.ID, successMsg)
+	}
+}
+
+func (x *TelegramHandler) handleModeInfoCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	if !x.rights.IsUserHasRight(log, user, "edit_mode") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(query.Message, "MsgModeModifyNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	// Extract mode type from callback data: mode_info_{modeType}
+	modeType := strings.TrimPrefix(query.Data, "mode_info_")
+
+	mode, err := x.modes.GetModeByType(log, modeType)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(query.Message, "MsgModeNotFound", map[string]interface{}{
+			"Type": modeType,
+		}))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	config := x.modes.ParseModeConfig(mode, log)
+	notSet := x.localization.LocalizeBy(query.Message, "MsgModeInfoNotSet")
+
+	gradeName := x.getGradeDisplayName(query.Message, mode.Grade)
+
+	statusText := x.localization.LocalizeBy(query.Message, "MsgModeInfoStatusEnabled")
+	if !platform.BoolValue(mode.IsEnabled, true) {
+		statusText = x.localization.LocalizeBy(query.Message, "MsgModeInfoStatusDisabled")
+	}
+
+	temperature := notSet
+	topP := notSet
+	topK := notSet
+	presencePenalty := notSet
+	frequencyPenalty := notSet
+	final := "false"
+
+	if config.Params != nil {
+		if config.Params.Temperature != nil {
+			temperature = fmt.Sprintf("%.2f", *config.Params.Temperature)
+		}
+		if config.Params.TopP != nil {
+			topP = fmt.Sprintf("%.2f", *config.Params.TopP)
+		}
+		if config.Params.TopK != nil {
+			topK = fmt.Sprintf("%d", *config.Params.TopK)
+		}
+		if config.Params.PresencePenalty != nil {
+			presencePenalty = fmt.Sprintf("%.2f", *config.Params.PresencePenalty)
+		}
+		if config.Params.FrequencyPenalty != nil {
+			frequencyPenalty = fmt.Sprintf("%.2f", *config.Params.FrequencyPenalty)
+		}
+	}
+	if config.Final {
+		final = "true"
+	}
+
+	infoMsg := x.localization.LocalizeByTd(query.Message, "MsgModeInfo", map[string]interface{}{
+		"Type":             mode.Type,
+		"Name":             mode.Name,
+		"Grade":            gradeName,
+		"Status":           statusText,
+		"Temperature":      temperature,
+		"TopP":             topP,
+		"TopK":             topK,
+		"PresencePenalty":  presencePenalty,
+		"FrequencyPenalty": frequencyPenalty,
+		"Final":            final,
+		"CreatedAt":        x.dateTimeFormatter.Dateify(query.Message, mode.CreatedAt),
+	})
+
+	callback := tgbotapi.NewCallback(query.ID, "")
+	x.diplomat.bot.Request(callback)
+
+	x.diplomat.SendMessage(log, query.Message.Chat.ID, x.personality.XiifyManualPlain(infoMsg))
+}
+
+func (x *TelegramHandler) getGradeDisplayName(msg *tgbotapi.Message, grade *string) string {
+	if grade == nil || *grade == "" {
+		return x.localization.LocalizeBy(msg, "MsgGradeAll")
+	}
+	switch *grade {
+	case platform.GradeGold:
+		return x.localization.LocalizeBy(msg, "MsgGradeGold")
+	case platform.GradeSilver:
+		return x.localization.LocalizeBy(msg, "MsgGradeSilver")
+	case platform.GradeBronze:
+		return x.localization.LocalizeBy(msg, "MsgGradeBronze")
+	default:
+		return x.localization.LocalizeBy(msg, "MsgGradeAll")
+	}
+}
+
+func isValidModeType(modeType string) bool {
+	if len(modeType) < 2 || len(modeType) > 50 {
+		return false
+	}
+	for _, r := range modeType {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // =========================  /users command handlers  =========================
