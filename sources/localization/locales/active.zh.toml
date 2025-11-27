@@ -366,9 +366,6 @@ other = "💎 金牌"
 other = "👥 所有人"
 
 # 用户管理
-[MsgUsersUnknownCommand]
-other = "🈲 未知的用户管理命令。"
-
 [MsgUsersNoAccess]
 other = "🈲 你不配管理臣民，你的社会信用已被**降低**！"
 
@@ -381,17 +378,8 @@ other = "💢 封禁用户时发生错误。"
 [MsgUsersErrorEnable]
 other = "💢 解封用户时发生错误。"
 
-[MsgUsersErrorWindow]
-other = "💢 设置窗口限制时发生错误。"
-
-[MsgUsersErrorStack]
-other = "💢 设置堆栈权限时发生错误。"
-
 [MsgUsersErrorRemove]
 other = "💢 删除用户时发生错误。"
-
-[MsgUsersEdited]
-other = "✅ 用户 **@{{.Username}}** 的权限已更新，新权限：**{{.Rights}}**。"
 
 [MsgUsersDisabled]
 other = "✅ 用户 **@{{.Username}}** 已被封禁。"
@@ -399,14 +387,93 @@ other = "✅ 用户 **@{{.Username}}** 已被封禁。"
 [MsgUsersEnabled]
 other = "✅ 用户 **@{{.Username}}** 已被解封。"
 
-[MsgUsersWindowSet]
-other = "✅ 用户 **@{{.Username}}** 的窗口大小已设置为 **{{.Window}}**。"
-
-[MsgUsersStackSet]
-other = "✅ 用户 **@{{.Username}}** 的堆栈功能已设置为 {{.Status}}。"
-
 [MsgUsersRemoved]
 other = "✅ 用户 **@{{.Username}}** 已被删除。"
+
+[MsgUsersInfo]
+other = """👤 **用户 @{{.Username}}**
+
+📊 **状态：** {{.Status}}
+🔑 **权限：** {{.Rights}}
+
+请在下方选择操作。"""
+
+[MsgUsersStatusActive]
+other = "✅ 活跃"
+
+[MsgUsersStatusBlocked]
+other = "🚫 已封禁"
+
+[MsgUsersNoRights]
+other = "无权限"
+
+[MsgUsersDisableBtn]
+other = "🚫 封禁"
+
+[MsgUsersEnableBtn]
+other = "✅ 解封"
+
+[MsgUsersDeleteBtn]
+other = "🗑️ 删除"
+
+[MsgUsersRightsBtn]
+other = "🔑 权限"
+
+[MsgUsersDisableConfirm]
+other = """⚠️ **确认封禁**
+
+您确定要封禁用户 **@{{.Username}}** 吗？
+
+该用户将无法使用机器人。"""
+
+[MsgUsersDisableConfirmCallback]
+other = "⚠️ 请确认封禁"
+
+[MsgUsersConfirmDisableBtn]
+other = "🚫 封禁"
+
+[MsgUsersCancelBtn]
+other = "❌ 取消"
+
+[MsgUsersDisabledCallback]
+other = "🚫 用户已封禁"
+
+[MsgUsersDisableCancelledCallback]
+other = "❌ 封禁已取消"
+
+[MsgUsersDisableCancelled]
+other = "❌ **封禁已取消**\n\n用户 **@{{.Username}}** 未被封禁。"
+
+[MsgUsersEnabledCallback]
+other = "✅ 用户已解封"
+
+[MsgUsersDeleteConfirm]
+other = """⚠️ **确认删除**
+
+您确定要删除用户 **@{{.Username}}** 吗？
+
+⚠️ 此操作不可逆！"""
+
+[MsgUsersDeleteConfirmCallback]
+other = "⚠️ 请确认删除"
+
+[MsgUsersConfirmDeleteBtn]
+other = "🗑️ 删除"
+
+[MsgUsersDeletedCallback]
+other = "🗑️ 用户已删除"
+
+[MsgUsersDeleteCancelledCallback]
+other = "❌ 删除已取消"
+
+[MsgUsersDeleteCancelled]
+other = "❌ **删除已取消**\n\n用户 **@{{.Username}}** 未被删除。"
+
+[MsgUsersRightAdded]
+other = "✅ 权限已添加"
+
+[MsgUsersRightRemoved]
+other = "❌ 权限已移除"
 
 # 个性化
 [MsgPersonalizationAdded]
@@ -472,23 +539,19 @@ other = "🈲 未找到用户 **@{{.Username}}**。"
 other = "🈲 未指定用户名！请使用 **@username** 的格式。"
 
 # 帮助文本
-[MsgUsersInvalidRights]
-other = """🈲 权限值不正确。可用权限：
-
-1️⃣ switch_mode（在聊天中切换模式）
-2️⃣ edit_mode（编辑模式、修改提示、添加和删除模式）
-3️⃣ manage_users（管理用户：删除、封禁、修改权限）"""
-
 [MsgUsersHelpText]
-other = """🈲 命令格式不正确。正确用法：
+other = """👥 **用户管理**
 
-1️⃣ /users add @username '<rights,rights,...>' - 添加用户
-2️⃣ /users remove @username - 删除用户
-3️⃣ /users edit @username '<rights,rights,...>' - 修改权限
-4️⃣ /users disable @username - 封禁用户
-5️⃣ /users enable @username - 解封用户
-6️⃣ /users window @username <limit> - 设置窗口大小
-7️⃣ /users stack @username <true/false> - 启用或禁用堆栈"""
+📝 **用法：**
+`/users @username` — 管理用户
+
+💡 **示例：**
+`/users @zhang_san`
+
+输入命令后将显示操作菜单：
+• 封禁/解封
+• 删除
+• 管理权限"""
 
 [MsgModeHelpText]
 other = """🎭 **Xi Manager 模式管理**

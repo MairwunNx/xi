@@ -366,9 +366,6 @@ other = "💎 Gold"
 other = "👥 All"
 
 # User management
-[MsgUsersUnknownCommand]
-other = "🈲 Unknown user management command."
-
 [MsgUsersNoAccess]
 other = "🈲 You are not worthy to manage users. Your social credit **has been lowered**!"
 
@@ -381,32 +378,102 @@ other = "💢 An error occurred while disabling the user."
 [MsgUsersErrorEnable]
 other = "💢 An error occurred while enabling the user."
 
-[MsgUsersErrorWindow]
-other = "💢 An error occurred while setting the window limit."
-
-[MsgUsersErrorStack]
-other = "💢 An error occurred while updating the stack permission."
-
 [MsgUsersErrorRemove]
 other = "💢 An error occurred while removing the user."
 
-[MsgUsersEdited]
-other = "✅ Rights for user **@{{.Username}}** have been updated. New rights: **{{.Rights}}**."
-
 [MsgUsersDisabled]
-other = "✅ User **@{{.Username}}** has been disabled."
+other = "✅ User **@{{.Username}}** has been blocked."
 
 [MsgUsersEnabled]
-other = "✅ User **@{{.Username}}** has been enabled."
-
-[MsgUsersWindowSet]
-other = "✅ Window size for user **@{{.Username}}** has been set to **{{.Window}}**."
-
-[MsgUsersStackSet]
-other = "✅ Stack for user **@{{.Username}}** is now {{.Status}}."
+other = "✅ User **@{{.Username}}** has been unblocked."
 
 [MsgUsersRemoved]
-other = "✅ User **@{{.Username}}** has been removed."
+other = "✅ User **@{{.Username}}** has been deleted."
+
+[MsgUsersInfo]
+other = """👤 **User @{{.Username}}**
+
+📊 **Status:** {{.Status}}
+🔑 **Rights:** {{.Rights}}
+
+Choose an action below."""
+
+[MsgUsersStatusActive]
+other = "✅ Active"
+
+[MsgUsersStatusBlocked]
+other = "🚫 Blocked"
+
+[MsgUsersNoRights]
+other = "no rights"
+
+[MsgUsersDisableBtn]
+other = "🚫 Block"
+
+[MsgUsersEnableBtn]
+other = "✅ Unblock"
+
+[MsgUsersDeleteBtn]
+other = "🗑️ Delete"
+
+[MsgUsersRightsBtn]
+other = "🔑 Rights"
+
+[MsgUsersDisableConfirm]
+other = """⚠️ **Confirm blocking**
+
+Are you sure you want to block user **@{{.Username}}**?
+
+The user will not be able to use the bot."""
+
+[MsgUsersDisableConfirmCallback]
+other = "⚠️ Confirm blocking"
+
+[MsgUsersConfirmDisableBtn]
+other = "🚫 Block"
+
+[MsgUsersCancelBtn]
+other = "❌ Cancel"
+
+[MsgUsersDisabledCallback]
+other = "🚫 User blocked"
+
+[MsgUsersDisableCancelledCallback]
+other = "❌ Blocking cancelled"
+
+[MsgUsersDisableCancelled]
+other = "❌ **Blocking cancelled**\n\nUser **@{{.Username}}** was not blocked."
+
+[MsgUsersEnabledCallback]
+other = "✅ User unblocked"
+
+[MsgUsersDeleteConfirm]
+other = """⚠️ **Confirm deletion**
+
+Are you sure you want to delete user **@{{.Username}}**?
+
+⚠️ This action is irreversible!"""
+
+[MsgUsersDeleteConfirmCallback]
+other = "⚠️ Confirm deletion"
+
+[MsgUsersConfirmDeleteBtn]
+other = "🗑️ Delete"
+
+[MsgUsersDeletedCallback]
+other = "🗑️ User deleted"
+
+[MsgUsersDeleteCancelledCallback]
+other = "❌ Deletion cancelled"
+
+[MsgUsersDeleteCancelled]
+other = "❌ **Deletion cancelled**\n\nUser **@{{.Username}}** was not deleted."
+
+[MsgUsersRightAdded]
+other = "✅ Right added"
+
+[MsgUsersRightRemoved]
+other = "❌ Right removed"
 
 # Personalization
 [MsgPersonalizationAdded]
@@ -472,23 +539,19 @@ other = "🈲 User **@{{.Username}}** was not found."
 other = "🈲 Username **not specified**! Please provide a username in the format **@username**."
 
 # Help texts
-[MsgUsersInvalidRights]
-other = """🈲 Invalid rights specified. Available rights:
-
-1️⃣ switch_mode (change modes in chats)
-2️⃣ edit_mode (edit modes, prompts, add and delete modes)
-3️⃣ manage_users (manage users, delete, block, change rights)"""
-
 [MsgUsersHelpText]
-other = """🈲 Invalid command format. Use:
+other = """👥 **User Management**
 
-1️⃣ /users add @username '<rights,rights,...>' - add a user
-2️⃣ /users remove @username - remove a user
-3️⃣ /users edit @username '<rights,rights,...>' - change rights
-4️⃣ /users disable @username - block a user
-5️⃣ /users enable @username - unblock a user
-6️⃣ /users window @username <limit> - set the window size
-7️⃣ /users stack @username <true/false> - enable or disable stack"""
+📝 **Usage:**
+`/users @username` — manage a user
+
+💡 **Example:**
+`/users @john_doe`
+
+After entering the command, a menu with actions will appear:
+• Block/Unblock
+• Delete
+• Manage rights"""
 
 [MsgModeHelpText]
 other = """🎭 **Xi Manager Mode Management**
