@@ -979,14 +979,13 @@ func (x *TelegramHandler) handleModeDeleteCallback(log *tracing.Logger, query *t
 		}))
 		x.diplomat.bot.Request(callback)
 
-		// Remove the keyboard by editing the message
-		editMarkup := tgbotapi.NewEditMessageReplyMarkup(query.Message.Chat.ID, query.Message.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
-		x.diplomat.bot.Request(editMarkup)
-
 		cancelMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDeleteCancelled", map[string]interface{}{
 			"Name": mode.Name,
 		})
 		x.diplomat.SendMessage(log, query.Message.Chat.ID, cancelMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(query.Message.Chat.ID, query.Message.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
 
 	case "confirm":
 		err = x.modes.DeleteMode(log, mode)
@@ -1002,15 +1001,14 @@ func (x *TelegramHandler) handleModeDeleteCallback(log *tracing.Logger, query *t
 		}))
 		x.diplomat.bot.Request(callback)
 
-		// Remove the keyboard
-		editMarkup := tgbotapi.NewEditMessageReplyMarkup(query.Message.Chat.ID, query.Message.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
-		x.diplomat.bot.Request(editMarkup)
-
 		successMsg := x.localization.LocalizeByTd(query.Message, "MsgModeDeleted", map[string]interface{}{
 		"Name": mode.Name,
 		"Type": mode.Type,
 	})
 		x.diplomat.SendMessage(log, query.Message.Chat.ID, successMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(query.Message.Chat.ID, query.Message.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
 	}
 }
 
@@ -1608,7 +1606,7 @@ func (x *TelegramHandler) ContextCommandInfo(log *tracing.Logger, user *entities
 	canManage := msg.Chat.Type == "private" || x.rights.IsUserHasRight(log, user, "manage_context")
 
 	if !canManage {
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
 		return
 	}
 
@@ -1684,13 +1682,29 @@ func (x *TelegramHandler) handleContextToggleCallback(log *tracing.Logger, query
 	successMsg := x.localization.LocalizeBy(msg, successMsgKey)
 	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, successMsg))
 
+	var rows [][]tgbotapi.InlineKeyboardButton
+
 	clearBtn := tgbotapi.NewInlineKeyboardButtonData(
 		x.localization.LocalizeBy(msg, "MsgContextClearBtn"),
 		"context_clear",
 	)
-	newKeyboard := tgbotapi.NewInlineKeyboardMarkup(
-		tgbotapi.NewInlineKeyboardRow(clearBtn),
-	)
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(clearBtn))
+
+	if enable {
+		disableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgContextDisableBtn"),
+			"context_disable",
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(disableBtn))
+	} else {
+		enableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgContextEnableBtn"),
+			"context_enable",
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(enableBtn))
+	}
+
+	newKeyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 
 	editMsg := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, newKeyboard)
 	if _, err := x.diplomat.bot.Request(editMsg); err != nil {
