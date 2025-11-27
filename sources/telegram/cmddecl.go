@@ -64,7 +64,8 @@ type PardonCmd struct {
 }
 
 type BroadcastCmd struct {
-	Text string `arg:"" help:"Text to broadcast"`
+	Help struct {
+	} `cmd:"" help:"Show broadcast help"`
 }
 
 type TariffCmd struct {
