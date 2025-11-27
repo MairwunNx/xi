@@ -288,6 +288,33 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// User action callbacks: user_enable_, user_disable_, user_delete_, user_rights_
+	if strings.HasPrefix(query.Data, "user_enable_") || strings.HasPrefix(query.Data, "user_disable_") ||
+		strings.HasPrefix(query.Data, "user_delete_") || strings.HasPrefix(query.Data, "user_rights_") {
+		if !strings.Contains(query.Data, "_confirm_") && !strings.Contains(query.Data, "_cancel_") {
+			x.handleUserActionCallback(log, query, user)
+			return nil
+		}
+	}
+
+	// User disable confirmation callbacks
+	if strings.HasPrefix(query.Data, "user_disable_confirm_") || strings.HasPrefix(query.Data, "user_disable_cancel_") {
+		x.handleUserDisableConfirmCallback(log, query, user)
+		return nil
+	}
+
+	// User delete confirmation callbacks
+	if strings.HasPrefix(query.Data, "user_delete_confirm_") || strings.HasPrefix(query.Data, "user_delete_cancel_") {
+		x.handleUserDeleteConfirmCallback(log, query, user)
+		return nil
+	}
+
+	// User rights toggle callbacks
+	if strings.HasPrefix(query.Data, "user_right_") {
+		x.handleUserRightsToggleCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
