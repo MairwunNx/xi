@@ -2,18 +2,14 @@ package telegram
 
 type ChatID int64
 
-// ModeCmd - команды для управления режимами
 type ModeCmd struct {
-	// Create - начать интерактивное создание режима
 	Create struct {
 	} `cmd:"" help:"Start interactive mode creation"`
 
-	// Edit - начать интерактивное редактирование режима
 	Edit struct {
 		Type string `arg:"" name:"type" help:"Mode type key to edit"`
 	} `cmd:"" help:"Start interactive mode editing"`
 
-	// Info - показать информацию о режиме
 	Info struct {
 	} `cmd:"" help:"Show mode information"`
 }
