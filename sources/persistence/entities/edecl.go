@@ -108,18 +108,15 @@ type (
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
 
-	User struct { // todo: remove is_stack_enabled, window_limit (now depends on tariff), is_stack_allowed (now depends on tariff)
+	User struct {
 		ID             uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID         int64          `gorm:"uniqueIndex;not null" json:"user_id"`
 		Username       *string        `gorm:"size:255" json:"username"`
 		Fullname       *string        `gorm:"size:255" json:"fullname"`
 		Rights         pq.StringArray `gorm:"type:user_right[];not null;default:ARRAY[]::user_right[]" json:"rights"`
 		IsActive       *bool          `gorm:"not null;default:true" json:"is_active"`
-		IsStackAllowed *bool          `gorm:"not null;default:false" json:"is_stack_allowed"`
-		IsStackEnabled *bool          `gorm:"not null;default:true" json:"is_stack_enabled"`
 		IsBanless      *bool          `gorm:"not null;default:false" json:"is_banless"`
 		IsUnsubscribed *bool          `gorm:"not null;default:false" json:"is_unsubscribed"`
-		WindowLimit    int64          `gorm:"not null;default:0" json:"window_limit"`
 		CreatedAt      time.Time      `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 
 		Messages         []Message         `gorm:"foreignKey:UserID;references:ID" json:"messages"`
