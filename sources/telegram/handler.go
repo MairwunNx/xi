@@ -254,6 +254,24 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// Context toggle callbacks: context_enable, context_disable
+	if query.Data == "context_enable" || query.Data == "context_disable" {
+		x.handleContextToggleCallback(log, query, user)
+		return nil
+	}
+
+	// Context clear callback: context_clear
+	if query.Data == "context_clear" {
+		x.handleContextClearCallback(log, query, user)
+		return nil
+	}
+
+	// Context clear confirmation callbacks: context_clear_confirm, context_clear_cancel
+	if query.Data == "context_clear_confirm" || query.Data == "context_clear_cancel" {
+		x.handleContextClearConfirmCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
