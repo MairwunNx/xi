@@ -284,6 +284,12 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// Broadcast confirmation callbacks
+	if query.Data == "broadcast_send" || query.Data == "broadcast_cancel" {
+		x.handleBroadcastConfirmCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
