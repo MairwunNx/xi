@@ -487,6 +487,9 @@ func (x *TelegramHandler) handleChatStateMessage(log *tracing.Logger, user *enti
 	case repository.ChatStateAwaitingNewName:
 		x.handleNewNameInput(log, user, msg, state)
 		return true
+	case repository.ChatStateAwaitingPersonalization:
+		x.handlePersonalizationInput(log, user, msg)
+		return true
 	}
 
 	return false
@@ -1466,7 +1469,140 @@ func (x *TelegramHandler) StatsCommand(log *tracing.Logger, user *entities.User,
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
-func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, prompt string) {
+func (x *TelegramHandler) PersonalizationCommandInfo(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	infoMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationInfo")
+
+	addBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgPersonalizationAddBtn"),
+		"personalization_add",
+	)
+	removeBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgPersonalizationRemoveBtn"),
+		"personalization_remove",
+	)
+	printBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgPersonalizationPrintBtn"),
+		"personalization_print",
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(addBtn, removeBtn),
+		tgbotapi.NewInlineKeyboardRow(printBtn),
+	)
+
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, infoMsg), keyboard)
+}
+
+func (x *TelegramHandler) handlePersonalizationCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	switch query.Data {
+	case "personalization_add":
+		err := x.chatState.InitPersonalizationEdit(log, msg.Chat.ID, query.From.ID)
+		if err != nil {
+			log.E("Failed to init personalization state", tracing.InnerError, err)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		awaitingMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationAwaitingInput")
+		x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManualPlain(awaitingMsg))
+
+	case "personalization_remove":
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteConfirmCallback"))
+		x.diplomat.bot.Request(callback)
+
+		confirmMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteConfirm")
+
+		cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteCancelBtn"),
+			"personalization_delete_cancel",
+		)
+		confirmBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteConfirmBtn"),
+			"personalization_delete_confirm",
+		)
+
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(
+			tgbotapi.NewInlineKeyboardRow(cancelBtn, confirmBtn),
+		)
+
+		x.diplomat.SendMessageWithKeyboard(log, msg.Chat.ID, x.personality.XiifyManualPlain(confirmMsg), keyboard)
+
+	case "personalization_print":
+		personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
+		if err != nil {
+			if errors.Is(err, repository.ErrPersonalizationNotFound) {
+				callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound"))
+				x.diplomat.bot.Request(callback)
+				return
+			}
+
+			log.E("Failed to get personalization", tracing.InnerError, err)
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationErrorPrint"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, "")
+		x.diplomat.bot.Request(callback)
+
+		response := x.localization.LocalizeByTd(msg, "MsgPersonalizationPrint", map[string]interface{}{
+			"Info": personalization.Prompt,
+		})
+		x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, response))
+	}
+}
+
+func (x *TelegramHandler) handlePersonalizationDeleteCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if query.Data == "personalization_delete_cancel" {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteCancelledCallback"))
+		x.diplomat.bot.Request(callback)
+
+		cancelMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationDeleteCancelled")
+		x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, cancelMsg))
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
+		return
+	}
+
+	err := x.personalizations.DeletePersonalization(log, user)
+	if err != nil {
+		if errors.Is(err, repository.ErrPersonalizationNotFound) {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound"))
+			x.diplomat.bot.Request(callback)
+
+			deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+			x.diplomat.bot.Request(deleteMsg)
+			return
+		}
+
+		log.E("Failed to delete personalization", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationErrorRemove"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPersonalizationDeletedCallback"))
+	x.diplomat.bot.Request(callback)
+
+	successMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationRemoved")
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, successMsg))
+
+	deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+	x.diplomat.bot.Request(deleteMsg)
+}
+
+func (x *TelegramHandler) handlePersonalizationInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	prompt := strings.TrimSpace(msg.Text)
+
+	x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+
 	promptRunes := []rune(prompt)
 	if len(promptRunes) < 12 {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationTooShort")
@@ -1518,46 +1654,6 @@ func (x *TelegramHandler) PersonalizationCommandSet(log *tracing.Logger, user *e
 	log.I("Personalization set successfully", "confidence", validation.Confidence)
 	successMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationAdded")
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
-}
-
-func (x *TelegramHandler) PersonalizationCommandRemove(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	err := x.personalizations.DeletePersonalization(log, user)
-	if err != nil {
-		if errors.Is(err, repository.ErrPersonalizationNotFound) {
-			errorMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-			return
-		}
-
-		log.E("Failed to delete personalization", tracing.InnerError, err)
-		errorMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationErrorRemove")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	successMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationRemoved")
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
-}
-
-func (x *TelegramHandler) PersonalizationCommandPrint(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	personalization, err := x.personalizations.GetPersonalizationByUser(log, user)
-	if err != nil {
-		if errors.Is(err, repository.ErrPersonalizationNotFound) {
-			errorMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationNotFound")
-			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-			return
-		}
-
-		log.E("Failed to get personalization", tracing.InnerError, err)
-		errorMsg := x.localization.LocalizeBy(msg, "MsgPersonalizationErrorPrint")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	response := x.localization.LocalizeByTd(msg, "MsgPersonalizationPrint", map[string]interface{}{
-		"Info": personalization.Prompt,
-	})
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, response))
 }
 
 // =========================  /context command handlers  =========================
