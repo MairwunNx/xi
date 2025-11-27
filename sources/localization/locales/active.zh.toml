@@ -512,10 +512,8 @@ other = """👤 **Xi Manager 个性化设置管理**
 
 **可用命令：**
 
-1️⃣ `/personalization set '<关于你自己的文本>'` - 保存你的个人信息
-2️⃣ `/personalization remove` - 删除已保存的信息
-3️⃣ `/personalization print` - 显示已保存的信息
-4️⃣ `/personalization help` - 显示本帮助文本
+📊 `/personalization` — 管理个性化设置
+❓ `/personalization help` — 显示本帮助文本
 
 **有什么用？**
 习主席会更了解你，并根据你保存的信息给出更加贴合你的回答。
@@ -526,7 +524,60 @@ other = """👤 **Xi Manager 个性化设置管理**
 • 文本内容必须是关于你自己的信息
 
 **示例：**
-`/personalization set '我叫小李，是一名程序员，住在中国，喜欢运动和旅行。'`"""
+「我叫小李，是一名程序员，住在中国，喜欢运动和旅行。」"""
+
+[MsgPersonalizationInfo]
+other = """👤 **Xi 个性化**
+
+告诉我们关于你自己的信息，习主席在回答时会考虑这些信息。
+
+**按钮说明：**
+• **添加** — 保存或更新你的个人信息
+• **删除** — 删除已保存的信息
+• **打印** — 显示当前保存的信息"""
+
+[MsgPersonalizationAddBtn]
+other = "➕ 添加"
+
+[MsgPersonalizationRemoveBtn]
+other = "🗑️ 删除"
+
+[MsgPersonalizationPrintBtn]
+other = "📄 打印"
+
+[MsgPersonalizationAwaitingInput]
+other = """✏️ **添加个性化信息**
+
+请发送关于你自己的文本（12-1024个字符）。
+
+💡 **示例：**「我叫小李，是一名程序员，住在中国，喜欢运动和旅行。」
+
+取消操作请使用 /cancel"""
+
+[MsgPersonalizationDeleteConfirm]
+other = """⚠️ **确认删除**
+
+您确定要删除已保存的个人信息吗？
+
+习主席在回答时将不再考虑个人数据。"""
+
+[MsgPersonalizationDeleteCancelBtn]
+other = "❌ 取消"
+
+[MsgPersonalizationDeleteConfirmBtn]
+other = "🗑️ 删除"
+
+[MsgPersonalizationDeleteConfirmCallback]
+other = "⚠️ 请确认删除"
+
+[MsgPersonalizationDeleteCancelledCallback]
+other = "❌ 删除已取消"
+
+[MsgPersonalizationDeleteCancelled]
+other = "❌ **删除已取消**\n\n您的个性化设置保持不变。"
+
+[MsgPersonalizationDeletedCallback]
+other = "🗑️ 信息已删除"
 
 [MsgContextHelpText]
 other = """🧠 **Xi Manager 上下文记忆管理**

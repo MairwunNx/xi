@@ -512,10 +512,8 @@ other = """👤 **Managing Xi Manager personalization**
 
 **Available commands:**
 
-1️⃣ `/personalization set '<text about you>'` - save information about yourself
-2️⃣ `/personalization remove` - remove saved information
-3️⃣ `/personalization print` - show saved information
-4️⃣ `/personalization help` - show this help text
+📊 `/personalization` — Manage personalization
+❓ `/personalization help` — Show this help text
 
 **What does it give you?**
 Xi will understand you better and give more personalized answers based on your saved information.
@@ -526,7 +524,60 @@ Xi will understand you better and give more personalized answers based on your s
 • The text must contain information about you
 
 **Example:**
-`/personalization set 'My name is John, I am a software developer, I live in the US and I enjoy sports and traveling.'`"""
+"My name is John, I am a software developer, I live in the US and I enjoy sports and traveling.\""""
+
+[MsgPersonalizationInfo]
+other = """👤 **Xi Personalization**
+
+Tell us about yourself, and Xi will consider this information when responding.
+
+**Buttons:**
+• **Add** — save or update information about yourself
+• **Remove** — delete saved information
+• **Print** — show current information"""
+
+[MsgPersonalizationAddBtn]
+other = "➕ Add"
+
+[MsgPersonalizationRemoveBtn]
+other = "🗑️ Remove"
+
+[MsgPersonalizationPrintBtn]
+other = "📄 Print"
+
+[MsgPersonalizationAwaitingInput]
+other = """✏️ **Adding personalization**
+
+Send text with information about yourself (12-1024 characters).
+
+💡 **Example:** "My name is John, I am a software developer, I live in the US and I enjoy sports and traveling."
+
+To cancel, use /cancel"""
+
+[MsgPersonalizationDeleteConfirm]
+other = """⚠️ **Confirm deletion**
+
+Are you sure you want to delete your saved information?
+
+Xi will no longer consider personal data when responding."""
+
+[MsgPersonalizationDeleteCancelBtn]
+other = "❌ Cancel"
+
+[MsgPersonalizationDeleteConfirmBtn]
+other = "🗑️ Delete"
+
+[MsgPersonalizationDeleteConfirmCallback]
+other = "⚠️ Confirm deletion"
+
+[MsgPersonalizationDeleteCancelledCallback]
+other = "❌ Deletion cancelled"
+
+[MsgPersonalizationDeleteCancelled]
+other = "❌ **Deletion cancelled**\n\nYour personalization remains unchanged."
+
+[MsgPersonalizationDeletedCallback]
+other = "🗑️ Information deleted"
 
 [MsgContextHelpText]
 other = """🧠 **Managing Xi Manager memory**
