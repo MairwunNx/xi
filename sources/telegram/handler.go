@@ -272,6 +272,18 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// Personalization callbacks: personalization_add, personalization_remove, personalization_print
+	if query.Data == "personalization_add" || query.Data == "personalization_remove" || query.Data == "personalization_print" {
+		x.handlePersonalizationCallback(log, query, user)
+		return nil
+	}
+
+	// Personalization delete confirmation callbacks
+	if query.Data == "personalization_delete_confirm" || query.Data == "personalization_delete_cancel" {
+		x.handlePersonalizationDeleteCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
