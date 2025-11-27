@@ -174,7 +174,7 @@ func (x *TelegramHandler) HandlePersonalizationCommand(log *tracing.Logger, user
 
 	args := msg.CommandArguments()
 	if args == "" {
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		x.PersonalizationCommandInfo(log, user, msg)
 		return
 	}
 
@@ -186,12 +186,6 @@ func (x *TelegramHandler) HandlePersonalizationCommand(log *tracing.Logger, user
 	}
 
 	switch ctx.Command() {
-	case "set <prompt>":
-		x.PersonalizationCommandSet(log, user, msg, cmd.Set.Prompt)
-	case "remove":
-		x.PersonalizationCommandRemove(log, user, msg)
-	case "print":
-		x.PersonalizationCommandPrint(log, user, msg)
 	case "help":
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
