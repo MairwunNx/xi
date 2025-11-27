@@ -2,6 +2,7 @@ package telegram
 
 import (
 	"os"
+	"strings"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
@@ -121,33 +122,15 @@ func (x *TelegramHandler) HandleUsersCommand(log *tracing.Logger, user *entities
 		return
 	}
 
-	var cmd UsersCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
-	if err != nil {
+	args := msg.CommandArguments()
+	if args == "" || args == "help" {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgUsersHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
-	case "remove <username>":
-		x.UsersCommandRemove(log, msg, cmd.Remove.Username)
-	case "edit <username> <rights>":
-		x.UsersCommandEdit(log, msg, cmd.Edit.Username, cmd.Edit.Rights)
-	case "disable <username>":
-		x.UsersCommandDisable(log, msg, cmd.Disable.Username)
-	case "enable <username>":
-		x.UsersCommandEnable(log, msg, cmd.Enable.Username)
-	case "window <username> <limit>":
-		x.UsersCommandWindow(log, msg, cmd.Window.Username, cmd.Window.Limit)
-	case "stack <username> <action>":
-		enabled := x.ParseBooleanArgument(cmd.Stack.Action)
-		x.UsersCommandStack(log, msg, cmd.Stack.Username, enabled)
-	default:
-		log.W("Unknown users subcommand", tracing.InternalCommand, ctx.Command())
-		unknownCmdMsg := x.localization.LocalizeBy(msg, "MsgUsersUnknownCommand")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, unknownCmdMsg))
-	}
+	username := strings.TrimSpace(args)
+	x.UsersCommandInfo(log, msg, username)
 }
 
 func (x *TelegramHandler) HandleThisCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
