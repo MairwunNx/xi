@@ -1125,133 +1125,499 @@ func isValidModeType(modeType string) bool {
 
 // =========================  /users command handlers  =========================
 
-func (x *TelegramHandler) UsersCommandRemove(log *tracing.Logger, msg *tgbotapi.Message, username string) {
+func (x *TelegramHandler) UsersCommandInfo(log *tracing.Logger, msg *tgbotapi.Message, username string) {
 	user := x.retrieveUserByName(log, msg, username)
 	if user == nil {
 		return
 	}
 
-	err := x.users.DeleteUser(log, user)
-	if err != nil {
-		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersErrorRemove"))
-		return
+	status := x.localization.LocalizeBy(msg, "MsgUsersStatusActive")
+	if !platform.BoolValue(user.IsActive, true) {
+		status = x.localization.LocalizeBy(msg, "MsgUsersStatusBlocked")
 	}
 
-	x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersRemoved"))
-}
-
-func (x *TelegramHandler) UsersCommandEdit(log *tracing.Logger, msg *tgbotapi.Message, username string, inputRights []string) {
-	user := x.retrieveUserByName(log, msg, username)
-	if user == nil {
-		return
+	rightsStr := x.localization.LocalizeBy(msg, "MsgUsersNoRights")
+	if len(user.Rights) > 0 {
+		rightsStr = strings.Join(user.Rights, ", ")
 	}
 
-	rights := x.treat(inputRights)
-	if len(rights) == 0 {
-		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgUsersInvalidRights"))
-		return
-	}
-
-	user.Rights = rights
-	_, err := x.users.UpdateUser(log, user)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUsersErrorEdit")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
-
-	successMsg := x.localization.LocalizeByTd(msg, "MsgUsersEdited", map[string]interface{}{
+	infoMsg := x.localization.LocalizeByTd(msg, "MsgUsersInfo", map[string]interface{}{
 		"Username": *user.Username,
-		"Rights":   strings.Join(rights, ", "),
+		"Status":   status,
+		"Rights":   rightsStr,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	if platform.BoolValue(user.IsActive, true) {
+		disableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgUsersDisableBtn"),
+			"user_disable_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(disableBtn))
+	} else {
+		enableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgUsersEnableBtn"),
+			"user_enable_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(enableBtn))
+	}
+
+	deleteBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersDeleteBtn"),
+		"user_delete_"+*user.Username,
+	)
+	rightsBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersRightsBtn"),
+		"user_rights_"+*user.Username,
+	)
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(deleteBtn, rightsBtn))
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, infoMsg), keyboard)
 }
 
-func (x *TelegramHandler) UsersCommandDisable(log *tracing.Logger, msg *tgbotapi.Message, username string) {
-	user := x.retrieveUserByName(log, msg, username)
-	if user == nil {
+func (x *TelegramHandler) handleUserActionCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, currentUser *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, currentUser, "manage_users") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersNoAccess"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
-	user.IsActive = platform.BoolPtr(false)
-	_, err := x.users.UpdateUser(log, user)
+	data := query.Data
+
+	if strings.HasPrefix(data, "user_enable_") {
+		username := strings.TrimPrefix(data, "user_enable_")
+		x.handleUserEnableCallback(log, query, username)
+		return
+	}
+
+	if strings.HasPrefix(data, "user_disable_") {
+		username := strings.TrimPrefix(data, "user_disable_")
+		x.handleUserDisableCallback(log, query, username)
+		return
+	}
+
+	if strings.HasPrefix(data, "user_delete_") {
+		username := strings.TrimPrefix(data, "user_delete_")
+		x.handleUserDeleteCallback(log, query, username)
+		return
+	}
+
+	if strings.HasPrefix(data, "user_rights_") {
+		username := strings.TrimPrefix(data, "user_rights_")
+		x.handleUserRightsCallback(log, query, username)
+		return
+	}
+}
+
+func (x *TelegramHandler) handleUserEnableCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, username string) {
+	msg := query.Message
+
+	user, err := x.users.GetUserByName(log, username)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUsersErrorDisable")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
-
-	successMsg := x.localization.LocalizeByTd(msg, "MsgUsersDisabled", map[string]interface{}{
-		"Username": *user.Username,
-	})
-	x.diplomat.Reply(log, msg, successMsg)
-}
-
-func (x *TelegramHandler) UsersCommandEnable(log *tracing.Logger, msg *tgbotapi.Message, username string) {
-	user := x.retrieveUserByName(log, msg, username)
-	if user == nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUserNotFound"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
 	user.IsActive = platform.BoolPtr(true)
-	_, err := x.users.UpdateUser(log, user)
+	_, err = x.users.UpdateUser(log, user)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUsersErrorEnable")
-		x.diplomat.Reply(log, msg, errorMsg)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersErrorEnable"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersEnabledCallback"))
+	x.diplomat.bot.Request(callback)
 
 	successMsg := x.localization.LocalizeByTd(msg, "MsgUsersEnabled", map[string]interface{}{
-		"Username": *user.Username,
+		"Username": username,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+	x.diplomat.SendMessage(log, msg.Chat.ID, successMsg)
+
+	x.updateUserActionKeyboard(log, msg, user)
 }
 
-func (x *TelegramHandler) UsersCommandWindow(log *tracing.Logger, msg *tgbotapi.Message, username string, limit int64) {
-	user := x.retrieveUserByName(log, msg, username)
-	if user == nil {
-		return
-	}
+func (x *TelegramHandler) handleUserDisableCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, username string) {
+	msg := query.Message
 
-	user.WindowLimit = limit
-	_, err := x.users.UpdateUser(log, user)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUsersErrorWindow")
-		x.diplomat.Reply(log, msg, errorMsg)
-		return
-	}
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDisableConfirmCallback"))
+	x.diplomat.bot.Request(callback)
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgUsersWindowSet", map[string]interface{}{
-		"Username": *user.Username,
-		"Window":   limit,
+	confirmMsg := x.localization.LocalizeByTd(msg, "MsgUsersDisableConfirm", map[string]interface{}{
+		"Username": username,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+
+	cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersCancelBtn"),
+		"user_disable_cancel_"+username,
+	)
+	confirmBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersConfirmDisableBtn"),
+		"user_disable_confirm_"+username,
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(cancelBtn, confirmBtn),
+	)
+
+	x.diplomat.SendMessageWithKeyboard(log, msg.Chat.ID, x.personality.XiifyManualPlain(confirmMsg), keyboard)
 }
 
-func (x *TelegramHandler) UsersCommandStack(log *tracing.Logger, msg *tgbotapi.Message, username string, enabled bool) {
-	user := x.retrieveUserByName(log, msg, username)
-	if user == nil {
+func (x *TelegramHandler) handleUserDisableConfirmCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, currentUser *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, currentUser, "manage_users") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersNoAccess"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
-	user.IsStackAllowed = platform.BoolPtr(enabled)
-	_, err := x.users.UpdateUser(log, user)
-	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgUsersErrorStack")
-		x.diplomat.Reply(log, msg, errorMsg)
+	data := query.Data
+
+	if strings.HasPrefix(data, "user_disable_cancel_") {
+		username := strings.TrimPrefix(data, "user_disable_cancel_")
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDisableCancelledCallback"))
+		x.diplomat.bot.Request(callback)
+
+		cancelMsg := x.localization.LocalizeByTd(msg, "MsgUsersDisableCancelled", map[string]interface{}{
+			"Username": username,
+		})
+		x.diplomat.SendMessage(log, msg.Chat.ID, cancelMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
 		return
 	}
 
-	status := "теперь доступен"
-	if !enabled {
-		status = "теперь недоступен"
-	}
+	if strings.HasPrefix(data, "user_disable_confirm_") {
+		username := strings.TrimPrefix(data, "user_disable_confirm_")
 
-	successMsg := x.localization.LocalizeByTd(msg, "MsgUsersStackSet", map[string]interface{}{
-		"Username": *user.Username,
-		"Status":   status,
+		user, err := x.users.GetUserByName(log, username)
+		if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUserNotFound"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		user.IsActive = platform.BoolPtr(false)
+		_, err = x.users.UpdateUser(log, user)
+		if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersErrorDisable"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDisabledCallback"))
+		x.diplomat.bot.Request(callback)
+
+		successMsg := x.localization.LocalizeByTd(msg, "MsgUsersDisabled", map[string]interface{}{
+			"Username": username,
+		})
+		x.diplomat.SendMessage(log, msg.Chat.ID, successMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
+	}
+}
+
+func (x *TelegramHandler) handleUserDeleteCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, username string) {
+	msg := query.Message
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDeleteConfirmCallback"))
+	x.diplomat.bot.Request(callback)
+
+	confirmMsg := x.localization.LocalizeByTd(msg, "MsgUsersDeleteConfirm", map[string]interface{}{
+		"Username": username,
 	})
-	x.diplomat.Reply(log, msg, successMsg)
+
+	cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersCancelBtn"),
+		"user_delete_cancel_"+username,
+	)
+	confirmBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersConfirmDeleteBtn"),
+		"user_delete_confirm_"+username,
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(cancelBtn, confirmBtn),
+	)
+
+	x.diplomat.SendMessageWithKeyboard(log, msg.Chat.ID, x.personality.XiifyManualPlain(confirmMsg), keyboard)
+}
+
+func (x *TelegramHandler) handleUserDeleteConfirmCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, currentUser *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, currentUser, "manage_users") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	data := query.Data
+
+	if strings.HasPrefix(data, "user_delete_cancel_") {
+		username := strings.TrimPrefix(data, "user_delete_cancel_")
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDeleteCancelledCallback"))
+		x.diplomat.bot.Request(callback)
+
+		cancelMsg := x.localization.LocalizeByTd(msg, "MsgUsersDeleteCancelled", map[string]interface{}{
+			"Username": username,
+		})
+		x.diplomat.SendMessage(log, msg.Chat.ID, cancelMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
+		return
+	}
+
+	if strings.HasPrefix(data, "user_delete_confirm_") {
+		username := strings.TrimPrefix(data, "user_delete_confirm_")
+
+		err := x.users.DeleteUserByName(log, username)
+		if err != nil {
+			callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersErrorRemove"))
+			x.diplomat.bot.Request(callback)
+			return
+		}
+
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersDeletedCallback"))
+		x.diplomat.bot.Request(callback)
+
+		successMsg := x.localization.LocalizeByTd(msg, "MsgUsersRemoved", map[string]interface{}{
+			"Username": username,
+		})
+		x.diplomat.SendMessage(log, msg.Chat.ID, successMsg)
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
+	}
+}
+
+func (x *TelegramHandler) handleUserRightsCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, username string) {
+	msg := query.Message
+
+	user, err := x.users.GetUserByName(log, username)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUserNotFound"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, "")
+	x.diplomat.bot.Request(callback)
+
+	x.sendUserRightsMessage(log, msg.Chat.ID, user)
+}
+
+func (x *TelegramHandler) handleUserRightsToggleCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, currentUser *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, currentUser, "manage_users") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	parts := strings.SplitN(strings.TrimPrefix(query.Data, "user_right_"), "_", 2)
+	if len(parts) != 2 {
+		return
+	}
+
+	right := parts[0]
+	username := parts[1]
+
+	user, err := x.users.GetUserByName(log, username)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUserNotFound"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	hasRight := false
+	for _, r := range user.Rights {
+		if r == right {
+			hasRight = true
+			break
+		}
+	}
+
+	if hasRight {
+		newRights := []string{}
+		for _, r := range user.Rights {
+			if r != right {
+				newRights = append(newRights, r)
+			}
+		}
+		user.Rights = newRights
+	} else {
+		user.Rights = append(user.Rights, right)
+	}
+
+	_, err = x.users.UpdateUser(log, user)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersErrorEdit"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	action := x.localization.LocalizeBy(msg, "MsgUsersRightAdded")
+	if hasRight {
+		action = x.localization.LocalizeBy(msg, "MsgUsersRightRemoved")
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, action)
+	x.diplomat.bot.Request(callback)
+
+	x.updateUserRightsKeyboard(log, msg, user)
+}
+
+func (x *TelegramHandler) sendUserRightsMessage(log *tracing.Logger, chatID int64, user *entities.User) {
+	allRights := []struct {
+		Key  string
+		Desc string
+	}{
+		{"switch_mode", "управление режимами в чатах"},
+		{"edit_mode", "редактирование режимов"},
+		{"manage_users", "управление пользователями"},
+		{"manage_context", "управление контекстом"},
+		{"broadcast", "отправка рассылок"},
+		{"manage_tariffs", "управление тарифами"},
+	}
+
+	var rightsInfo strings.Builder
+	rightsInfo.WriteString("📋 **Права пользователя @" + *user.Username + "**\n\n")
+
+	for _, r := range allRights {
+		hasRight := false
+		for _, ur := range user.Rights {
+			if ur == r.Key {
+				hasRight = true
+				break
+			}
+		}
+
+		icon := "❌"
+		if hasRight {
+			icon = "✅"
+		}
+
+		displayName := x.formatRightName(r.Key)
+		rightsInfo.WriteString(fmt.Sprintf("%s **%s** — %s\n", icon, displayName, r.Desc))
+	}
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	for _, r := range allRights {
+		hasRight := false
+		for _, ur := range user.Rights {
+			if ur == r.Key {
+				hasRight = true
+				break
+			}
+		}
+
+		icon := "❌"
+		if hasRight {
+			icon = "✅"
+		}
+
+		displayName := x.formatRightName(r.Key)
+		btn := tgbotapi.NewInlineKeyboardButtonData(
+			icon+" "+displayName,
+			"user_right_"+r.Key+"_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+
+	sendMsg := tgbotapi.NewMessage(chatID, rightsInfo.String())
+	sendMsg.ParseMode = "Markdown"
+	sendMsg.ReplyMarkup = keyboard
+	x.diplomat.bot.Send(sendMsg)
+}
+
+func (x *TelegramHandler) updateUserRightsKeyboard(log *tracing.Logger, msg *tgbotapi.Message, user *entities.User) {
+	allRights := []string{"switch_mode", "edit_mode", "manage_users", "manage_context", "broadcast", "manage_tariffs"}
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+	for _, r := range allRights {
+		hasRight := false
+		for _, ur := range user.Rights {
+			if ur == r {
+				hasRight = true
+				break
+			}
+		}
+
+		icon := "❌"
+		if hasRight {
+			icon = "✅"
+		}
+
+		displayName := x.formatRightName(r)
+		btn := tgbotapi.NewInlineKeyboardButtonData(
+			icon+" "+displayName,
+			"user_right_"+r+"_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+
+	editMarkup := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, keyboard)
+	x.diplomat.bot.Request(editMarkup)
+}
+
+func (x *TelegramHandler) updateUserActionKeyboard(log *tracing.Logger, msg *tgbotapi.Message, user *entities.User) {
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	if platform.BoolValue(user.IsActive, true) {
+		disableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgUsersDisableBtn"),
+			"user_disable_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(disableBtn))
+	} else {
+		enableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgUsersEnableBtn"),
+			"user_enable_"+*user.Username,
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(enableBtn))
+	}
+
+	deleteBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersDeleteBtn"),
+		"user_delete_"+*user.Username,
+	)
+	rightsBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgUsersRightsBtn"),
+		"user_rights_"+*user.Username,
+	)
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(deleteBtn, rightsBtn))
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+
+	editMarkup := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, keyboard)
+	x.diplomat.bot.Request(editMarkup)
+}
+
+func (x *TelegramHandler) formatRightName(right string) string {
+	parts := strings.Split(right, "_")
+	for i, p := range parts {
+		if len(p) > 0 {
+			parts[i] = strings.ToUpper(string(p[0])) + p[1:]
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func (x *TelegramHandler) retrieveUserByName(log *tracing.Logger, msg *tgbotapi.Message, username string) *entities.User {
