@@ -939,9 +939,47 @@ other = "{{.Count}} 秒"
 other = "🈲 你没有权限发送广播。你的社会信用已被**降低**！"
 
 [MsgBroadcastHelpText]
-other = """🈲 命令格式不正确。正确用法：
+other = """📢 **广播消息**
 
-1️⃣ /broadcast <text> - 向所有用户发送广播消息"""
+📝 **用法：**
+`/broadcast` — 开始创建广播
+
+该命令将启动向所有活跃用户创建和发送消息的分步流程。"""
+
+[MsgBroadcastAwaitingText]
+other = """📢 **创建广播**
+
+请发送要向所有活跃用户发送的消息文本。
+
+⚠️ 最小长度：**10** 个字符
+
+取消操作请使用 /cancel"""
+
+[MsgBroadcastTextTooShort]
+other = "🈲 文本太短。最小长度：**10** 个字符。"
+
+[MsgBroadcastConfirm]
+other = """📢 **确认广播**
+
+**消息文本：**
+{{.Text}}
+
+⚠️ 请检查文本并确认向所有活跃用户发送。"""
+
+[MsgBroadcastCancelBtn]
+other = "❌ 取消"
+
+[MsgBroadcastSendBtn]
+other = "📤 发送"
+
+[MsgBroadcastCancelledCallback]
+other = "❌ 广播已取消"
+
+[MsgBroadcastCancelled]
+other = "❌ **广播已取消**\n\n消息未发送。"
+
+[MsgBroadcastSendingCallback]
+other = "📤 发送中..."
 
 [MsgBroadcastErrorCreate]
 other = "💢 创建广播时发生错误。"

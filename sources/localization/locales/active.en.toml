@@ -939,9 +939,47 @@ other = "{{.Count}} seconds"
 other = "🈲 You do not have permission to broadcast. Your social credit **has been lowered**!"
 
 [MsgBroadcastHelpText]
-other = """🈲 Invalid command format. Use:
+other = """📢 **Broadcasting messages**
 
-1️⃣ /broadcast <text> - send a broadcast message to all users"""
+📝 **Usage:**
+`/broadcast` — start creating a broadcast
+
+This command will start a step-by-step process for creating and sending a message to all active users."""
+
+[MsgBroadcastAwaitingText]
+other = """📢 **Creating broadcast**
+
+Send the message text that will be sent to all active users.
+
+⚠️ Minimum length: **10** characters
+
+To cancel, use /cancel"""
+
+[MsgBroadcastTextTooShort]
+other = "🈲 Text is too short. Minimum length: **10** characters."
+
+[MsgBroadcastConfirm]
+other = """📢 **Confirm broadcast**
+
+**Message text:**
+{{.Text}}
+
+⚠️ Review the text and confirm sending to all active users."""
+
+[MsgBroadcastCancelBtn]
+other = "❌ Cancel"
+
+[MsgBroadcastSendBtn]
+other = "📤 Send"
+
+[MsgBroadcastCancelledCallback]
+other = "❌ Broadcast cancelled"
+
+[MsgBroadcastCancelled]
+other = "❌ **Broadcast cancelled**\n\nThe message was not sent."
+
+[MsgBroadcastSendingCallback]
+other = "📤 Sending..."
 
 [MsgBroadcastErrorCreate]
 other = "💢 An error occurred while creating the broadcast."
