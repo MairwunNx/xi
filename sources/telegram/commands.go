@@ -235,10 +235,17 @@ func (x *TelegramHandler) HandleBanCommand(log *tracing.Logger, user *entities.U
 		return
 	}
 
+	args := msg.CommandArguments()
+	if args == "" || args == "help" {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgBanHelpText")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		return
+	}
+
 	var cmd BanCmd
 	_, err := x.ParseKongCommand(log, msg, &cmd)
 	if err != nil {
-		helpMsg := x.localization.LocalizeBy(msg, "MsgBanHelpText")
+		helpMsg := x.localization.LocalizeBy(msg, "MsgBanErrorText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
@@ -253,10 +260,17 @@ func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
+	args := msg.CommandArguments()
+	if args == "" || args == "help" {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgPardonHelpText")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+		return
+	}
+
 	var cmd PardonCmd
 	_, err := x.ParseKongCommand(log, msg, &cmd)
 	if err != nil {
-		helpMsg := x.localization.LocalizeBy(msg, "MsgPardonHelpText")
+		helpMsg := x.localization.LocalizeBy(msg, "MsgPardonErrorText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
