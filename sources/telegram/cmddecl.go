@@ -59,15 +59,6 @@ type PersonalizationCmd struct {
 }
 
 type ContextCmd struct {
-	Refresh struct {
-	} `cmd:"" help:"Clear context memory for current chat"`
-
-	Enable struct {
-	} `cmd:"" help:"Enable context collection for current chat"`
-
-	Disable struct {
-	} `cmd:"" help:"Disable context collection for current chat"`
-
 	Help struct {
 	} `cmd:"" help:"Show context management help"`
 }
