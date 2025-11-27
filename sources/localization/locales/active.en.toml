@@ -533,19 +533,17 @@ other = """🧠 **Managing Xi Manager memory**
 
 **Available commands:**
 
-📊 `/context` - Show context information
-🔄 `/context refresh` - Clear memory about the current conversation
-✅ `/context enable` - Enable context collection
-🚫 `/context disable` - Disable context collection
-❓ `/context help` - Show this help text
+📊 `/context` — Context information and management
+❓ `/context help` — Show this help text
 
 **What is context?**
 The Great Xi remembers previous messages in the conversation to keep it coherent. Memory is limited in time and length depending on your status.
 
-**When should you clear memory?**
-• When changing the topic of the conversation
-• If Xi gets confused by the context
-• When starting a new task
+**Clearing memory:**
+Completely removes conversation history from Xi's memory. Use when changing topics, if Xi gets confused, or when starting a new task.
+
+**Enabling/disabling context:**
+When context is disabled, each message is processed independently — Xi doesn't remember previous messages.
 
 ⚠️ **Warning:** Clearing the memory is irreversible!"""
 
@@ -571,6 +569,50 @@ other = "💢 An error occurred while enabling context. Please try again later."
 [MsgContextDisableError]
 other = "💢 An error occurred while disabling context. Please try again later."
 
+# Context buttons and callbacks
+[MsgContextClearBtn]
+other = "🔄 Clear memory"
+
+[MsgContextEnableBtn]
+other = "✅ Enable context"
+
+[MsgContextDisableBtn]
+other = "🚫 Disable context"
+
+[MsgContextEnabledCallback]
+other = "✅ Context enabled"
+
+[MsgContextDisabledCallback]
+other = "🚫 Context disabled"
+
+[MsgContextClearConfirmCallback]
+other = "⚠️ Confirm clearing"
+
+[MsgContextClearConfirm]
+other = """⚠️ **Confirm memory clearing**
+
+Are you sure you want to clear Xi's memory?
+
+**Consequences:**
+• All conversation history will be deleted
+• Xi will forget the current conversation context
+• This action is irreversible"""
+
+[MsgContextClearCancelBtn]
+other = "❌ Cancel"
+
+[MsgContextClearConfirmBtn]
+other = "🔄 Clear"
+
+[MsgContextClearCancelledCallback]
+other = "❌ Clearing cancelled"
+
+[MsgContextClearCancelled]
+other = "❌ **Clearing cancelled**\n\nXi's memory remains unchanged."
+
+[MsgContextClearedCallback]
+other = "🔄 Memory cleared"
+
 [MsgContextInfoError]
 other = "💢 An error occurred while fetching context information."
 
@@ -588,7 +630,7 @@ other = """🧠 **Context Information**
 📝 **Messages:** {{.CurrentMessages}} / {{.MaxMessages}}
 🪙 **Tokens:** {{.CurrentTokens}} / {{.MaxTokens}}
 
-💡 For detailed command information, use `/context help`"""
+Choose an action below or use `/context help` for more information."""
 
 # System health
 [MsgHealthTitle]
