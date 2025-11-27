@@ -13,14 +13,15 @@ import (
 )
 
 const (
-	ChatStateNone               = 0
-	ChatStateAwaitingModeType   = 1
-	ChatStateAwaitingModeName   = 2
-	ChatStateAwaitingGrade      = 3
-	ChatStateAwaitingPrompt     = 4
-	ChatStateAwaitingConfig     = 5
-	ChatStateConfirmDelete      = 6
-	ChatStateAwaitingNewName    = 7
+	ChatStateNone                     = 0
+	ChatStateAwaitingModeType         = 1
+	ChatStateAwaitingModeName         = 2
+	ChatStateAwaitingGrade            = 3
+	ChatStateAwaitingPrompt           = 4
+	ChatStateAwaitingConfig           = 5
+	ChatStateConfirmDelete            = 6
+	ChatStateAwaitingNewName          = 7
+	ChatStateAwaitingPersonalization  = 8
 )
 
 const (
@@ -211,6 +212,14 @@ func (r *ChatStateRepository) InitNameEdit(logger *tracing.Logger, chatID int64,
 	return r.SetState(logger, chatID, userID, state)
 }
 
+func (r *ChatStateRepository) InitPersonalizationEdit(logger *tracing.Logger, chatID int64, userID int64) error {
+	state := &ChatStateData{
+		Status: ChatStateAwaitingPersonalization,
+		UserID: userID,
+	}
+	return r.SetState(logger, chatID, userID, state)
+}
+
 func GetStatusName(status int) string {
 	switch status {
 	case ChatStateNone:
@@ -229,6 +238,8 @@ func GetStatusName(status int) string {
 		return "confirm_delete"
 	case ChatStateAwaitingNewName:
 		return "awaiting_new_name"
+	case ChatStateAwaitingPersonalization:
+		return "awaiting_personalization"
 	default:
 		return "unknown"
 	}
