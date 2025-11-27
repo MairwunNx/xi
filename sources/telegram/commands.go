@@ -285,15 +285,14 @@ func (x *TelegramHandler) HandleBroadcastCommand(log *tracing.Logger, user *enti
 		return
 	}
 
-	var cmd BroadcastCmd
-	_, err := x.ParseKongCommand(log, msg, &cmd)
-	if err != nil {
+	args := msg.CommandArguments()
+	if args == "help" {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgBroadcastHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	x.BroadcastCommandApply(log, user, msg, cmd.Text)
+	x.BroadcastCommandStart(log, user, msg)
 }
 
 func (x *TelegramHandler) HandleTariffCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
