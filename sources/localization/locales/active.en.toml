@@ -803,40 +803,40 @@ other = "💢 Error while removing a ban."
 [MsgBanHelpText]
 other = """🔨 **Banning users**
 
-**Usage:**
+📝 **Usage:**
 `/ban @username '<reason>' <duration>`
 
-**Duration format:**
+⏱️ **Duration format:**
 • `1d` — day
 • `4h` — hours
 • `10m` — minutes
 • `60s` — seconds
 
-**Maximum duration:** 12 hours
+⚠️ **Maximum duration:** 12 hours
 
-**Example:**
+💡 **Example:**
 `/ban @user 'Spam' 1h`"""
 
 [MsgBanErrorText]
 other = """🈲 Invalid command format.
 
-**Usage:** `/ban @username '<reason>' <duration>`
+📝 **Usage:** `/ban @username '<reason>' <duration>`
 
 Use `/ban help` for detailed help."""
 
 [MsgPardonHelpText]
 other = """🕊️ **Unbanning users**
 
-**Usage:**
+📝 **Usage:**
 `/pardon @username`
 
-**Example:**
+💡 **Example:**
 `/pardon @user`"""
 
 [MsgPardonErrorText]
 other = """🈲 Invalid command format.
 
-**Usage:** `/pardon @username`
+📝 **Usage:** `/pardon @username`
 
 Use `/pardon help` for detailed help."""
 
