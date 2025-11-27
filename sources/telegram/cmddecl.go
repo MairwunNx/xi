@@ -14,7 +14,7 @@ type ModeCmd struct {
 	} `cmd:"" help:"Show mode information"`
 }
 
-type UsersCmd struct {
+type UsersCmd struct { // todo: remove stack, window (now depends on tariff)
 	Remove struct {
 		Username string `arg:"" help:"Username (with @ prefix)"`
 	} `cmd:"" help:"Remove a user"`

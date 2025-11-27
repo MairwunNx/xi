@@ -108,7 +108,7 @@ type (
 		User User `gorm:"foreignKey:UserID;references:ID" json:"user"`
 	}
 
-	User struct {
+	User struct { // todo: remove is_stack_enabled, window_limit (now depends on tariff), is_stack_allowed (now depends on tariff)
 		ID             uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID         int64          `gorm:"uniqueIndex;not null" json:"user_id"`
 		Username       *string        `gorm:"size:255" json:"username"`
