@@ -44,16 +44,6 @@ type UsersCmd struct { // todo: remove stack, window (now depends on tariff)
 }
 
 type PersonalizationCmd struct {
-	Set struct {
-		Prompt string `arg:"" help:"Personalization prompt (12-1024 characters)"`
-	} `cmd:"" help:"Set personalization prompt"`
-
-	Remove struct {
-	} `cmd:"" help:"Remove personalization prompt"`
-
-	Print struct {
-	} `cmd:"" help:"Print current personalization prompt"`
-
 	Help struct {
 	} `cmd:"" help:"Show personalization help"`
 }
