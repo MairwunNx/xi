@@ -564,7 +564,7 @@ other = """🎭 **Xi Manager Mode Management**
 4️⃣ `/mode info` — show mode information (requires edit_mode right)
 5️⃣ `/mode help` — this help
 
-**What are modes?**
+🎯 **What are modes?**
 Modes define Xi's behavior — its prompt and generation settings.
 Each mode can be restricted to a specific user grade.
 
@@ -578,15 +578,15 @@ other = """👤 **Managing Xi Manager personalization**
 📊 `/personalization` — Manage personalization
 ❓ `/personalization help` — Show this help text
 
-**What does it give you?**
+🎯 **What does it give you?**
 Xi will understand you better and give more personalized answers based on your saved information.
 
-**Requirements:**
+📋 **Requirements:**
 • Minimum length: **12** characters
 • Maximum length: **1024** characters
 • The text must contain information about you
 
-**Example:**
+💡 **Example:**
 "My name is John, I am a software developer, I live in the US and I enjoy sports and traveling.\""""
 
 [MsgPersonalizationInfo]
@@ -594,7 +594,7 @@ other = """👤 **Xi Personalization**
 
 Tell us about yourself, and Xi will consider this information when responding.
 
-**What you can do:**
+🛠️ **What you can do:**
 • **Add** — save or update information about yourself
 • **Remove** — delete saved information
 • **Print** — show current information"""
