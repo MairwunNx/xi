@@ -490,6 +490,9 @@ func (x *TelegramHandler) handleChatStateMessage(log *tracing.Logger, user *enti
 	case repository.ChatStateAwaitingPersonalization:
 		x.handlePersonalizationInput(log, user, msg)
 		return true
+	case repository.ChatStateAwaitingBroadcast:
+		x.handleBroadcastInput(log, user, msg)
+		return true
 	}
 
 	return false
@@ -2288,33 +2291,110 @@ func (x *TelegramHandler) formatTariffModels(log *tracing.Logger, msg *tgbotapi.
 	return builder.String()
 }
 
-func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, text string) {
-	defer tracing.ProfilePoint(log, "Broadcast command apply completed", "telegram.command.broadcast.apply", "user_id", user.ID)()
-
-	// 1. Save broadcast to DB
-	_, err := x.broadcast.CreateBroadcast(log, user.ID, text)
+func (x *TelegramHandler) BroadcastCommandStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	err := x.chatState.InitBroadcast(log, msg.Chat.ID, msg.From.ID)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgBroadcastErrorCreate")
-		x.diplomat.Reply(log, msg, errorMsg)
+		log.E("Failed to init broadcast state", tracing.InnerError, err)
 		return
 	}
 
-	// 2. Get all chat IDs
+	awaitingMsg := x.localization.LocalizeBy(msg, "MsgBroadcastAwaitingText")
+	x.diplomat.Reply(log, msg, x.personality.XiifyManualPlain(awaitingMsg))
+}
+
+func (x *TelegramHandler) handleBroadcastInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	text := strings.TrimSpace(msg.Text)
+
+	if len(text) < 10 {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgBroadcastTextTooShort")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	err := x.chatState.SetBroadcastText(log, msg.Chat.ID, msg.From.ID, text)
+	if err != nil {
+		log.E("Failed to set broadcast text in state", tracing.InnerError, err)
+		return
+	}
+
+	confirmMsg := x.localization.LocalizeByTd(msg, "MsgBroadcastConfirm", map[string]interface{}{
+		"Text": text,
+	})
+
+	cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgBroadcastCancelBtn"),
+		"broadcast_cancel",
+	)
+	sendBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgBroadcastSendBtn"),
+		"broadcast_send",
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(cancelBtn, sendBtn),
+	)
+
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManualPlain(confirmMsg), keyboard)
+}
+
+func (x *TelegramHandler) handleBroadcastConfirmCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, user, "broadcast") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	state, err := x.chatState.GetState(log, msg.Chat.ID, query.From.ID)
+	if err != nil || state == nil || state.Status != repository.ChatStateConfirmBroadcast {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastErrorCreate"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	x.chatState.ClearState(log, msg.Chat.ID, query.From.ID)
+
+	if query.Data == "broadcast_cancel" {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastCancelledCallback"))
+		x.diplomat.bot.Request(callback)
+
+		cancelMsg := x.localization.LocalizeBy(msg, "MsgBroadcastCancelled")
+		x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, cancelMsg))
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		x.diplomat.bot.Request(deleteMsg)
+		return
+	}
+
+	text := state.BroadcastText
+
+	_, err = x.broadcast.CreateBroadcast(log, user.ID, text)
+	if err != nil {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastErrorCreate"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
 	chatIDs, err := x.messages.GetAllChatIDs(log)
 	if err != nil {
-		errorMsg := x.localization.LocalizeBy(msg, "MsgBroadcastErrorGetChats")
-		x.diplomat.Reply(log, msg, errorMsg)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastErrorGetChats"))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
-	// 3. Send broadcast
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBroadcastSendingCallback"))
+	x.diplomat.bot.Request(callback)
+
+	deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+	x.diplomat.bot.Request(deleteMsg)
+
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.localization.LocalizeBy(msg, "MsgBroadcastStarted"))
+
 	successCount := 0
 	failCount := 0
 
-	x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgBroadcastStarted"))
-
 	for _, chatID := range chatIDs {
-		// Skip the sender's chat
 		if chatID == msg.Chat.ID {
 			continue
 		}
@@ -2327,16 +2407,14 @@ func (x *TelegramHandler) BroadcastCommandApply(log *tracing.Logger, user *entit
 		} else {
 			successCount++
 		}
-		
-		// Add a small delay to avoid hitting Telegram limits too hard
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	// 4. Report result
 	resultMsg := x.localization.LocalizeByTd(msg, "MsgBroadcastFinished", map[string]interface{}{
 		"Success": successCount,
 		"Fail":    failCount,
 		"Total":   len(chatIDs),
 	})
-	x.diplomat.Reply(log, msg, resultMsg)
+	x.diplomat.SendMessage(log, msg.Chat.ID, resultMsg)
 }
