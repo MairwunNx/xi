@@ -14,33 +14,8 @@ type ModeCmd struct {
 	} `cmd:"" help:"Show mode information"`
 }
 
-type UsersCmd struct { // todo: remove stack, window (now depends on tariff)
-	Remove struct {
-		Username string `arg:"" help:"Username (with @ prefix)"`
-	} `cmd:"" help:"Remove a user"`
-
-	Edit struct {
-		Username string   `arg:"" help:"Username (with @ prefix)"`
-		Rights   []string `arg:"" help:"User rights (comma-separated)"`
-	} `cmd:"" help:"Edit user rights"`
-
-	Disable struct {
-		Username string `arg:"" help:"Username (with @ prefix)"`
-	} `cmd:"" help:"Disable a user"`
-
-	Enable struct {
-		Username string `arg:"" help:"Username (with @ prefix)"`
-	} `cmd:"" help:"Enable a user"`
-
-	Window struct {
-		Username string `arg:"" help:"Username (with @ prefix)"`
-		Limit    int64  `arg:"" help:"Window limit"`
-	} `cmd:"" help:"Set user window limit"`
-
-	Stack struct {
-		Username string `arg:"" help:"Username (with @ prefix)"`
-		Action   string `arg:"" enum:"enable,disable,true,false,1,0" help:"Enable or disable stack access (enable/disable/true/false/1/0)"`
-	} `cmd:"" help:"Set user stack allowance"`
+type UsersCmd struct {
+	Username string `arg:"" optional:"" help:"Username (with @ prefix)"`
 }
 
 type PersonalizationCmd struct {
