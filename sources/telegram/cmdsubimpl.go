@@ -1577,32 +1577,6 @@ func (x *TelegramHandler) ContextCommandRefresh(log *tracing.Logger, user *entit
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
 }
 
-func (x *TelegramHandler) ContextCommandEnable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	err := x.contextManager.SetEnabled(log, platform.ChatID(msg.Chat.ID), true)
-	if err != nil {
-		log.E("Failed to enable context", tracing.InnerError, err)
-		errorMsg := x.localization.LocalizeBy(msg, "MsgContextEnableError")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	successMsg := x.localization.LocalizeBy(msg, "MsgContextEnabled")
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
-}
-
-func (x *TelegramHandler) ContextCommandDisable(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
-	err := x.contextManager.SetEnabled(log, platform.ChatID(msg.Chat.ID), false)
-	if err != nil {
-		log.E("Failed to disable context", tracing.InnerError, err)
-		errorMsg := x.localization.LocalizeBy(msg, "MsgContextDisableError")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
-	}
-
-	successMsg := x.localization.LocalizeBy(msg, "MsgContextDisabled")
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
-}
-
 func (x *TelegramHandler) ContextCommandInfo(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
 	grade, err := x.donations.GetUserGrade(log, user)
 	if err != nil {
@@ -1630,7 +1604,183 @@ func (x *TelegramHandler) ContextCommandInfo(log *tracing.Logger, user *entities
 		"CurrentTokens":   format.Numberify(int64(stats.CurrentTokens)),
 		"MaxTokens":       format.Numberify(int64(stats.MaxTokens)),
 	})
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+
+	canManage := msg.Chat.Type == "private" || x.rights.IsUserHasRight(log, user, "manage_context")
+
+	if !canManage {
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+		return
+	}
+
+	var rows [][]tgbotapi.InlineKeyboardButton
+
+	clearBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgContextClearBtn"),
+		"context_clear",
+	)
+	rows = append(rows, tgbotapi.NewInlineKeyboardRow(clearBtn))
+
+	if stats.Enabled {
+		disableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgContextDisableBtn"),
+			"context_disable",
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(disableBtn))
+	} else {
+		enableBtn := tgbotapi.NewInlineKeyboardButtonData(
+			x.localization.LocalizeBy(msg, "MsgContextEnableBtn"),
+			"context_enable",
+		)
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(enableBtn))
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, infoMsg), keyboard)
+}
+
+func (x *TelegramHandler) handleContextToggleCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextNoAccess"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	var enable bool
+	var successMsgKey string
+	var errorMsgKey string
+	var callbackMsgKey string
+
+	if query.Data == "context_enable" {
+		enable = true
+		successMsgKey = "MsgContextEnabled"
+		errorMsgKey = "MsgContextEnableError"
+		callbackMsgKey = "MsgContextEnabledCallback"
+	} else {
+		enable = false
+		successMsgKey = "MsgContextDisabled"
+		errorMsgKey = "MsgContextDisableError"
+		callbackMsgKey = "MsgContextDisabledCallback"
+	}
+
+	err := x.contextManager.SetEnabled(log, platform.ChatID(msg.Chat.ID), enable)
+	if err != nil {
+		log.E("Failed to toggle context", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, errorMsgKey))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, callbackMsgKey))
+	if _, err := x.diplomat.bot.Request(callback); err != nil {
+		log.E("Failed to answer callback", tracing.InnerError, err)
+	}
+
+	successMsg := x.localization.LocalizeBy(msg, successMsgKey)
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, successMsg))
+
+	clearBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgContextClearBtn"),
+		"context_clear",
+	)
+	newKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(clearBtn),
+	)
+
+	editMsg := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, newKeyboard)
+	if _, err := x.diplomat.bot.Request(editMsg); err != nil {
+		log.E("Failed to edit message keyboard", tracing.InnerError, err)
+	}
+}
+
+func (x *TelegramHandler) handleContextClearCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextNoAccess"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextClearConfirmCallback"))
+	if _, err := x.diplomat.bot.Request(callback); err != nil {
+		log.E("Failed to answer callback", tracing.InnerError, err)
+	}
+
+	confirmMsg := x.localization.LocalizeBy(msg, "MsgContextClearConfirm")
+
+	cancelBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgContextClearCancelBtn"),
+		"context_clear_cancel",
+	)
+	confirmBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgContextClearConfirmBtn"),
+		"context_clear_confirm",
+	)
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(cancelBtn, confirmBtn),
+	)
+
+	x.diplomat.SendMessageWithKeyboard(log, msg.Chat.ID, x.personality.XiifyManual(msg, confirmMsg), keyboard)
+}
+
+func (x *TelegramHandler) handleContextClearConfirmCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if msg.Chat.Type != "private" && !x.rights.IsUserHasRight(log, user, "manage_context") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextNoAccess"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	if query.Data == "context_clear_cancel" {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextClearCancelledCallback"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+
+		cancelMsg := x.localization.LocalizeBy(msg, "MsgContextClearCancelled")
+		x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, cancelMsg))
+
+		deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+		if _, err := x.diplomat.bot.Request(deleteMsg); err != nil {
+			log.E("Failed to delete confirmation message", tracing.InnerError, err)
+		}
+		return
+	}
+
+	err := x.contextManager.Clear(log, platform.ChatID(msg.Chat.ID))
+	if err != nil {
+		log.E("Failed to clear context", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextRefreshError"))
+		if _, err := x.diplomat.bot.Request(callback); err != nil {
+			log.E("Failed to answer callback", tracing.InnerError, err)
+		}
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgContextClearedCallback"))
+	if _, err := x.diplomat.bot.Request(callback); err != nil {
+		log.E("Failed to answer callback", tracing.InnerError, err)
+	}
+
+	successMsg := x.localization.LocalizeBy(msg, "MsgContextRefreshed")
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, successMsg))
+
+	deleteMsg := tgbotapi.NewDeleteMessage(msg.Chat.ID, msg.MessageID)
+	if _, err := x.diplomat.bot.Request(deleteMsg); err != nil {
+		log.E("Failed to delete confirmation message", tracing.InnerError, err)
+	}
 }
 
 // =========================  /ban and /pardon command handlers  =========================
