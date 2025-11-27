@@ -16,10 +16,11 @@ const (
 	ChatStateNone               = 0
 	ChatStateAwaitingModeType   = 1
 	ChatStateAwaitingModeName   = 2
-	ChatStateAwaitingPrompt     = 3
-	ChatStateAwaitingConfig     = 4
-	ChatStateConfirmDelete      = 5
-	ChatStateAwaitingNewName    = 6
+	ChatStateAwaitingGrade      = 3
+	ChatStateAwaitingPrompt     = 4
+	ChatStateAwaitingConfig     = 5
+	ChatStateConfirmDelete      = 6
+	ChatStateAwaitingNewName    = 7
 )
 
 const (
@@ -132,7 +133,7 @@ func (r *ChatStateRepository) InitModeCreation(logger *tracing.Logger, chatID in
 	return r.SetState(logger, chatID, userID, state)
 }
 
-func (r *ChatStateRepository) SetModeType(logger *tracing.Logger, chatID int64, userID int64, modeType string, modeGrade string) error {
+func (r *ChatStateRepository) SetModeType(logger *tracing.Logger, chatID int64, userID int64, modeType string) error {
 	state, err := r.GetState(logger, chatID, userID)
 	if err != nil {
 		return err
@@ -142,7 +143,6 @@ func (r *ChatStateRepository) SetModeType(logger *tracing.Logger, chatID int64, 
 	}
 	
 	state.ModeType = modeType
-	state.ModeGrade = modeGrade
 	state.Status = ChatStateAwaitingModeName
 	return r.SetState(logger, chatID, userID, state)
 }
@@ -157,6 +157,20 @@ func (r *ChatStateRepository) SetModeName(logger *tracing.Logger, chatID int64, 
 	}
 	
 	state.ModeName = modeName
+	state.Status = ChatStateAwaitingGrade
+	return r.SetState(logger, chatID, userID, state)
+}
+
+func (r *ChatStateRepository) SetModeGrade(logger *tracing.Logger, chatID int64, userID int64, modeGrade string) error {
+	state, err := r.GetState(logger, chatID, userID)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		return fmt.Errorf("no active state found")
+	}
+	
+	state.ModeGrade = modeGrade
 	state.Status = ChatStateAwaitingPrompt
 	return r.SetState(logger, chatID, userID, state)
 }
@@ -205,6 +219,8 @@ func GetStatusName(status int) string {
 		return "awaiting_mode_type"
 	case ChatStateAwaitingModeName:
 		return "awaiting_mode_name"
+	case ChatStateAwaitingGrade:
+		return "awaiting_grade"
 	case ChatStateAwaitingPrompt:
 		return "awaiting_prompt"
 	case ChatStateAwaitingConfig:

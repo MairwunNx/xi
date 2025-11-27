@@ -475,6 +475,9 @@ func (x *TelegramHandler) handleChatStateMessage(log *tracing.Logger, user *enti
 	case repository.ChatStateAwaitingModeName:
 		x.handleModeNameInput(log, user, msg, state)
 		return true
+	case repository.ChatStateAwaitingGrade:
+		x.handleModeGradeInput(log, user, msg, state)
+		return true
 	case repository.ChatStateAwaitingPrompt:
 		x.handlePromptInput(log, user, msg, state)
 		return true
@@ -507,7 +510,7 @@ func (x *TelegramHandler) handleModeTypeInput(log *tracing.Logger, user *entitie
 	}
 
 	// Move to next step
-	err := x.chatState.SetModeType(log, msg.Chat.ID, msg.From.ID, modeType, "")
+	err := x.chatState.SetModeType(log, msg.Chat.ID, msg.From.ID, modeType)
 	if err != nil {
 		log.E("Failed to set mode type in state", tracing.InnerError, err)
 		return
@@ -526,16 +529,52 @@ func (x *TelegramHandler) handleModeNameInput(log *tracing.Logger, user *entitie
 		return // Invalid name, just ignore
 	}
 
-	// Move to next step
+	// Move to next step (grade selection)
 	err := x.chatState.SetModeName(log, msg.Chat.ID, msg.From.ID, modeName)
 	if err != nil {
 		log.E("Failed to set mode name in state", tracing.InnerError, err)
 		return
 	}
 
-	nextMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateAwaitingPrompt", map[string]interface{}{
+	nextMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateAwaitingGrade", map[string]interface{}{
 		"Type": state.ModeType,
 		"Name": modeName,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, nextMsg))
+}
+
+func (x *TelegramHandler) handleModeGradeInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	gradeInput := strings.TrimSpace(strings.ToLower(msg.Text))
+
+	var grade string
+	switch gradeInput {
+	case "all", "все", "全部", "-":
+		grade = ""
+	case "bronze", "бронза", "бронзовый", "青铜":
+		grade = platform.GradeBronze
+	case "silver", "серебро", "серебряный", "白银":
+		grade = platform.GradeSilver
+	case "gold", "золото", "золотой", "黄金":
+		grade = platform.GradeGold
+	default:
+		errorMsg := x.localization.LocalizeBy(msg, "MsgModeCreateInvalidGrade")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	// Move to next step
+	err := x.chatState.SetModeGrade(log, msg.Chat.ID, msg.From.ID, grade)
+	if err != nil {
+		log.E("Failed to set mode grade in state", tracing.InnerError, err)
+		return
+	}
+
+	gradeName := x.getGradeDisplayName(msg, &grade)
+
+	nextMsg := x.localization.LocalizeByTd(msg, "MsgModeCreateAwaitingPrompt", map[string]interface{}{
+		"Type":  state.ModeType,
+		"Name":  state.ModeName,
+		"Grade": gradeName,
 	})
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, nextMsg))
 }
