@@ -88,8 +88,6 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 	log = log.With(
 		tracing.InternalUserActive, platform.BoolValue(user.IsActive, false),
 		tracing.InternalUserRights, user.Rights,
-		tracing.InternalUserWindow, user.WindowLimit,
-		tracing.InternalUserStack, platform.BoolValue(user.IsStackAllowed, false),
 	)
 
 	if !platform.BoolValue(user.IsActive, true) {
