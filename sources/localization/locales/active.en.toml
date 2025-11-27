@@ -283,13 +283,30 @@ Examples: `😄 Funny`, `🤖 Serious`
 
 To cancel, use /cancel"""
 
+[MsgModeCreateAwaitingGrade]
+other = """✅ Key: **{{.Type}}**
+✅ Name: **{{.Name}}**
+
+Now specify the **access level** (grade) for the mode:
+
+• `all` / `-` — for all users
+• `bronze` — Bronze level and above
+• `silver` — Silver level and above
+• `gold` — Gold level only
+
+To cancel, use /cancel"""
+
 [MsgModeCreateAwaitingPrompt]
 other = """✅ Key: **{{.Type}}**
 ✅ Name: **{{.Name}}**
+✅ Access level: **{{.Grade}}**
 
 Now send the **prompt** (system instruction) for the mode.
 
 To cancel, use /cancel"""
+
+[MsgModeCreateInvalidGrade]
+other = "🈲 Invalid access level. Use: `all`, `bronze`, `silver` or `gold`."
 
 [MsgModeCreateInvalidType]
 other = "🈲 Invalid mode key. Use only Latin letters, numbers, and underscores."

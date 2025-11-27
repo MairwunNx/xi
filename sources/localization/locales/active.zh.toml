@@ -283,13 +283,30 @@ other = """✅ 键名：**{{.Type}}**
 
 取消操作请使用 /cancel"""
 
+[MsgModeCreateAwaitingGrade]
+other = """✅ 键名：**{{.Type}}**
+✅ 名称：**{{.Name}}**
+
+现在请指定模式的**访问级别**（grade）：
+
+• `all` / `全部` / `-` — 所有用户
+• `bronze` / `青铜` — 青铜级别及以上
+• `silver` / `白银` — 白银级别及以上
+• `gold` / `黄金` — 仅黄金级别
+
+取消操作请使用 /cancel"""
+
 [MsgModeCreateAwaitingPrompt]
 other = """✅ 键名：**{{.Type}}**
 ✅ 名称：**{{.Name}}**
+✅ 访问级别：**{{.Grade}}**
 
 现在请发送模式的**提示词**（系统指令）。
 
 取消操作请使用 /cancel"""
+
+[MsgModeCreateInvalidGrade]
+other = "🈲 无效的访问级别。请使用：`all`、`bronze`、`silver` 或 `gold`。"
 
 [MsgModeCreateInvalidType]
 other = "🈲 无效的模式键名。请仅使用拉丁字母、数字和下划线。"
