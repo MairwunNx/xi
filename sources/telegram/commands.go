@@ -243,22 +243,28 @@ func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
+	helpMsg := x.localization.LocalizeBy(msg, "MsgPardonHelpText")
+
 	args := msg.CommandArguments()
-	if args == "" || args == "help" {
-		helpMsg := x.localization.LocalizeBy(msg, "MsgPardonHelpText")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+	if args == "" {
+		x.PardonCommandShowList(log, user, msg)
 		return
 	}
 
 	var cmd PardonCmd
-	_, err := x.ParseKongCommand(log, msg, &cmd)
+	ctx, err := x.ParseKongCommand(log, msg, &cmd)
 	if err != nil {
-		helpMsg := x.localization.LocalizeBy(msg, "MsgPardonErrorText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	x.PardonCommandApply(log, msg, cmd.Username)
+	switch ctx.Command() {
+	case "help":
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+	default:
+		log.W("Unknown pardon subcommand", tracing.InternalCommand, ctx.Command())
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
+	}
 }
 
 func (x *TelegramHandler) HandleBroadcastCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
