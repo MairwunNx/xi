@@ -206,6 +206,41 @@ func (x *BansRepository) GetBansByUser(logger *tracing.Logger, userID uuid.UUID)
 	return bans, nil
 }
 
+// GetAllActiveBans returns all active bans sorted by ban date (newest first), limited to maxCount
+func (x *BansRepository) GetAllActiveBans(logger *tracing.Logger, maxCount int) ([]*entities.Ban, error) {
+	defer tracing.ProfilePoint(logger, "Bans get all active bans completed", "repository.bans.get.all.active")()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	bans, err := q.Ban.Preload(query.Ban.User).Order(query.Ban.BannedAt.Desc()).Find()
+	if err != nil {
+		logger.E("Failed to get all bans", tracing.InnerError, err)
+		return nil, err
+	}
+
+	var activeBans []*entities.Ban
+	for _, ban := range bans {
+		if len(activeBans) >= maxCount {
+			break
+		}
+
+		duration, err := x.ParseDuration(ban.Duration)
+		if err != nil {
+			logger.W("Failed to parse ban duration, skipping", "ban_id", ban.ID, tracing.InnerError, err)
+			continue
+		}
+
+		expiresAt := ban.BannedAt.Add(duration)
+		if time.Now().Before(expiresAt) {
+			activeBans = append(activeBans, ban)
+		}
+	}
+
+	return activeBans, nil
+}
+
 func (x *BansRepository) FormatBanExpiry(msg *tgbotapi.Message, expiresAt time.Time) string {
 	moscowTime := expiresAt.UTC().Add(3 * time.Hour)
 	format := x.localization.LocalizeBy(msg, "BanExpiryFormat")
