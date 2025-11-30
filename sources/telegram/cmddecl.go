@@ -45,15 +45,6 @@ type BroadcastCmd struct {
 }
 
 type TariffCmd struct {
-	Add struct {
-		Key    string `arg:"" help:"Tariff key (e.g., bronze, silver, gold)"`
-		Config string `arg:"" help:"Tariff configuration (JSON)"`
-	} `cmd:"" help:"Add a new tariff"`
-
-	List struct {
-	} `cmd:"" help:"List all tariffs"`
-
-	Get struct {
-		Key string `arg:"" help:"Tariff key to get"`
-	} `cmd:"" help:"Get tariff by key"`
+	Help struct {
+	} `cmd:"" help:"Show tariff help"`
 }
