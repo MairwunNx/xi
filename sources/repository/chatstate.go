@@ -24,6 +24,8 @@ const (
 	ChatStateAwaitingPersonalization  = 8
 	ChatStateAwaitingBroadcast        = 9
 	ChatStateConfirmBroadcast         = 10
+	ChatStateAwaitingTariffKey        = 11
+	ChatStateAwaitingTariffConfig     = 12
 )
 
 const (
@@ -38,6 +40,7 @@ type ChatStateData struct {
 	ModeName      string    `json:"mode_name,omitempty"`
 	ModeGrade     string    `json:"mode_grade,omitempty"`
 	BroadcastText string    `json:"broadcast_text,omitempty"`
+	TariffKey     string    `json:"tariff_key,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
 
@@ -245,6 +248,28 @@ func (r *ChatStateRepository) SetBroadcastText(logger *tracing.Logger, chatID in
 	return r.SetState(logger, chatID, userID, state)
 }
 
+func (r *ChatStateRepository) InitTariffCreation(logger *tracing.Logger, chatID int64, userID int64) error {
+	state := &ChatStateData{
+		Status: ChatStateAwaitingTariffKey,
+		UserID: userID,
+	}
+	return r.SetState(logger, chatID, userID, state)
+}
+
+func (r *ChatStateRepository) SetTariffKey(logger *tracing.Logger, chatID int64, userID int64, tariffKey string) error {
+	state, err := r.GetState(logger, chatID, userID)
+	if err != nil {
+		return err
+	}
+	if state == nil {
+		state = &ChatStateData{UserID: userID}
+	}
+
+	state.TariffKey = tariffKey
+	state.Status = ChatStateAwaitingTariffConfig
+	return r.SetState(logger, chatID, userID, state)
+}
+
 func GetStatusName(status int) string {
 	switch status {
 	case ChatStateNone:
@@ -269,6 +294,10 @@ func GetStatusName(status int) string {
 		return "awaiting_broadcast"
 	case ChatStateConfirmBroadcast:
 		return "confirm_broadcast"
+	case ChatStateAwaitingTariffKey:
+		return "awaiting_tariff_key"
+	case ChatStateAwaitingTariffConfig:
+		return "awaiting_tariff_config"
 	default:
 		return "unknown"
 	}
