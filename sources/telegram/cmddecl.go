@@ -35,7 +35,8 @@ type BanCmd struct {
 }
 
 type PardonCmd struct {
-	Username string `arg:"" help:"Username to unban (with or without @ prefix)"`
+	Help struct {
+	} `cmd:"" help:"Show pardon help"`
 }
 
 type BroadcastCmd struct {
