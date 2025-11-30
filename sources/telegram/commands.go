@@ -3,11 +3,21 @@ package telegram
 import (
 	"os"
 	"strings"
+	"ximanager/sources/framework/commands"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/repository"
 	"ximanager/sources/tracing"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+var (
+	modeParser = commands.NewParser().MustRegister("create", "edit {type}", "info", "help")
+	personalizationParser = commands.NewParser().MustRegister("help")
+	contextParser = commands.NewParser().MustRegister("help")
+	banParser = commands.NewParser().MustRegister("{username} {reason} {duration}")
+	pardonParser = commands.NewParser().MustRegister("help")
+	tariffParser = commands.NewParser().MustRegister("help")
 )
 
 func (x *TelegramHandler) HandleXiCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -57,15 +67,14 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 		return
 	}
 
-	var cmd ModeCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, modeParser)
 	if err != nil {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgModeHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
+	switch result.Schema {
 	case "create":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
@@ -73,13 +82,13 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 			return
 		}
 		x.ModeCommandCreateStart(log, user, msg)
-	case "edit <type>":
+	case "edit {type}":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
 			x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noAccessMsg))
 			return
 		}
-		x.ModeCommandEditStart(log, user, msg, cmd.Edit.Type)
+		x.ModeCommandEditStart(log, user, msg, result.Get("type"))
 	case "info":
 		if !x.rights.IsUserHasRight(log, user, "edit_mode") {
 			noAccessMsg := x.localization.LocalizeBy(msg, "MsgModeModifyNoAccess")
@@ -88,7 +97,7 @@ func (x *TelegramHandler) HandleModeCommand(log *tracing.Logger, user *entities.
 		}
 		x.ModeCommandInfoList(log, user, msg)
 	default:
-		log.W("Unknown mode subcommand", tracing.InternalCommand, ctx.Command())
+		log.W("Unknown mode subcommand", tracing.InternalCommand, result.Schema)
 		helpMsg := x.localization.LocalizeBy(msg, "MsgModeHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
@@ -161,18 +170,17 @@ func (x *TelegramHandler) HandlePersonalizationCommand(log *tracing.Logger, user
 		return
 	}
 
-	var cmd PersonalizationCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, personalizationParser)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
+	switch result.Schema {
 	case "help":
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
-		log.W("Unknown personalization subcommand", tracing.InternalCommand, ctx.Command())
+		log.W("Unknown personalization subcommand", tracing.InternalCommand, result.Schema)
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
 }
@@ -190,23 +198,21 @@ func (x *TelegramHandler) HandleContextCommand(log *tracing.Logger, user *entiti
 
 	args := msg.CommandArguments()
 	if args == "" {
-		// Show context info with action buttons when no arguments
 		x.ContextCommandInfo(log, user, msg)
 		return
 	}
 
-	var cmd ContextCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, contextParser)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
+	switch result.Schema {
 	case "help":
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
-		log.W("Unknown context subcommand", tracing.InternalCommand, ctx.Command())
+		log.W("Unknown context subcommand", tracing.InternalCommand, result.Schema)
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
 }
@@ -225,15 +231,14 @@ func (x *TelegramHandler) HandleBanCommand(log *tracing.Logger, user *entities.U
 		return
 	}
 
-	var cmd BanCmd
-	_, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, banParser)
 	if err != nil {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgBanErrorText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	x.BanCommandApply(log, msg, cmd.Username, cmd.Reason, cmd.Duration)
+	x.BanCommandApply(log, msg, result.Get("username"), result.Get("reason"), result.Get("duration"))
 }
 
 func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -251,18 +256,17 @@ func (x *TelegramHandler) HandlePardonCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
-	var cmd PardonCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, pardonParser)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
+	switch result.Schema {
 	case "help":
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
-		log.W("Unknown pardon subcommand", tracing.InternalCommand, ctx.Command())
+		log.W("Unknown pardon subcommand", tracing.InternalCommand, result.Schema)
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
 }
@@ -303,20 +307,19 @@ func (x *TelegramHandler) HandleTariffCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
-	var cmd TariffCmd
-	ctx, err := x.ParseKongCommand(log, msg, &cmd)
+	result, err := x.ParseCommand(log, msg, tariffParser)
 	if err != nil {
 		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
-	switch ctx.Command() {
+	switch result.Schema {
 	case "help":
 		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
-		log.W("Unknown tariff subcommand", tracing.InternalCommand, ctx.Command())
+		log.W("Unknown tariff subcommand", tracing.InternalCommand, result.Schema)
 		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}

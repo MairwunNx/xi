@@ -4,7 +4,6 @@ go 1.25
 
 require (
 	github.com/Unleash/unleash-client-go/v4 v4.5.0
-	github.com/alecthomas/kong v1.12.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.10.9
