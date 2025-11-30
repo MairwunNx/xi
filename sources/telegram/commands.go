@@ -291,10 +291,14 @@ func (x *TelegramHandler) HandleTariffCommand(log *tracing.Logger, user *entitie
 		return
 	}
 
-	helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
-
 	args := msg.CommandArguments()
 	if args == "" {
+		x.TariffCommandShowList(log, user, msg)
+		return
+	}
+
+	if args == "help" {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
@@ -302,19 +306,18 @@ func (x *TelegramHandler) HandleTariffCommand(log *tracing.Logger, user *entitie
 	var cmd TariffCmd
 	ctx, err := x.ParseKongCommand(log, msg, &cmd)
 	if err != nil {
+		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 		return
 	}
 
 	switch ctx.Command() {
-	case "add <key> <config>":
-		x.TariffCommandAdd(log, msg, cmd.Add.Key, cmd.Add.Config)
-	case "list":
-		x.TariffCommandList(log, msg)
-	case "get <key>":
-		x.TariffCommandGet(log, msg, cmd.Get.Key)
+	case "help":
+		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	default:
 		log.W("Unknown tariff subcommand", tracing.InternalCommand, ctx.Command())
+		helpMsg := x.localization.LocalizeBy(msg, "MsgTariffHelpText")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, helpMsg))
 	}
 }
