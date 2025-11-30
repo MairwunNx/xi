@@ -315,6 +315,12 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// Pardon user callback: pardon_user_{userID}
+	if strings.HasPrefix(query.Data, "pardon_user_") {
+		x.handlePardonCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
