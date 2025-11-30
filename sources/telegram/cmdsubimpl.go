@@ -2299,23 +2299,89 @@ func (x *TelegramHandler) BanCommandApply(log *tracing.Logger, msg *tgbotapi.Mes
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, banMsg))
 }
 
-func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, username string) {
-	targetUser := x.retrieveUserByName(log, msg, username)
-	if targetUser == nil {
-		return
-	}
+func (x *TelegramHandler) PardonCommandShowList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Pardon command show list completed", "telegram.command.pardon.show.list", "chat_id", msg.Chat.ID)()
 
-	_, err := x.bans.GetActiveBan(log, targetUser.ID)
+	const maxBannedUsers = 99
+
+	bans, err := x.bans.GetAllActiveBans(log, maxBannedUsers)
 	if err != nil {
-		displayName := *targetUser.Username
-		errorMsg := x.localization.LocalizeByTd(msg, "MsgBanErrorNotFound", map[string]interface{}{
-			"Username": displayName,
-		})
+		log.E("Failed to get active bans", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgPardonErrorList")
 		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
 		return
 	}
 
-	err = x.bans.DeleteBansByUser(log, targetUser.ID)
+	if len(bans) == 0 {
+		noBansMsg := x.localization.LocalizeBy(msg, "MsgPardonNoBans")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noBansMsg))
+		return
+	}
+
+	message := x.localization.LocalizeBy(msg, "MsgPardonListTitle")
+
+	displayCount := len(bans)
+	if displayCount > 33 {
+		displayCount = 33
+	}
+
+	for i := 0; i < displayCount; i++ {
+		ban := bans[i]
+		duration, _ := x.bans.ParseDuration(ban.Duration)
+		expiresAt := ban.BannedAt.Add(duration)
+		remaining := x.bans.GetRemainingDuration(expiresAt)
+		remainingFormatted := x.bans.FormatRemainingTime(msg, remaining)
+
+		username := "unknown"
+		fullname := "Unknown"
+		if ban.User.Username != nil {
+			username = *ban.User.Username
+		}
+		if ban.User.Fullname != nil {
+			fullname = *ban.User.Fullname
+		}
+
+		itemData := map[string]interface{}{
+			"Fullname":  fullname,
+			"Username":  username,
+			"Remaining": remainingFormatted,
+		}
+		message += x.localization.LocalizeByTd(msg, "MsgPardonListItem", itemData)
+	}
+
+	message += x.localization.LocalizeBy(msg, "MsgPardonListFooter")
+
+	var buttons [][]tgbotapi.InlineKeyboardButton
+	var row []tgbotapi.InlineKeyboardButton
+
+	for i, ban := range bans {
+		username := "?"
+		if ban.User.Username != nil {
+			username = "@" + *ban.User.Username
+		} else if ban.User.Fullname != nil {
+			fullname := *ban.User.Fullname
+			if len([]rune(fullname)) > 15 {
+				username = string([]rune(fullname)[:15]) + "…"
+			} else {
+				username = fullname
+			}
+		}
+
+		btn := tgbotapi.NewInlineKeyboardButtonData(username, "pardon_user_"+ban.UserID.String())
+		row = append(row, btn)
+
+		if len(row) == 3 || i == len(bans)-1 {
+			buttons = append(buttons, row)
+			row = nil
+		}
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, message), keyboard)
+}
+
+func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.Message, userID uuid.UUID) {
+	err := x.bans.DeleteBansByUser(log, userID)
 	if err != nil {
 		log.E("Failed to pardon user", tracing.InnerError, err)
 		errorMsg := x.localization.LocalizeBy(msg, "MsgBanErrorRemove")
@@ -2323,7 +2389,17 @@ func (x *TelegramHandler) PardonCommandApply(log *tracing.Logger, msg *tgbotapi.
 		return
 	}
 
-	displayName := *targetUser.Username
+	user, err := x.users.GetUserByID(log, userID)
+	if err != nil {
+		log.W("Failed to get user after pardon", tracing.InnerError, err)
+		return
+	}
+
+	displayName := "unknown"
+	if user.Username != nil {
+		displayName = *user.Username
+	}
+
 	successMsg := x.localization.LocalizeByTd(msg, "MsgBanPardon", map[string]interface{}{
 		"Username": displayName,
 	})
@@ -2504,6 +2580,102 @@ func getGradeNameRu(grade platform.UserGrade) string {
 		return "Бронзовый"
 	default:
 		return "Неизвестный"
+	}
+}
+
+// =========================  /pardon callback handlers  =========================
+
+func (x *TelegramHandler) handlePardonCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, user, "manage_users") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUsersNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	userIDStr := strings.TrimPrefix(query.Data, "pardon_user_")
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		log.E("Failed to parse user ID from callback", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgPardonError"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	targetUser, err := x.users.GetUserByID(log, userID)
+	if err != nil {
+		log.E("Failed to get user", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgUserNotFound"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	err = x.bans.DeleteBansByUser(log, userID)
+	if err != nil {
+		log.E("Failed to pardon user", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgBanErrorRemove"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	displayName := "unknown"
+	if targetUser.Username != nil {
+		displayName = *targetUser.Username
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(msg, "MsgPardonCallback", map[string]interface{}{
+		"Username": displayName,
+	}))
+	x.diplomat.bot.Request(callback)
+
+	successMsg := x.localization.LocalizeByTd(msg, "MsgBanPardon", map[string]interface{}{
+		"Username": displayName,
+	})
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManual(msg, successMsg))
+
+	const maxBannedUsers = 99
+	remainingBans, err := x.bans.GetAllActiveBans(log, maxBannedUsers)
+	if err != nil {
+		log.E("Failed to get remaining bans", tracing.InnerError, err)
+		return
+	}
+
+	if len(remainingBans) == 0 {
+		editMarkup := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, tgbotapi.InlineKeyboardMarkup{InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{}})
+		x.diplomat.bot.Request(editMarkup)
+		return
+	}
+
+	var buttons [][]tgbotapi.InlineKeyboardButton
+	var row []tgbotapi.InlineKeyboardButton
+
+	for i, ban := range remainingBans {
+		username := "?"
+		if ban.User.Username != nil {
+			username = "@" + *ban.User.Username
+		} else if ban.User.Fullname != nil {
+			fullname := *ban.User.Fullname
+			if len([]rune(fullname)) > 15 {
+				username = string([]rune(fullname)[:15]) + "…"
+			} else {
+				username = fullname
+			}
+		}
+
+		btn := tgbotapi.NewInlineKeyboardButtonData(username, "pardon_user_"+ban.UserID.String())
+		row = append(row, btn)
+
+		if len(row) == 3 || i == len(remainingBans)-1 {
+			buttons = append(buttons, row)
+			row = nil
+		}
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	editMarkup := tgbotapi.NewEditMessageReplyMarkup(msg.Chat.ID, msg.MessageID, keyboard)
+	if _, err := x.diplomat.bot.Request(editMarkup); err != nil {
+		log.W("Failed to update pardon keyboard", tracing.InnerError, err)
 	}
 }
 
