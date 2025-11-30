@@ -321,6 +321,18 @@ func (x *TelegramHandler) HandleCallback(log *tracing.Logger, query *tgbotapi.Ca
 		return nil
 	}
 
+	// Tariff add callback
+	if query.Data == "tariff_add" {
+		x.handleTariffAddCallback(log, query, user)
+		return nil
+	}
+
+	// Tariff info callback: tariff_info_{key}
+	if strings.HasPrefix(query.Data, "tariff_info_") {
+		x.handleTariffInfoCallback(log, query, user)
+		return nil
+	}
+
 	return nil
 }
 
