@@ -890,18 +890,38 @@ Use `/ban help` for detailed help."""
 [MsgPardonHelpText]
 other = """🕊️ **Unbanning users**
 
+The `/pardon` command displays a list of banned users and allows you to remove their temporary bans.
+
 📝 **Usage:**
-`/pardon @username`
+`/pardon` — show list of banned users with unban buttons
+`/pardon help` — show this help
 
-💡 **Example:**
-`/pardon @user`"""
+💡 Click on a button with the user's name to remove their ban."""
 
-[MsgPardonErrorText]
-other = """🈲 Invalid command format.
+[MsgPardonListTitle]
+other = """🕊️ **Unban Users**
 
-📝 **Usage:** `/pardon @username`
+Below is the list of banned users. Click a button to remove the ban.
 
-Use `/pardon help` for detailed help."""
+"""
+
+[MsgPardonListItem]
+other = "▶️ **{{.Fullname}}** (@{{.Username}}) — **{{.Remaining}}** left\n"
+
+[MsgPardonListFooter]
+other = "\n💡 Use `/pardon help` for help"
+
+[MsgPardonNoBans]
+other = "✅ No active bans. All users are free!"
+
+[MsgPardonErrorList]
+other = "💢 An error occurred while getting the list of banned users."
+
+[MsgPardonError]
+other = "💢 An error occurred while unbanning the user."
+
+[MsgPardonCallback]
+other = "✅ @{{.Username}} unbanned"
 
 [MsgDonationsSupport]
 other = "💖 Support the project"

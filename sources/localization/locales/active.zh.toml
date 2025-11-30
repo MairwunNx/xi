@@ -890,18 +890,38 @@ other = """🈲 命令格式不正确。
 [MsgPardonHelpText]
 other = """🕊️ **解除封禁**
 
+`/pardon` 命令显示被封禁用户列表，并允许您解除他们的临时封禁。
+
 📝 **用法：**
-`/pardon @username`
+`/pardon` — 显示被封禁用户列表及解封按钮
+`/pardon help` — 显示此帮助信息
 
-💡 **示例：**
-`/pardon @user`"""
+💡 点击用户名按钮即可解除封禁。"""
 
-[MsgPardonErrorText]
-other = """🈲 命令格式不正确。
+[MsgPardonListTitle]
+other = """🕊️ **解除封禁**
 
-📝 **用法：** `/pardon @username`
+以下是被封禁用户列表。点击按钮可解除封禁。
 
-使用 `/pardon help` 获取详细帮助。"""
+"""
+
+[MsgPardonListItem]
+other = "▶️ **{{.Fullname}}** (@{{.Username}}) — 剩余 **{{.Remaining}}**\n"
+
+[MsgPardonListFooter]
+other = "\n💡 使用 `/pardon help` 获取帮助"
+
+[MsgPardonNoBans]
+other = "✅ 没有活跃的封禁。所有用户都是自由的！"
+
+[MsgPardonErrorList]
+other = "💢 获取被封禁用户列表时发生错误。"
+
+[MsgPardonError]
+other = "💢 解除封禁时发生错误。"
+
+[MsgPardonCallback]
+other = "✅ @{{.Username}} 已解封"
 
 [MsgDonationsSupport]
 other = "💖 支持本项目"
