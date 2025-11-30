@@ -1121,33 +1121,14 @@ other = "🈲 You do not have permission to manage tariffs. Your social credit *
 [MsgTariffHelpText]
 other = """🏷️ **Xi Manager Tariff Management**
 
-**Available commands:**
+**Usage:**
+`/tariff` — manage tariffs (list, add, view)
+`/tariff help` — this help
 
-1️⃣ `/tariff add <key> '<config>'` - add a new tariff
-2️⃣ `/tariff list` - show list of tariffs
-3️⃣ `/tariff get <key>` - get tariff information
+🎯 **What are tariffs?**
+Tariffs define limits and capabilities for users of different levels (bronze, silver, gold).
 
-**Configuration format (JSON):**
-```json
-{
-  "display_name": "Name",
-  "dialer_models": [
-    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
-  ],
-  "dialer_reasoning_effort": "high",
-  "context_ttl_seconds": 3600,
-  "context_max_messages": 50,
-  "context_max_tokens": 8000,
-  "usage_vision_daily": 10,
-  "usage_vision_monthly": 100,
-  "usage_dialer_daily": 50,
-  "usage_dialer_monthly": 500,
-  "usage_whisper_daily": 10,
-  "usage_whisper_monthly": 100,
-  "spending_daily_limit": "1.00",
-  "spending_monthly_limit": "10.00"
-}
-```"""
+💡 To cancel any operation, use `/cancel`"""
 
 [MsgTariffErrorConfigParse]
 other = "💢 Error parsing tariff JSON configuration."
@@ -1188,11 +1169,68 @@ other = "💢 An error occurred while getting the tariff list."
 [MsgTariffNoTariffs]
 other = "🤷‍♂️ No tariffs have been created yet."
 
-[MsgTariffListHeader]
-other = "🏷️ **Tariff list:**\n\n"
+[MsgTariffListTitle]
+other = """🏷️ **Tariff Management**
+
+Select a tariff from the list to view details or add a new one.
+"""
 
 [MsgTariffListItem]
-other = "▶️ **{{.Key}}** — {{.DisplayName}} (ID: {{.ID}})\n"
+other = "\n▶️ **{{.Key}}** — {{.DisplayName}}"
+
+[MsgTariffNoTariffsInList]
+other = "\n\n🤷 No tariffs created yet."
+
+[MsgTariffListFooter]
+other = "\n\n💡 Use `/tariff help` for detailed help"
+
+[MsgTariffAddBtn]
+other = "➕ Add tariff"
+
+[MsgTariffCreateStart]
+other = """🏷️ **Creating a new tariff**
+
+Send the tariff **key**.
+The key must be unique, use lowercase Latin letters and underscores.
+
+💡 **Supported tariffs:** `bronze`, `silver`, `gold`
+
+To cancel, use /cancel"""
+
+[MsgTariffCreateInvalidKey]
+other = "🈲 Invalid tariff key. Use only lowercase Latin letters, numbers, and underscores (2-50 characters)."
+
+[MsgTariffCreateAwaitingConfig]
+other = """✅ Key: **{{.Key}}**
+
+Now send the **JSON configuration** for the tariff.
+
+💡 **Example:**
+```json
+{
+  "display_name": "Name",
+  "dialer_models": [
+    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
+  ],
+  "dialer_reasoning_effort": "high",
+  "context_ttl_seconds": 3600,
+  "context_max_messages": 50,
+  "context_max_tokens": 8000,
+  "usage_vision_daily": 10,
+  "usage_vision_monthly": 100,
+  "usage_dialer_daily": 50,
+  "usage_dialer_monthly": 500,
+  "usage_whisper_daily": 10,
+  "usage_whisper_monthly": 100,
+  "spending_daily_limit": "1.00",
+  "spending_monthly_limit": "10.00"
+}
+```
+
+To cancel, use /cancel"""
+
+[MsgTariffListHeader]
+other = "🏷️ **Tariff list:**\n\n"
 
 [MsgTariffNotFound]
 other = "🈲 Tariff **{{.Key}}** not found."

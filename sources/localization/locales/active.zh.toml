@@ -1121,33 +1121,14 @@ other = "🈲 你没有权限管理套餐。你的社会信用已被**降低**�
 [MsgTariffHelpText]
 other = """🏷️ **Xi Manager 套餐管理**
 
-**可用命令：**
+**用法：**
+`/tariff` — 管理套餐（列表、添加、查看）
+`/tariff help` — 此帮助信息
 
-1️⃣ `/tariff add <key> '<config>'` - 添加新套餐
-2️⃣ `/tariff list` - 显示套餐列表
-3️⃣ `/tariff get <key>` - 获取套餐信息
+🎯 **什么是套餐？**
+套餐定义了不同级别用户（bronze、silver、gold）的限制和功能。
 
-**配置格式 (JSON)：**
-```json
-{
-  "display_name": "名称",
-  "dialer_models": [
-    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
-  ],
-  "dialer_reasoning_effort": "high",
-  "context_ttl_seconds": 3600,
-  "context_max_messages": 50,
-  "context_max_tokens": 8000,
-  "usage_vision_daily": 10,
-  "usage_vision_monthly": 100,
-  "usage_dialer_daily": 50,
-  "usage_dialer_monthly": 500,
-  "usage_whisper_daily": 10,
-  "usage_whisper_monthly": 100,
-  "spending_daily_limit": "1.00",
-  "spending_monthly_limit": "10.00"
-}
-```"""
+💡 要取消任何操作，请使用 `/cancel`"""
 
 [MsgTariffErrorConfigParse]
 other = "💢 解析套餐 JSON 配置时发生错误。"
@@ -1188,11 +1169,68 @@ other = "💢 获取套餐列表时发生错误。"
 [MsgTariffNoTariffs]
 other = "🤷‍♂️ 尚未创建任何套餐。"
 
-[MsgTariffListHeader]
-other = "🏷️ **套餐列表：**\n\n"
+[MsgTariffListTitle]
+other = """🏷️ **套餐管理**
+
+从列表中选择套餐查看详情，或添加新套餐。
+"""
 
 [MsgTariffListItem]
-other = "▶️ **{{.Key}}** — {{.DisplayName}} (ID: {{.ID}})\n"
+other = "\n▶️ **{{.Key}}** — {{.DisplayName}}"
+
+[MsgTariffNoTariffsInList]
+other = "\n\n🤷 尚未创建任何套餐。"
+
+[MsgTariffListFooter]
+other = "\n\n💡 使用 `/tariff help` 获取详细帮助"
+
+[MsgTariffAddBtn]
+other = "➕ 添加套餐"
+
+[MsgTariffCreateStart]
+other = """🏷️ **创建新套餐**
+
+请发送套餐**密钥**。
+密钥必须唯一，使用小写拉丁字母和下划线。
+
+💡 **支持的套餐：** `bronze`、`silver`、`gold`
+
+取消操作请使用 /cancel"""
+
+[MsgTariffCreateInvalidKey]
+other = "🈲 无效的套餐密钥。请仅使用小写拉丁字母、数字和下划线（2-50个字符）。"
+
+[MsgTariffCreateAwaitingConfig]
+other = """✅ 密钥：**{{.Key}}**
+
+现在请发送套餐的 **JSON 配置**。
+
+💡 **示例：**
+```json
+{
+  "display_name": "名称",
+  "dialer_models": [
+    {"name": "openai/gpt-4o", "aai": 60, "input_price_per_m": "$2.50", "output_price_per_m": "$10", "ctx_tokens": "128k"}
+  ],
+  "dialer_reasoning_effort": "high",
+  "context_ttl_seconds": 3600,
+  "context_max_messages": 50,
+  "context_max_tokens": 8000,
+  "usage_vision_daily": 10,
+  "usage_vision_monthly": 100,
+  "usage_dialer_daily": 50,
+  "usage_dialer_monthly": 500,
+  "usage_whisper_daily": 10,
+  "usage_whisper_monthly": 100,
+  "spending_daily_limit": "1.00",
+  "spending_monthly_limit": "10.00"
+}
+```
+
+取消操作请使用 /cancel"""
+
+[MsgTariffListHeader]
+other = "🏷️ **套餐列表：**\n\n"
 
 [MsgTariffNotFound]
 other = "🈲 未找到套餐 **{{.Key}}**。"
