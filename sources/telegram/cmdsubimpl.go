@@ -493,6 +493,12 @@ func (x *TelegramHandler) handleChatStateMessage(log *tracing.Logger, user *enti
 	case repository.ChatStateAwaitingBroadcast:
 		x.handleBroadcastInput(log, user, msg)
 		return true
+	case repository.ChatStateAwaitingTariffKey:
+		x.handleTariffKeyInput(log, user, msg, state)
+		return true
+	case repository.ChatStateAwaitingTariffConfig:
+		x.handleTariffConfigInput(log, user, msg, state)
+		return true
 	}
 
 	return false
@@ -2683,8 +2689,94 @@ func (x *TelegramHandler) handlePardonCallback(log *tracing.Logger, query *tgbot
 
 // =========================  /tariff command handlers  =========================
 
-func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Message, key string, configJSON string) {
-	defer tracing.ProfilePoint(log, "Tariff command add completed", "telegram.command.tariff.add", "key", key)()
+func (x *TelegramHandler) TariffCommandShowList(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Tariff command show list completed", "telegram.command.tariff.show.list", "chat_id", msg.Chat.ID)()
+
+	tariffs, err := x.tariffs.GetAllLatest(log)
+	if err != nil {
+		log.E("Failed to get tariffs list", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffErrorList")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	message := x.localization.LocalizeBy(msg, "MsgTariffListTitle")
+
+	if len(tariffs) > 0 {
+		for _, t := range tariffs {
+			itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffListItem", map[string]interface{}{
+				"Key":         t.Key,
+				"DisplayName": t.DisplayName,
+			})
+			message += itemMsg
+		}
+	} else {
+		message += x.localization.LocalizeBy(msg, "MsgTariffNoTariffsInList")
+	}
+
+	message += x.localization.LocalizeBy(msg, "MsgTariffListFooter")
+
+	var buttons [][]tgbotapi.InlineKeyboardButton
+
+	addBtn := tgbotapi.NewInlineKeyboardButtonData(
+		x.localization.LocalizeBy(msg, "MsgTariffAddBtn"),
+		"tariff_add",
+	)
+	buttons = append(buttons, tgbotapi.NewInlineKeyboardRow(addBtn))
+
+	var row []tgbotapi.InlineKeyboardButton
+	for i, t := range tariffs {
+		btn := tgbotapi.NewInlineKeyboardButtonData("🔍 "+t.DisplayName, "tariff_info_"+t.Key)
+		row = append(row, btn)
+
+		if len(row) == 3 || i == len(tariffs)-1 {
+			buttons = append(buttons, row)
+			row = nil
+		}
+	}
+
+	keyboard := tgbotapi.NewInlineKeyboardMarkup(buttons...)
+	x.diplomat.ReplyWithKeyboard(log, msg, x.personality.XiifyManual(msg, message), keyboard)
+}
+
+func (x *TelegramHandler) TariffCommandCreateStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Tariff command create start completed", "telegram.command.tariff.create.start", "chat_id", msg.Chat.ID)()
+
+	err := x.chatState.InitTariffCreation(log, msg.Chat.ID, msg.From.ID)
+	if err != nil {
+		log.E("Failed to init tariff creation state", tracing.InnerError, err)
+		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffErrorCreate")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	startMsg := x.localization.LocalizeBy(msg, "MsgTariffCreateStart")
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, startMsg))
+}
+
+func (x *TelegramHandler) handleTariffKeyInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	tariffKey := strings.TrimSpace(strings.ToLower(msg.Text))
+
+	if !isValidTariffKey(tariffKey) {
+		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffCreateInvalidKey")
+		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		return
+	}
+
+	err := x.chatState.SetTariffKey(log, msg.Chat.ID, msg.From.ID, tariffKey)
+	if err != nil {
+		log.E("Failed to set tariff key in state", tracing.InnerError, err)
+		return
+	}
+
+	nextMsg := x.localization.LocalizeByTd(msg, "MsgTariffCreateAwaitingConfig", map[string]interface{}{
+		"Key": tariffKey,
+	})
+	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, nextMsg))
+}
+
+func (x *TelegramHandler) handleTariffConfigInput(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, state *repository.ChatStateData) {
+	configJSON := strings.TrimSpace(msg.Text)
 
 	var config repository.TariffConfig
 	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
@@ -2693,7 +2785,7 @@ func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Me
 		return
 	}
 
-	tariff, err := x.tariffs.CreateTariff(log, key, &config)
+	tariff, err := x.tariffs.CreateTariff(log, state.TariffKey, &config)
 	if err != nil {
 		log.E("Failed to create tariff", tracing.InnerError, err)
 
@@ -2722,6 +2814,8 @@ func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Me
 		return
 	}
 
+	x.chatState.ClearState(log, msg.Chat.ID, msg.From.ID)
+
 	successMsg := x.localization.LocalizeByTd(msg, "MsgTariffAdded", map[string]interface{}{
 		"Key":         tariff.Key,
 		"DisplayName": tariff.DisplayName,
@@ -2730,49 +2824,60 @@ func (x *TelegramHandler) TariffCommandAdd(log *tracing.Logger, msg *tgbotapi.Me
 	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, successMsg))
 }
 
-func (x *TelegramHandler) TariffCommandList(log *tracing.Logger, msg *tgbotapi.Message) {
-	defer tracing.ProfilePoint(log, "Tariff command list completed", "telegram.command.tariff.list")()
-
-	tariffs, err := x.tariffs.GetAllLatest(log)
-	if err != nil {
-		log.E("Failed to get tariffs list", tracing.InnerError, err)
-		errorMsg := x.localization.LocalizeBy(msg, "MsgTariffErrorList")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
-		return
+func isValidTariffKey(key string) bool {
+	if len(key) < 2 || len(key) > 50 {
+		return false
 	}
-
-	if len(tariffs) == 0 {
-		noTariffsMsg := x.localization.LocalizeBy(msg, "MsgTariffNoTariffs")
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, noTariffsMsg))
-		return
+	for _, r := range key {
+		if !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+			return false
+		}
 	}
-
-	var builder strings.Builder
-	header := x.localization.LocalizeBy(msg, "MsgTariffListHeader")
-	builder.WriteString(header)
-
-	for _, t := range tariffs {
-		itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffListItem", map[string]interface{}{
-			"Key":         t.Key,
-			"DisplayName": t.DisplayName,
-			"ID":          t.ID,
-		})
-		builder.WriteString(itemMsg)
-	}
-
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, builder.String()))
+	return true
 }
 
-func (x *TelegramHandler) TariffCommandGet(log *tracing.Logger, msg *tgbotapi.Message, key string) {
-	defer tracing.ProfilePoint(log, "Tariff command get completed", "telegram.command.tariff.get", "key", key)()
+func (x *TelegramHandler) handleTariffAddCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
 
-	tariff, err := x.tariffs.GetLatestByKey(log, key)
+	if !x.rights.IsUserHasRight(log, user, "manage_tariffs") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgTariffNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	err := x.chatState.InitTariffCreation(log, msg.Chat.ID, query.From.ID)
 	if err != nil {
-		log.E("Failed to get tariff", tracing.InnerError, err, "key", key)
-		errorMsg := x.localization.LocalizeByTd(msg, "MsgTariffNotFound", map[string]interface{}{
-			"Key": key,
-		})
-		x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, errorMsg))
+		log.E("Failed to init tariff creation state", tracing.InnerError, err)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgTariffErrorCreate"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	callback := tgbotapi.NewCallback(query.ID, "")
+	x.diplomat.bot.Request(callback)
+
+	startMsg := x.localization.LocalizeBy(msg, "MsgTariffCreateStart")
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManualPlain(startMsg))
+}
+
+func (x *TelegramHandler) handleTariffInfoCallback(log *tracing.Logger, query *tgbotapi.CallbackQuery, user *entities.User) {
+	msg := query.Message
+
+	if !x.rights.IsUserHasRight(log, user, "manage_tariffs") {
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeBy(msg, "MsgTariffNoAccess"))
+		x.diplomat.bot.Request(callback)
+		return
+	}
+
+	tariffKey := strings.TrimPrefix(query.Data, "tariff_info_")
+
+	tariff, err := x.tariffs.GetLatestByKey(log, tariffKey)
+	if err != nil {
+		log.E("Failed to get tariff", tracing.InnerError, err, "key", tariffKey)
+		callback := tgbotapi.NewCallback(query.ID, x.localization.LocalizeByTd(msg, "MsgTariffNotFound", map[string]interface{}{
+			"Key": tariffKey,
+		}))
+		x.diplomat.bot.Request(callback)
 		return
 	}
 
@@ -2797,7 +2902,11 @@ func (x *TelegramHandler) TariffCommandGet(log *tracing.Logger, msg *tgbotapi.Me
 		"SpendingMonthlyLimit":  tariff.SpendingMonthlyLimit.String(),
 		"CreatedAt":             tariff.CreatedAt.Format("02.01.2006 15:04:05"),
 	})
-	x.diplomat.Reply(log, msg, x.personality.XiifyManual(msg, infoMsg))
+
+	callback := tgbotapi.NewCallback(query.ID, "")
+	x.diplomat.bot.Request(callback)
+
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManualPlain(infoMsg))
 }
 
 func (x *TelegramHandler) formatTariffModels(log *tracing.Logger, msg *tgbotapi.Message, modelsJSON []byte) string {
@@ -2814,11 +2923,11 @@ func (x *TelegramHandler) formatTariffModels(log *tracing.Logger, msg *tgbotapi.
 	var builder strings.Builder
 	for i, model := range models {
 		itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffModelItem", map[string]interface{}{
-			"Name":      model.Name,
-			"AAI":       model.AAI,
-			"InputCost": model.InputPricePerM,
+			"Name":       model.Name,
+			"AAI":        model.AAI,
+			"InputCost":  model.InputPricePerM,
 			"OutputCost": model.OutputPricePerM,
-			"Context":   model.CtxTokens,
+			"Context":    model.CtxTokens,
 		})
 		builder.WriteString(itemMsg)
 		if i < len(models)-1 {
