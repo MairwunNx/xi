@@ -158,8 +158,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	mode, err := x.modes.GetModeConfigByChat(log, msg.Chat.ID)
-	if err != nil {
+	mode, err := x.modes.GetCurrentModeForChat(log, msg.Chat.ID)
+  modeConfig := x.modes.ParseModeConfig(mode, log)
+
+  if err != nil {
 		log.E("Failed to get mode config", tracing.InnerError, err)
 		return "", err
 	}
@@ -212,7 +214,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	}
 
 	req = formatUserRequest(persona, req)
-	prompt := mode.Prompt
+	prompt := modeConfig.Prompt
 
 	agentUsage := &AgentUsageAccumulator{}
 
@@ -270,11 +272,11 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		modelToUse = modelSelection.RecommendedModel
 		reasoningEffort = modelSelection.ReasoningEffort
 
-    if mode.Params.Temperature != nil && mode.Final == true {
-      if *mode.Params.Temperature == 0 {
+    if modeConfig.Params.Temperature != nil && modeConfig.Final == true {
+      if *modeConfig.Params.Temperature == 0 {
         temperature = 1.0
       } else {
-        temperature = *mode.Params.Temperature
+        temperature = *modeConfig.Params.Temperature
       }
     } else {
       temperature = modelSelection.Temperature
@@ -452,18 +454,18 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	request.Temperature = temperature
 
-	if mode.Params != nil {
-		if mode.Params.TopP != nil {
-			request.TopP = *mode.Params.TopP
+	if modeConfig.Params != nil {
+		if modeConfig.Params.TopP != nil {
+			request.TopP = *modeConfig.Params.TopP
 		}
-		if mode.Params.TopK != nil {
-			request.TopK = *mode.Params.TopK
+		if modeConfig.Params.TopK != nil {
+			request.TopK = *modeConfig.Params.TopK
 		}
-		if mode.Params.PresencePenalty != nil {
-			request.PresencePenalty = *mode.Params.PresencePenalty
+		if modeConfig.Params.PresencePenalty != nil {
+			request.PresencePenalty = *modeConfig.Params.PresencePenalty
 		}
-		if mode.Params.FrequencyPenalty != nil {
-			request.FrequencyPenalty = *mode.Params.FrequencyPenalty
+		if modeConfig.Params.FrequencyPenalty != nil {
+			request.FrequencyPenalty = *modeConfig.Params.FrequencyPenalty
 		}
 	}
 
