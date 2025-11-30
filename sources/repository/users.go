@@ -10,6 +10,7 @@ import (
 	"ximanager/sources/platform"
 	"ximanager/sources/tracing"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -86,6 +87,28 @@ func (x *UsersRepository) MustGetUserByEid(logger *tracing.Logger, euid int64) *
 	}
 
 	return user
+}
+
+func (x *UsersRepository) GetUserByID(logger *tracing.Logger, id uuid.UUID) (*entities.User, error) {
+	defer tracing.ProfilePoint(logger, "Users get user by ID completed", "repository.users.get.user.by.id", "id", id)()
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
+	defer cancel()
+
+	q := query.Q.WithContext(ctx)
+
+	user, err := q.User.Where(query.User.ID.Eq(id)).First()
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.W("User not found when expected")
+			return nil, ErrUserNotFound
+		} else {
+			logger.E("Failed to get user by ID", tracing.InnerError, err)
+			return nil, err
+		}
+	}
+
+	logger.I("User fetched by ID")
+	return user, nil
 }
 
 func (x *UsersRepository) GetUserByName(logger *tracing.Logger, uname string) (*entities.User, error) {
