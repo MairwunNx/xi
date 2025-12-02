@@ -522,51 +522,81 @@ func (x *ContextManager) summarizeClusters(
 	logger *tracing.Logger,
 	messages []platform.RedisMessage,
 ) ([]platform.RedisMessage, int) {
-	
+
 	if len(messages) == 0 {
 		return messages, 0
 	}
-	
+
 	result := make([]platform.RedisMessage, 0, len(messages))
 	summarizedClusters := 0
 	i := 0
-	
+
 	for i < len(messages) {
+		// Tool messages are added as-is
 		if messages[i].Role == platform.MessageRoleTool {
 			result = append(result, messages[i])
 			i++
 			continue
 		}
 
+		// If message doesn't start a pair (not user), add and continue
+		if messages[i].Role != platform.MessageRoleUser {
+			result = append(result, messages[i])
+			i++
+			continue
+		}
+
+		// Try to form a cluster of pairs: user -> [tool*] -> assistant
 		clusterStart := i
 		clusterEnd := i
 		pairsInCluster := 0
-		
+
 		for clusterEnd < len(messages) && pairsInCluster < x.config.AI.Agents.Summarization.ClusterSize {
-			if messages[clusterEnd].Role == platform.MessageRoleTool {
+			// Pair must start with user
+			if messages[clusterEnd].Role != platform.MessageRoleUser {
 				break
 			}
-			if clusterEnd+1 < len(messages) &&
-				messages[clusterEnd].Role == platform.MessageRoleUser &&
-				messages[clusterEnd+1].Role == platform.MessageRoleAssistant {
+
+			pairStart := clusterEnd
+			clusterEnd++ // Move past user
+
+			// Skip tool messages between user and assistant
+			for clusterEnd < len(messages) && messages[clusterEnd].Role == platform.MessageRoleTool {
+				clusterEnd++
+			}
+
+			// Check if assistant follows
+			if clusterEnd < len(messages) && messages[clusterEnd].Role == platform.MessageRoleAssistant {
+				clusterEnd++ // Include assistant
 				pairsInCluster++
-				clusterEnd += 2
 			} else {
+				// No assistant found — rollback, pair not formed
+				clusterEnd = pairStart
 				break
 			}
 		}
-		
+
+		// If formed less than 2 pairs — add as-is and CONTINUE (not break!)
 		if pairsInCluster < 2 {
-			result = append(result, messages[i:]...)
-			break
+			if clusterEnd == clusterStart {
+				// Couldn't form any pair — add current message and move on
+				result = append(result, messages[i])
+				i++
+			} else {
+				// Formed 1 pair — add it as-is
+				result = append(result, messages[clusterStart:clusterEnd]...)
+				i = clusterEnd
+			}
+			continue
 		}
-		
+
+		// Formed cluster of >=2 pairs
 		clusterMessages := messages[clusterStart:clusterEnd]
 		clusterTokens := x.countTotalTokens(logger, clusterMessages)
-		
+
 		if clusterTokens > x.config.AI.Agents.Summarization.ClusterTokenThreshold {
 			clusterContent := x.formatClusterContent(clusterMessages)
-			
+
 			summarized, err := x.agentSystem.SummarizeContent(logger, clusterContent, "cluster")
 			if err != nil {
 				logger.W("Failed to summarize cluster, using original messages", tracing.InnerError, err)
@@ -574,9 +604,9 @@ func (x *ContextManager) summarizeClusters(
 				i = clusterEnd
 				continue
 			}
-			
+
 			x.logClusterSummarization(logger, pairsInCluster, clusterMessages, clusterTokens, summarized)
-			
+
 			result = append(result, platform.RedisMessage{
 				Role:         platform.MessageRoleSystem,
 				Content:      summarized,
@@ -589,7 +619,7 @@ func (x *ContextManager) summarizeClusters(
 			i = clusterEnd
 		}
 	}
-	
+
 	return result, summarizedClusters
 }
 
@@ -636,7 +666,7 @@ func (x *ContextManager) replaceHistoryInRedis(
 	messages []platform.RedisMessage,
 ) error {
 	key := x.getChatHistoryKey(chatID)
-	
+
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -644,15 +674,14 @@ func (x *ContextManager) replaceHistoryInRedis(
 	if err != nil {
 		return err
 	}
-	
-	// Delete old history
-	if err := x.redis.Del(ctx, key).Err(); err != nil {
-		logger.E("Failed to delete old history", tracing.InnerError, err)
-		return err
-	}
-	
-	// Store new history in reverse order (LPUSH adds to the beginning)
+
+	// Use transaction pipeline for atomicity — Del + LPush + Expire all together
 	pipe := x.redis.TxPipeline()
+
+	// Delete old history (inside pipeline for atomicity)
+	pipe.Del(ctx, key)
+
+	// Store new history in reverse order (LPUSH adds to the beginning)
 	for i := len(messages) - 1; i >= 0; i-- {
 		msgStr, err := json.Marshal(messages[i])
 		if err != nil {
@@ -661,20 +690,20 @@ func (x *ContextManager) replaceHistoryInRedis(
 		}
 		pipe.LPush(ctx, key, msgStr)
 	}
-	
+
 	// Set expiration
 	pipe.Expire(ctx, key, time.Duration(limits.TTL)*time.Second)
-	
+
 	if _, err := pipe.Exec(ctx); err != nil {
-		logger.E("Failed to store new history", tracing.InnerError, err)
+		logger.E("Failed to replace history in Redis", tracing.InnerError, err)
 		return err
 	}
-	
+
 	logger.I("redis_history_replaced",
 		"chat_id", chatID,
 		"message_count", len(messages),
 		"ttl_seconds", limits.TTL,
 	)
-	
+
 	return nil
 }
