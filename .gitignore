@@ -129,5 +129,6 @@ ximanager
 tmp/
 build-errors.log
 
-prompt0.*
-prompt1.*
+prompt-*.md
+prompt*.json
+prompt*.md
