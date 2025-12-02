@@ -138,7 +138,7 @@ services:
       start_period: 10s
       test: ["CMD", "sh", "-c", "redis-cli -a ${REDIS_PASSWORD} --no-auth-warning ping"]
       timeout: 5s
-    image: redis:8.2-alpine
+    image: redis:8.4-alpine
     logging:
       driver: local
       options:
