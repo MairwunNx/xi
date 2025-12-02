@@ -112,6 +112,11 @@ func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Messa
 			x.XiCommandAudio(log.With(tracing.CommandIssued, "xi/audio"), user, msg, replyMsg)
 			return nil
 		}
+
+		if replyMsg.Photo != nil && len(replyMsg.Photo) != 0 {
+			x.XiCommandPhotoFromReply(log.With(tracing.CommandIssued, "xi/photo_reply"), user, msg, replyMsg)
+			return nil
+		}
 	}
 
 	if msg.IsCommand() {

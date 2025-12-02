@@ -198,6 +198,76 @@ func (x *TelegramHandler) xiCommandPhotoNonStreaming(log *tracing.Logger, msg *t
 	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
 }
 
+func (x *TelegramHandler) XiCommandPhotoFromReply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
+	defer tracing.ProfilePoint(log, "Xi command photo from reply completed", "telegram.command.xi.photo_reply", "chat_id", msg.Chat.ID)()
+	x.diplomat.StartTyping(msg.Chat.ID)
+	defer x.diplomat.StopTyping(msg.Chat.ID)
+
+	photo := replyMsg.Photo[len(replyMsg.Photo)-1]
+
+	fileConfig := tgbotapi.FileConfig{FileID: photo.FileID}
+	file, err := x.diplomat.bot.GetFile(fileConfig)
+	if err != nil {
+		log.E("Error getting file", tracing.InnerError, err)
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
+		return
+	}
+
+	iurl := fmt.Sprintf(GetFileAPIEndpoint(x.diplomat.config), x.diplomat.bot.Token, file.FilePath)
+
+	req := strings.TrimSpace(msg.CommandArguments())
+
+	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
+
+	if x.features.IsEnabled(features.FeatureStreamingResponses) {
+		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
+		if err != nil {
+			log.E("Failed to start streaming reply for photo from reply", tracing.InnerError, err)
+			x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
+			return
+		}
+
+		statusAnimator := NewStatusAnimator(
+			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
+			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
+			streamReply,
+		)
+		defer statusAnimator.Stop()
+
+		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
+			if chunk.Status != artificial.StreamStatusNone {
+				statusAnimator.SetStatus(chunk.Status)
+				return
+			}
+
+			statusAnimator.Stop()
+
+			if chunk.Error != nil {
+				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
+				streamReply.FinishWithError(errorMsg)
+				return
+			}
+			if chunk.Done {
+				finalText := x.personality.Xiify(msg, chunk.Content)
+				if strings.TrimSpace(chunk.Content) == "" {
+					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
+				} else {
+					streamReply.Finish(finalText)
+				}
+				return
+			}
+			streamReply.Update(chunk.Content)
+		}
+
+		_, err = x.dialer.Dial(log, msg, req, iurl, persona, true, streamCallback)
+		if err != nil {
+			log.E("Error from dialer in streaming mode for photo from reply", tracing.InnerError, err)
+		}
+	} else {
+		x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
+	}
+}
+
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
 	defer tracing.ProfilePoint(log, "Xi command audio completed", "telegram.command.xi.audio", "chat_id", msg.Chat.ID)()
 	x.diplomat.StartTyping(msg.Chat.ID)
