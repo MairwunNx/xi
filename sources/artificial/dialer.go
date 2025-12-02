@@ -159,9 +159,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	defer cancel()
 
 	mode, err := x.modes.GetCurrentModeForChat(log, msg.Chat.ID)
-  modeConfig := x.modes.ParseModeConfig(mode, log)
-
-  if err != nil {
+	if err != nil {
 		log.E("Failed to get mode config", tracing.InnerError, err)
 		return "", err
 	}
@@ -170,6 +168,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		log.E("No available mode config")
 		return "", errors.New("no available mode config")
 	}
+
+	modeConfig := x.modes.ParseModeConfig(mode, log)
 
 	user, err := x.users.GetUserByEid(log, msg.From.ID)
 	if err != nil {
