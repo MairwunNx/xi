@@ -514,8 +514,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		log.E("Error saving assistant message to context", tracing.InnerError, err)
 	}
 
-	anotherCost := decimal.NewFromFloat(agentUsage.Cost)
-	anotherTokens := agentUsage.TotalTokens
+	anotherCost := decimal.NewFromFloat(agentUsage.GetCost())
+	anotherTokens := agentUsage.GetTotalTokens()
 	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, totalCost, totalTokens, anotherCost, anotherTokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
 	}

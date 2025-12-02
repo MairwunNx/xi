@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 	"ximanager/sources/configuration"
 	"ximanager/sources/metrics"
@@ -69,13 +70,28 @@ type AgentSystem struct {
 }
 
 type AgentUsageAccumulator struct {
-	TotalTokens int
-	Cost        float64
+	mu          sync.Mutex
+	totalTokens int
+	cost        float64
 }
 
 func (a *AgentUsageAccumulator) Add(tokens int, cost float64) {
-	a.TotalTokens += tokens
-	a.Cost += cost
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.totalTokens += tokens
+	a.cost += cost
+}
+
+func (a *AgentUsageAccumulator) GetTotalTokens() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.totalTokens
+}
+
+func (a *AgentUsageAccumulator) GetCost() float64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.cost
 }
 
 func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs *repository.TariffsRepository, metrics *metrics.MetricsService, log *tracing.Logger) *AgentSystem {
