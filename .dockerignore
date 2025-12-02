@@ -50,7 +50,8 @@ Dockerfile*
 **/.devcontainer
 *.sh
 *.editorconfig
-.air.toml **/tmp
+.air.toml
+**/tmp
 *.gitattributes
 media.jpg
 *.md

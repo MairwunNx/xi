@@ -254,7 +254,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	)
 
 	if !agentSuccess {
-		log.E("Failed to select model and effort, using defaults", tracing.InnerError, err)
+		log.E("Model selection agent failed or returned nil, using defaults")
 
 		if len(tierModels) > 1 {
 			modelToUse = tierModels[1].Name
@@ -491,7 +491,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 			return "", err
 		}
 	} else {
-		responseText, banNotice, totalTokens, totalCost, err = x.dialNonStreaming(ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, webSearchCalls, maxWebSearchCalls)
+		responseText, banNotice, totalTokens, totalCost, err = x.dialNonStreaming(ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, &webSearchCalls, maxWebSearchCalls)
 		if err != nil {
 			return "", err
 		}
@@ -780,7 +780,7 @@ func (x *Dialer) dialNonStreaming(
 	modelToUse string,
 	userGrade platform.UserGrade,
 	agentUsage *AgentUsageAccumulator,
-	webSearchCalls int,
+	webSearchCalls *int,
 	maxWebSearchCalls int,
 ) (string, string, int, decimal.Decimal, error) {
 	var responseText string
@@ -789,33 +789,33 @@ func (x *Dialer) dialNonStreaming(
 	var totalCost decimal.Decimal
 
 	for {
-	start := time.Now()
-	response, err := x.ai.CreateChatCompletion(ctx, request)
-	duration := time.Since(start)
-	if err == nil {
-		x.metrics.RecordAIRequestDuration(duration, modelToUse)
-	}
-	if err != nil {
-		switch e := err.(type) {
-		case *openrouter.APIError:
-			if e.Code == 402 {
-					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), "", 0, decimal.Zero, nil
-			}
-			log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
-		default:
-			log.E("Failed to dial", tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
+		start := time.Now()
+		response, err := x.ai.CreateChatCompletion(ctx, request)
+		duration := time.Since(start)
+		if err == nil {
+			x.metrics.RecordAIRequestDuration(duration, modelToUse)
 		}
-	}
+		if err != nil {
+			switch e := err.(type) {
+			case *openrouter.APIError:
+				if e.Code == 402 {
+					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), "", 0, decimal.Zero, nil
+				}
+				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
+				return "", "", 0, decimal.Zero, err
+			default:
+				log.E("Failed to dial", tracing.InnerError, err)
+				return "", "", 0, decimal.Zero, err
+			}
+		}
 
 		totalTokens += response.Usage.TotalTokens
 		totalCost = totalCost.Add(decimal.NewFromFloat(response.Usage.Cost))
 
 		log.I("ai iteration completed", tracing.AiCost, totalCost.String(), tracing.AiTokens, totalTokens, "iteration_tokens", response.Usage.TotalTokens)
 
-	if len(response.Choices) == 0 {
-		log.E("Empty choices in dialer response")
+		if len(response.Choices) == 0 {
+			log.E("Empty choices in dialer response")
 			return "", "", 0, decimal.Zero, fmt.Errorf("empty choices in AI response")
 		}
 
@@ -826,7 +826,7 @@ func (x *Dialer) dialNonStreaming(
 			break
 		}
 
-		toolResults := x.processToolCalls(log, user, msg, choice.Message.ToolCalls, &banNotice, &webSearchCalls, maxWebSearchCalls, agentUsage)
+		toolResults := x.processToolCalls(log, user, msg, choice.Message.ToolCalls, &banNotice, webSearchCalls, maxWebSearchCalls, agentUsage)
 
 		if len(toolResults) == 0 {
 			break
