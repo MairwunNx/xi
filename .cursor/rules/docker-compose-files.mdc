@@ -14,20 +14,33 @@ globs: docker-compose*.yaml,docker-compose*.yml
 - Use official/trusted images pinned to versions or digests (avoid "latest").
 - Avoid embedding secrets or credentials directly in compose files.
 
+## Security Options
+- Do not run services as root unless strictly necessary.
+- Prefer non-root users via the `user` directive when supported by the image.
+- Avoid `privileged: true`; only use it as a last resort with a clear justification.
+- Use `read_only: true` for services that do not need to write to the filesystem.
+- Drop capabilities by default:
+  - `cap_drop: ["ALL"]`
+  - Add only the minimal required capabilities with `cap_add`.
+- Use `security_opt: ["no-new-privileges:true"]` where applicable.
+- Avoid mapping sensitive host paths, devices, or sockets into containers unless strictly required.
+
 ## Volumes and Mounts
 - Mount only necessary paths; avoid mounting sensitive host directories.
 - Use named volumes for persistent data; keep ephemeral data in tmpfs.
-- Be explicit with read-only mounts when possible.
+- Be explicit with read-only mounts (`:ro`) when possible.
 
 ## Networks
-- Use custom networks instead of default.
-- Assign clear service names as hostnames for communication.
-- Restrict service exposure with `expose` vs `ports` (map ports only when required externally).
+- Use custom networks instead of the default network.
+- Assign clear service names as hostnames for inter-service communication.
+- Restrict service exposure with `expose` vs `ports`:
+  - use `expose` for internal-only communication,
+  - map `ports` only when external access is required.
 
 ## Environment and Config
-- Store secrets in `.env` or external secret managers, never in the compose file.
+- Store secrets in `.env` files or external secret managers, never inline in the compose file.
 - Use environment variables for configuration defaults, not credentials.
-- Document expected variables in `.env.draft`.
+- Document expected variables in a `.env.draft` or similar template file.
 
 ## Resource Management
 - Define resource limits (`cpus`, `mem_limit`) to avoid host overload.

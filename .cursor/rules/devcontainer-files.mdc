@@ -15,6 +15,12 @@ globs: .devcontainer/devcontainer.json
 - Prefer slim images and multi-stage builds for tools.
 - Consider target architectures (amd64/arm64); avoid floating platform selection.
 
+## Features
+- Use only official or well-maintained dev container features.
+- Pin feature versions or configuration to avoid breaking changes.
+- Avoid duplicating functionality across features, the Dockerfile, and postCreate scripts.
+- Prefer features for stable, reusable capabilities instead of ad-hoc shell logic.
+
 ## User and Privileges
 - Run as a non-root user; avoid root unless absolutely necessary.
 - Align UID/GID with host to prevent volume permission issues.
@@ -24,6 +30,12 @@ globs: .devcontainer/devcontainer.json
 - Define only the minimal required set of VS Code extensions; avoid bloat.
 - Pin extension versions for reproducibility.
 - Store editor settings under `customizations`; avoid unnecessary duplication.
+
+## Tooling, Linters, and Language Servers
+- Preinstall language runtimes, linters, formatters, and language servers that are required for the project.
+- Match tool versions to the project configuration (e.g., Go, Node.js, Java, Kotlin, Python versions).
+- Prefer installing stable tooling in the base image or features instead of in postCreate scripts.
+- Avoid installing multiple overlapping tools that perform the same job unless clearly needed.
 
 ## Performance and Caching
 - Cache package managers and build artifacts in volumes; remove unnecessary files.
@@ -39,6 +51,12 @@ globs: .devcontainer/devcontainer.json
 - Use `containerEnv` for container-scoped variables; never commit secrets to the repo.
 - Manage secrets via secret managers or local out-of-repo files/agents.
 - Keep unsafe values only as examples or placeholders.
+
+## Git and SSH
+- Do not commit private SSH keys, tokens, or personal Git configuration into the repository.
+- Prefer SSH agent or key forwarding, or secure token-based authentication managed outside the dev container.
+- Keep Git configuration inside the container scoped to the project; do not rely on or modify host-global Git settings.
+- Avoid storing long-lived tokens or credentials in environment variables or files inside the dev container image.
 
 ## Services and Dependencies
 - Use healthchecks and readiness checks for dependent services.

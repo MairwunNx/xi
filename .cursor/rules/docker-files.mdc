@@ -8,39 +8,76 @@ globs: Dockerfile,**/Dockerfile
 - Build for security, reproducibility, and minimal size.
 - Keep layers small, clear, and ordered for optimal caching.
 - Prefer readability and maintainability over clever hacks.
+- Avoid unnecessary changes: keep edits minimal and focused on the user’s request.
 
 ## Base Image
 - Use official or trusted base images only.
-- Pin to exact versions or digests; never use "latest".
+- Pin to exact versions or digests; never use `latest`.
 - Choose slim/minimal variants when possible.
+- Do not switch the OS family or base image (e.g., `alpine` → `ubuntu`) unless explicitly requested.
+
+## COPY vs ADD
+- Prefer `COPY` for copying files and directories.
+- Use `ADD` only when you specifically need:
+  - automatic extraction of local tar archives, or  
+  - special URL-based behavior (which should generally be avoided).
+- Do not use `ADD` as a drop-in replacement for `COPY` in normal cases.
 
 ## Layers and Commands
 - Group related operations in logical layers.
-- Order instructions to maximize cache hits (dependencies before app code).
-- Clean up temporary files and package manager caches in the same layer.
+- Order instructions to maximize cache hits (dependencies and tooling before app code).
+- Clean up temporary files and package manager caches in the same layer where they are created.
+- Avoid excessively long `RUN` commands that are hard to read or maintain.
 
 ## User and Security
 - Do not run as root unless strictly necessary.
-- Create a non-root user for app execution.
-- Avoid embedding secrets, credentials, or SSH keys.
+- Create and use a dedicated non-root user for application execution.
+- Set file ownership and permissions (`chown`, `chmod`) in the same layer where files are created or copied.
+- Avoid embedding secrets, credentials, tokens, or SSH keys in the image.
+- Do not log or hardcode secrets (API keys, passwords, DSNs, private keys) in the Dockerfile or image layers.
 
-## Dependencies
-- Install only what is required; avoid bloated images.
+## Dependencies and Updates
+- Install only what is strictly required; avoid bloated images.
 - Pin dependency versions for reproducibility.
-- Remove build tools if not needed at runtime (multi-stage builds preferred).
+- Prefer not to run `apt-get upgrade` or `dist-upgrade`; install only the explicit packages you need.
+- Remove build tools and development dependencies from the final image (prefer multi-stage builds).
+- Do not modify system-wide configuration in ways that are unrelated to the application.
+
+## Multi-Stage Builds
+- Prefer multi-stage builds to separate build-time and runtime concerns.
+- Use an explicit **builder stage** (with compilers, dev packages, tooling) and a minimal **runtime stage**.
+- In the final runtime image:
+  - copy only the built artifacts (binaries, required assets),
+  - avoid copying source code, test data, and build caches.
+- Do not re-install build-time dependencies in the runtime stage unless they are needed at runtime.
+- Keep the final stage as small and focused as possible.
 
 ## Performance
-- Use multi-stage builds to separate build-time and runtime concerns.
-- Minimize image size by copying only required artifacts.
-- Leverage `.dockerignore` to avoid unnecessary context.
+- Minimize image size by copying only required artifacts into the final stage.
+- Use `.dockerignore` to exclude unnecessary files from the build context (e.g., VCS metadata, build artifacts, caches).
+- Avoid `COPY . .` when you can copy only specific paths needed for the build.
 
 ## Environment and Config
-- Use ENV for config defaults, not secrets.
-- Document exposed ports and entrypoints.
-- Ensure container starts with a clear `CMD` or `ENTRYPOINT`.
+- Use `ARG` for build-time configuration and `ENV` for runtime configuration defaults.
+- Do not pass or store secrets via `ARG` or `ENV`; use external secret management instead.
+- Document exposed ports and entrypoints via `EXPOSE`, `CMD`, and/or `ENTRYPOINT`.
+- Ensure the container starts with a clear `CMD` or `ENTRYPOINT` that runs the main process.
+
+## ENTRYPOINT, CMD, and Signals
+- Prefer **exec form** for `CMD` and `ENTRYPOINT`:
+  - `ENTRYPOINT ["./app"]` instead of `ENTRYPOINT ./app`.
+- Use `ENTRYPOINT` for the main executable and `CMD` for default arguments when appropriate.
+- Ensure the main process (PID 1) can handle termination signals (`SIGTERM`, `SIGINT`) and exit gracefully.
+- Do not wrap the main process in unnecessary shell scripts that swallow signals, unless they correctly forward them.
+
+## Healthcheck
+- When appropriate, define a `HEALTHCHECK` that verifies the application is responsive.
+- Keep health checks lightweight and fast; they should not overload external systems.
+- Use reasonable intervals, timeouts, and retry settings.
 
 ## Anti-Patterns
 - Floating versions (`latest`) for images or packages.
-- Long RUN chains with hard-to-maintain scripts.
-- Root execution without reason.
-- Storing secrets in ENV or image layers.
+- Long, opaque `RUN` chains with embedded complex scripts.
+- Running as root without a clear and justified reason.
+- Storing secrets in `ENV`, image layers, or in the Dockerfile itself.
+- Using `ADD` where `COPY` would be sufficient.
