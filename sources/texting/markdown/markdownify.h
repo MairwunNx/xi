@@ -10,4 +10,4 @@ void free_result(char* result);
 }
 #endif
 
-#endif // MARKDOWNIFY_H 
+#endif // MARKDOWNIFY_H

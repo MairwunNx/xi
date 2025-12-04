@@ -2,7 +2,7 @@ package markdown
 
 /*
 #cgo pkg-config: python3-embed
-#include "../../../markdownify.c"
+#include "markdownify.c"
 #include <stdlib.h>
 */
 import "C"

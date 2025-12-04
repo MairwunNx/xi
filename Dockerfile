@@ -14,7 +14,6 @@ ENV CGO_ENABLED=1
 COPY go.mod go.sum ./
 RUN go mod download
 COPY program.go ./
-COPY markdownify.c markdownify.h ./
 COPY sources/ ./sources/
 COPY .version ./.version
 ARG APP_VERSION
