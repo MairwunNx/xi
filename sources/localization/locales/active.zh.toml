@@ -1,4 +1,4 @@
-## 简体中文本地化 - Xi Manager
+## 简体中文本地化 - 习皇帝
 
 # AI 内部消息
 [InternalAIImageMessage]
@@ -13,7 +13,7 @@ other = "📝 伟大的习主席发来一封特别电报：\n\n"
 
 # 命令：Start & Help
 [MsgStartText]
-other = """🐉 **欢迎使用 Xi Manager！**
+other = """🐉 **欢迎来到习皇帝！**
 
 🤖 我是伟大习近平主席的贴身助手，随时准备为中华人民共和国人民服务！
 
@@ -41,7 +41,7 @@ other = """🀄️ **伟大习主席的可用命令：**
 👥 `/users` - 管理天朝臣民（仅限习主席办公厅）
 👤 `/personalization` - 管理个性化设置
 📊 `/stats` - 查看伟大统治者的统计数据
-🏥 `/health` - 检查 Xi Manager 系统健康状态
+🏥 `/health` - 检查习皇帝系统健康状态
 🧠 `/context` - 管理习主席对对话的记忆
 
 💡 **提示：** 你也可以直接发送消息，不带任何命令 —— 习主席也能理解！"""
@@ -554,7 +554,7 @@ other = """👥 **用户管理**
 • 管理权限"""
 
 [MsgModeHelpText]
-other = """🎭 **Xi Manager 模式管理**
+other = """🎭 **习皇帝模式管理**
 
 **可用命令：**
 
@@ -571,7 +571,7 @@ other = """🎭 **Xi Manager 模式管理**
 💡 要取消任何操作，请使用 `/cancel`"""
 
 [MsgPersonalizationHelpText]
-other = """👤 **Xi Manager 个性化设置管理**
+other = """👤 **习皇帝个性化设置管理**
 
 **可用命令：**
 
@@ -643,7 +643,7 @@ other = "❌ **删除已取消**\n\n您的个性化设置保持不变。"
 other = "🗑️ 信息已删除"
 
 [MsgContextHelpText]
-other = """🧠 **Xi Manager 上下文记忆管理**
+other = """🧠 **习皇帝上下文记忆管理**
 
 **可用命令：**
 
@@ -748,7 +748,7 @@ other = """🧠 **上下文信息**
 
 # 系统健康
 [MsgHealthTitle]
-other = "🏥 **Xi Manager 系统状态**\n\n"
+other = "🏥 **习皇帝系统状态**\n\n"
 
 [MsgHealthDatabase]
 other = "🗄️ **数据库：** {{.Status}}\n"
@@ -1119,7 +1119,7 @@ other = "🔍 搜索中"
 other = "🈲 你没有权限管理套餐。你的社会信用已被**降低**！"
 
 [MsgTariffHelpText]
-other = """🏷️ **Xi Manager 套餐管理**
+other = """🏷️ **习皇帝套餐管理**
 
 **用法：**
 `/tariff` — 管理套餐（列表、添加、查看）

@@ -108,7 +108,7 @@ When to downgrade:
 - Task is short or factual (≤ 6 sentences)  
 - Code edit is small/local  
 - Simple math, rephrase, or obvious continuation  
-- Light conversation or banter with Xi Manager  
+- Light conversation or banter with Emperor Xi  
 - No high-stakes accuracy (e.g. legal/finance/medical)
 
 When to stay high-tier:

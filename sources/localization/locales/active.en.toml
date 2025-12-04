@@ -1,4 +1,4 @@
-## English localization for Xi Manager
+## English localization for Emperor Xi
 
 # Internal messages for AI
 [InternalAIImageMessage]
@@ -13,7 +13,7 @@ other = "📝 The Great Xi sent a personal telegram:\n\n"
 
 # Commands: Start & Help
 [MsgStartText]
-other = """🐉 **Welcome to Xi Manager!**
+other = """🐉 **Welcome to Emperor Xi!**
 
 🤖 I am the personal assistant of the Great Xi Jinping, ready to serve the people of the PRC!
 
@@ -35,7 +35,7 @@ other = """🐉 **Welcome to Xi Manager!**
 [MsgHelpText]
 other = """🀄️ **Available commands of the Great Xi:**
 
-🚀 `/start` - Greeting and overview of Xi Manager
+🚀 `/start` - Greeting and overview of Emperor Xi
 🐉 `/xi` - Summon the Great Emperor Xi with your question or image
 🎭 `/mode` - Switch Xi's behavior modes (available to honored citizens)
 👥 `/users` - Manage subjects of the Celestial Empire (apparatus of the Great Xi only)
@@ -554,7 +554,7 @@ After entering the command, a menu with actions will appear:
 • Manage rights"""
 
 [MsgModeHelpText]
-other = """🎭 **Xi Manager Mode Management**
+other = """🎭 **Emperor Xi Mode Management**
 
 **Available commands:**
 
@@ -571,7 +571,7 @@ Each mode can be restricted to a specific user grade.
 💡 To cancel any operation, use `/cancel`"""
 
 [MsgPersonalizationHelpText]
-other = """👤 **Managing Xi Manager personalization**
+other = """👤 **Managing Emperor Xi personalization**
 
 **Available commands:**
 
@@ -643,7 +643,7 @@ other = "❌ **Deletion cancelled**\n\nYour personalization remains unchanged."
 other = "🗑️ Information deleted"
 
 [MsgContextHelpText]
-other = """🧠 **Managing Xi Manager memory**
+other = """🧠 **Managing Emperor Xi memory**
 
 **Available commands:**
 
@@ -748,7 +748,7 @@ Choose an action below or use `/context help` for more information."""
 
 # System health
 [MsgHealthTitle]
-other = "🏥 **Xi Manager System Status**\n\n"
+other = "🏥 **Emperor Xi System Status**\n\n"
 
 [MsgHealthDatabase]
 other = "🗄️ **Database:** {{.Status}}\n"
@@ -1119,7 +1119,7 @@ other = "🔍 Searching"
 other = "🈲 You do not have permission to manage tariffs. Your social credit **has been lowered**!"
 
 [MsgTariffHelpText]
-other = """🏷️ **Xi Manager Tariff Management**
+other = """🏷️ **Emperor Xi Tariff Management**
 
 **Usage:**
 `/tariff` — manage tariffs (list, add, view)
