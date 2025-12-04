@@ -41,7 +41,7 @@ env:
   REGISTRY: ghcr.io
   ORG: mairwunnx
   FLYWAY_IMAGE: xi-flyway
-  XIM_IMAGE: ximanager
+  XI_IMAGE: xi
   PLATFORMS: linux/amd64
 
 jobs:
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       flyway: ${{ steps.filter.outputs.flyway }}
-      ximanager: ${{ steps.filter.outputs.ximanager }}
+      xi: ${{ steps.filter.outputs.xi }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -105,7 +105,7 @@ jobs:
               - '.version'
               - 'Dockerfile.flyway'
               - 'migrations/**'
-            ximanager:
+            xi:
               - '.version'
               - 'Dockerfile'
               - 'go.mod'
@@ -138,15 +138,15 @@ jobs:
           tags: ${{ env.FLYWAY_IMAGE }}:pr-${{ github.event.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build Xi Manager image (PR check)
-        if: needs.changes.outputs.ximanager == 'true'
+      - name: Build Emperor Xi image (PR check)
+        if: needs.changes.outputs.xi == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
           platforms: ${{ env.PLATFORMS }}
           push: false
-          tags: ${{ env.XIM_IMAGE }}:pr-${{ github.event.number }}
+          tags: ${{ env.XI_IMAGE }}:pr-${{ github.event.number }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       - name: Build success
@@ -196,10 +196,10 @@ jobs:
           cache-to: type=gha,mode=max
           no-cache: ${{ needs.version-check.outputs.version-changed == 'true' }}
 
-  build-ximanager:
-    name: 🔨 Build & push (ximanager)
+  build-xi:
+    name: 🔨 Build & push (Emperor Xi)
     needs: [changes, version-check]
-    if: needs.changes.outputs.ximanager == 'true' && github.ref == 'refs/heads/master'
+    if: needs.changes.outputs.xi == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -215,18 +215,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Meta (ximanager)
+      - name: Meta (xi)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}
+          images: ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XI_IMAGE }}
           tags: |
             type=raw,value=latest,enable=true
             type=raw,value=${{ needs.version-check.outputs.version }},enable=${{ needs.version-check.outputs.version-changed == 'true' }}
             type=sha,prefix=sha-,format=short
             type=ref,event=branch
 
-      - name: Build & Push (ximanager)
+      - name: Build & Push (xi)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -245,8 +245,8 @@ jobs:
   release:
     name: 📋 Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [version-check, build-flyway, build-ximanager]
-    if: needs.version-check.outputs.should-release == 'true' && (needs.build-flyway.result == 'success' || needs.build-flyway.result == 'skipped') && (needs.build-ximanager.result == 'success' || needs.build-ximanager.result == 'skipped')
+    needs: [version-check, build-flyway, build-xi]
+    if: needs.version-check.outputs.should-release == 'true' && (needs.build-flyway.result == 'success' || needs.build-flyway.result == 'skipped') && (needs.build-xi.result == 'success' || needs.build-xi.result == 'skipped')
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -256,15 +256,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ needs.version-check.outputs.version }}
-          release_name: 🤖 Xi Manager v${{ needs.version-check.outputs.version }}
+          release_name: 🤖 Emperor Xi v${{ needs.version-check.outputs.version }}
           body: |
-            ## 🚀 Xi Manager v${{ needs.version-check.outputs.version }}
+            ## 🀄️ Emperor Xi v${{ needs.version-check.outputs.version }}
             
             ### 📦 Docker Images
             ```bash
-            # Xi Manager
-            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}:${{ needs.version-check.outputs.version }}
-            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XIM_IMAGE }}:latest
+            # Emperor Xi
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XI_IMAGE }}:${{ needs.version-check.outputs.version }}
+            docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.XI_IMAGE }}:latest
             
             # Flyway Migrations
             docker pull ${{ env.REGISTRY }}/${{ env.ORG }}/${{ env.FLYWAY_IMAGE }}:${{ needs.version-check.outputs.version }}
