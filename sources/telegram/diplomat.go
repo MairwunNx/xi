@@ -48,7 +48,9 @@ func (x *Diplomat) Reply(logger *tracing.Logger, msg *tgbotapi.Message, text str
 
 	for i, chunk := range chunks {
 		chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(chunk))
-		chattable.ReplyToMessageID = msg.MessageID
+		if i == 0 {
+			chattable.ReplyToMessageID = msg.MessageID
+		}
 		chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
 		isLastChunk := i == len(chunks)-1
@@ -117,7 +119,9 @@ func (x *Diplomat) ReplyAudio(logger *tracing.Logger, msg *tgbotapi.Message, tex
 
 	for i, chunk := range chunks {
 		chattable := tgbotapi.NewMessage(msg.Chat.ID, markdown.EscapeMarkdownActor(chunk))
-		chattable.ReplyToMessageID = msg.MessageID
+		if i == 0 {
+			chattable.ReplyToMessageID = msg.MessageID
+		}
 		chattable.ParseMode = tgbotapi.ModeMarkdownV2
 
 		isLastChunk := i == len(chunks)-1
