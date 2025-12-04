@@ -3,5 +3,34 @@
   "editor.insertSpaces": true,
   "editor.formatOnSave": true,
   "editor.formatOnPaste": true,
-  "editor.detectIndentation": true
+  "editor.detectIndentation": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "editor.renderWhitespace": "all",
+  "editor.rulers": [
+    180
+  ],
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "editor.wordWrap": "off",
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  },
+  "[mdc]": {
+    "editor.wordWrap": "on"
+  },
+  "[go]": {
+    "editor.wordWrap": "off"
+  },
+  "[sql]": {
+    "editor.wordWrap": "off"
+  },
+  "[json]": {
+    "editor.wordWrap": "off"
+  },
+  "[yaml]": {
+    "editor.wordWrap": "off"
+  }
 }
