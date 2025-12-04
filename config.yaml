@@ -84,7 +84,7 @@ throttler:
 
 features:
   unleash_api_url: http://ximanager-unleash:4242/api/
-  unleash_app_name: Xi Manager
+  unleash_app_name: Emperor Xi
   unleash_instance_id: production
   refresh_interval: 15
 
