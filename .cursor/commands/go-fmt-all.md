@@ -1,7 +1,7 @@
 # go-fmt-all
 
-This command will format all Go files in the module.
+Format all Go files in the project.
 
 ```bash
-gofmt -w .
+go fmt ./
 ```
