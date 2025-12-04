@@ -59,11 +59,11 @@ func main() {
 		fx.Invoke(func(lc fx.Lifecycle, log *tracing.Logger) {
 			lc.Append(fx.Hook{
 				OnStart: func(ctx context.Context) error {
-					log.I("Xi Manager started successfully", "version", version, "build_time", buildTime)
+					log.I("Emperor Xi started successfully", "version", version, "build_time", buildTime)
 					return nil
 				},
 				OnStop: func(ctx context.Context) error {
-					log.I("Xi Manager stopped", "version", version, "build_time", buildTime)
+					log.I("Emperor Xi stopped", "version", version, "build_time", buildTime)
 					return nil
 				},
 			})

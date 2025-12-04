@@ -10,7 +10,7 @@ import (
 func NewOpenRouterClient(config *configuration.Config, client *http.Client) *openrouter.Client {
 	clientConfig := openrouter.DefaultConfig(config.AI.OpenRouterToken)
 	clientConfig.HTTPClient = client
-	clientConfig.XTitle = "Xi Manager"
+	clientConfig.XTitle = "Emperor Xi"
 	clientConfig.HttpReferer = "https://github.com/mairwunnx/xi"
 
 	return openrouter.NewClientWithConfig(*clientConfig)

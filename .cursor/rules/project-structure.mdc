@@ -2,7 +2,7 @@
 description: Describes the project structure. Use only when you need to get a superficial understanding of the project structure. Do not use this rule for detailed analysis of the project structure. There described project structure (root structure, sources modules, database migrations, configurations).
 alwaysApply: false
 ---
-# Xi Manager - Project Structure 📁
+# Emperor Xi - Project Structure 📁
 
 ## Root Structure
 

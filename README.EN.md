@@ -1,4 +1,4 @@
-# 🀄️ Xi Manager
+# 🀄️ Emperor Xi
 
 [![AI Capable](https://img.shields.io/badge/AI-Capable-brightgreen?style=flat&logo=openai&logoColor=white)](https://github.com/mairwunnx/xi)
 [![Docker](https://img.shields.io/badge/Docker-Available-2496ED?style=flat&logo=docker&logoColor=white)](https://github.com/MairwunNx/xi/pkgs/container/ximanager)
@@ -9,7 +9,7 @@
 
 **Language**: [🇷🇺 Русский](README.md) | 🇺🇸 English | [🇨🇳 中文](README.CN.md)
 
-**Xi Manager** — 🀄️ AI-powered Telegram bot styled as Xi's personal assistant. A personal assistant to the great leader, ready to answer questions from the common people.
+**Emperor Xi** — 🀄️ AI-powered Telegram bot styled as Emperor Xi's personal assistant. A personal assistant to the great leader, ready to answer questions from the common people.
 
 > **Attention**: This is an entertainment project that has no relation to real political figures.
 
@@ -239,6 +239,6 @@ Also, as of September 22, 2025, AI hints (prompts/rules) have been added to the 
 
 🇷🇺 **Made in Russia with love.** ❤️
 
-**Xi Manager** — is about quality Chinese AI assistant and modern technologies. For the people!
+**Emperor Xi** — is about quality Chinese AI assistant and modern technologies. For the people!
 
 > 🫡 Made by Pavel Erokhin (Павел Ерохин), aka mairwunnx.

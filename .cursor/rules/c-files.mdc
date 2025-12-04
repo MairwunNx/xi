@@ -60,7 +60,7 @@ globs: *.c,*.h
 - Use `typedef` only for complex or opaque types.
 - Keep functions short and focused (single responsibility).
 
-## Project-Specific (Xi Manager / CGO)
+## Project-Specific (Emperor Xi / CGO)
 - When used with Go (CGO):
   - Follow CGO naming and memory management conventions.
   - Use `extern "C"` for C++ compatibility.

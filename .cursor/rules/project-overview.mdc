@@ -3,10 +3,10 @@ description: Describes the project overview. Use only when you need to get a sup
 alwaysApply: false
 ---
 
-# Xi Manager - Project Overview 🤖
+# Emperor Xi - Project Overview 🤖
 
 ## Project Information
-- **Full Name**: Xi Manager  
+- **Full Name**: Emperor Xi  
 - **Short Name**: ximanager  
 - **Description**: An AI-powered Telegram bot simulating Xi Jinping’s personal assistant. Integrates with multiple AI providers to process user queries.  
 
