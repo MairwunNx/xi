@@ -175,7 +175,7 @@ services:
       start_period: 30s
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:4242/health"]
       timeout: 5s
-    image: unleashorg/unleash-server:7.3.0
+    image: unleashorg/unleash-server:7.4.0
     logging:
       driver: local
       options:
