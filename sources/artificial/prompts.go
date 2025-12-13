@@ -43,93 +43,44 @@ func formatUserRequest(persona string, req string) string {
 	return fmt.Sprintf(UserRequestTemplate, timestamp, persona, req)
 }
 
-// todo: remove all prompts.
-
-func getDefaultContextSelectionPrompt() string {
-	return `You are a context selection agent. Your task is to analyze a conversation history and select which messages are relevant for answering the new user question.
-
-Conversation history:
-%s
-
-New user question:
-%s
-
-Goal:
-Select all messages that help the model correctly understand and respond to the new message — including implied or indirect context.
-
-Evaluate relevance using these rules (in order of importance):
-
-1. **Direct reference** — If the new message refers to, quotes, or builds upon earlier content (even indirectly), include that part fully.
-2. **Logical and conversational flow** — If several messages form a continuous conversation (even with slight topic drift), include the whole chain until the topic clearly changes.
-3. **Semantic relation** — Include messages that are conceptually or emotionally related, even if they use different words or topics.  
-   *Example: “А какие вопросы?” → previous Q&A context.*
-4. **Recency and tone** — Prefer the most recent messages, especially those establishing tone, personality, or current topic focus.
-5. **Continuity bias** — When uncertain, **err on the side of including more context**, especially recent relevant messages.
-
-Additional guidance:
-- Small talk, acknowledgments, or “thank you” messages can still carry context — include them if they help preserve flow.
-- If the user asks meta-questions (“что мы обсуждали?”, “а ты помнишь?”), include *all relevant prior topics* that could match the reference.
-- If the conversation is long and multi-topic, select the last coherent segment (e.g. the last topic that lasted several turns).
-
-If the new message is clearly unrelated to all previous topics, you may return an empty list.
-
-💡 Tip: You can select **ranges** to keep the output compact when messages are consecutive.
-Examples:
-- Single messages: "5", "12"
-- Ranges: "3-7" (includes 3,4,5,6,7)
-- Mixed: ["0", "3-7", "12", "15-20"]
-
-Return **only** JSON in this exact format:
-{
-  "relevant_indices": ["0", "3-7", "12"]
-}`
-}
-
-func getDefaultModelSelectionPrompt() string {
-	return `You are a model selection agent. Your job is to analyze a user task and recommend the most efficient AI model and reasoning effort — balancing quality, speed, and cost.
-
-Available models for this tier (from MOST to LEAST capable), with AAI score (0–100), price per 1M tokens, and context window:
-
-%s
-
-Default reasoning effort for this tier: "%s"
-Tier description: "%s"
+func getDefaultEffortSelectionPrompt() string {
+	return `You are a reasoning effort selection agent. Your job is to analyze a user task and recommend the appropriate reasoning effort level for the AI model.
 
 %s
 
 Core rules:
-- Start from the **top model**, then **step down** to cheaper/faster ones if the task is simple, short, or routine.
-- Stay within the user's tier whenever possible — they paid for its quality.
-- Choose the **smallest capable model** that can reliably complete the task.
-- Avoid using top-tier + high reasoning for trivial or conversational turns.
-- If unsure, pick **medium reasoning**, not high.
+- Default to **medium reasoning** unless there are clear signals for low or high.
+- Use **low reasoning** for simple, quick, or routine tasks.
+- Use **high reasoning** for complex, multi-step, or high-stakes tasks.
+- If unsure, pick **medium reasoning**.
 
-When to downgrade:
-- Task is short or factual (≤ 6 sentences)  
-- Code edit is small/local  
-- Simple math, rephrase, or obvious continuation  
-- Light conversation or banter with Emperor Xi  
-- No high-stakes accuracy (e.g. legal/finance/medical)
+When to use LOW reasoning:
+- Task is short or factual (≤ 6 sentences)
+- Simple questions with obvious answers
+- Light conversation or banter with Emperor Xi
+- Quick confirmations or acknowledgments
+- Simple code edits or obvious fixes
+- No multi-step reasoning required
 
-When to stay high-tier:
-- Multi-step reasoning, novel code, deep research  
-- User requests "detailed", "in-depth", "thorough"  
-- High-risk or high-importance tasks
+When to use MEDIUM reasoning:
+- Standard explanations and discussions
+- Moderate code tasks or debugging
+- Questions requiring some analysis but not deep research
+- Balanced between speed and quality
+- Default choice when uncertain
 
-Special cases:
-- "Quick"/"fast" → prioritize speed + low reasoning  
-- "Detailed"/"thorough" → prioritize quality + higher reasoning  
-- Trolling/testing/nonsense → use trolling models (%s)
+When to use HIGH reasoning:
+- Multi-step reasoning, novel code, deep research
+- User explicitly requests "detailed", "in-depth", "thorough"
+- High-risk or high-importance tasks (legal/finance/medical)
+- Complex problem-solving requiring careful analysis
+- Architecture decisions or design discussions
 
 Temperature selection:
 - Creative tasks (stories, brainstorming, casual chat): 0.8-1.2
 - Balanced tasks (explanations, discussions): 0.7-1.0
 - Precise tasks (code, math, facts, translation): 0.3-0.7
 - If uncertain, use 1.0 as default
-
-Heuristic:
-Ask yourself: "Would an average competent model solve this correctly in one pass?"  
-→ If yes, downgrade + low/medium reasoning.
 
 Recent conversation context:
 """
@@ -143,12 +94,10 @@ New user task:
 
 Return only JSON in this format:
 {
-  "recommended_model": "exact model name from available list",
   "reasoning_effort": "low/medium/high",
   "task_complexity": "low/medium/high",
   "requires_speed": true/false,
   "requires_quality": true/false,
-  "is_trolling": true/false,
   "temperature": 1.0
 }`
 }
