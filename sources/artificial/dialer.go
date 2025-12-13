@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"sort"
 	"strconv"
 	"time"
 	"ximanager/sources/configuration"
@@ -87,9 +85,8 @@ func NewDialer(
 }
 
 type AgentDecisions struct {
-	Context        []platform.RedisMessage
-	ModelSelection *ModelSelectionResponse
-	ResponseLength *ResponseLengthResponse
+	EffortSelection *EffortSelectionResponse
+	ResponseLength  *ResponseLengthResponse
 }
 
 func (x *Dialer) runAgentsParallel(
@@ -101,39 +98,24 @@ func (x *Dialer) runAgentsParallel(
 	agentUsage *AgentUsageAccumulator,
 ) (*AgentDecisions, error) {
 	g, ctx := errgroup.WithContext(ctx)
-	results := &AgentDecisions{
-		Context: history,
-	}
+	results := &AgentDecisions{}
 
-	// 1. Context Selection
-	if len(history) > 0 {
-		g.Go(func() error {
-			selected, err := x.agentSystem.SelectRelevantContext(log, history, req, userGrade, agentUsage)
-			if err != nil {
-				log.E("Context agent failed", tracing.InnerError, err)
-				return nil
-			}
-			results.Context = selected
-			return nil
-		})
-	}
-
-	// 2. Model Selection
+	// 1. Effort Selection
 	g.Go(func() error {
 		recentHistory := history
-		if len(recentHistory) > 4 {
-			recentHistory = recentHistory[len(recentHistory)-4:]
+		if len(recentHistory) > 6 {
+			recentHistory = recentHistory[len(recentHistory)-6:]
 		}
 
-		selection, err := x.agentSystem.SelectModelAndEffort(log, recentHistory, req, userGrade, agentUsage)
+		selection, err := x.agentSystem.SelectEffort(log, recentHistory, req, userGrade, agentUsage)
 		if err != nil {
 			return err
 		}
-		results.ModelSelection = selection
+		results.EffortSelection = selection
 		return nil
 	})
 
-	// 3. Response Length
+	// 2. Response Length
 	if x.features.IsEnabled(features.FeatureResponseLengthDetection) {
 		g.Go(func() error {
 			length, err := x.agentSystem.DetermineResponseLength(log, req, agentUsage)
@@ -153,7 +135,7 @@ func (x *Dialer) runAgentsParallel(
 	return results, nil
 }
 
-func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool, streamCallback StreamCallback) (string, error) {
+func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool) (string, error) {
 	defer tracing.ProfilePoint(log, "Dialer dial completed", "artificial.dialer.dial")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -201,16 +183,29 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		return x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
 	}
 
-	tariff, err := getTariffWithFallback(x.log, x.tariffs, userGrade)
+	tokenLimitResult, err := x.usageLimiter.CheckTokenLimits(log, user.UserID, userGrade)
 	if err != nil {
-		log.E("Failed to get tariff", tracing.InnerError, err)
+		log.E("Failed to check token limits", tracing.InnerError, err)
 		return "", err
 	}
 
-	var tierModels []ModelMeta
-	if err := json.Unmarshal(tariff.DialerModels, &tierModels); err != nil {
-		log.E("Failed to unmarshal tariff models", tracing.InnerError, err)
-		return "", err
+	if tokenLimitResult.Exceeded {
+		if tokenLimitResult.IsDaily {
+			return x.localization.LocalizeBy(msg, "MsgDailyTokenLimitExceeded"), nil
+		}
+		return x.localization.LocalizeBy(msg, "MsgMonthlyTokenLimitExceeded"), nil
+	}
+
+	var tariffModelConfig configuration.AI_TariffModelConfig
+	switch userGrade {
+	case platform.GradeBronze:
+		tariffModelConfig = x.config.AI.TariffModels.Bronze
+	case platform.GradeSilver:
+		tariffModelConfig = x.config.AI.TariffModels.Silver
+	case platform.GradeGold:
+		tariffModelConfig = x.config.AI.TariffModels.Gold
+	default:
+		tariffModelConfig = x.config.AI.TariffModels.Bronze
 	}
 
 	req = formatUserRequest(persona, req)
@@ -219,8 +214,9 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	agentUsage := &AgentUsageAccumulator{}
 
 	var history []platform.RedisMessage
+	summarizationOccurred := false
 	if stackful {
-		history, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
+		history, summarizationOccurred, err = x.contextManager.Fetch(log, platform.ChatID(msg.Chat.ID), userGrade)
 		if err != nil {
 			log.E("Failed to get message pairs", tracing.InnerError, err)
 			history = []platform.RedisMessage{}
@@ -230,47 +226,30 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	agentDecisions, err := x.runAgentsParallel(ctx, log, history, req, userGrade, agentUsage)
 	if err != nil {
 		log.E("Failed to run agents parallel", tracing.InnerError, err)
-		// Fallback if critical error (though runAgentsParallel handles most errors gracefully)
-		agentDecisions = &AgentDecisions{
-			Context: history,
-		}
+		agentDecisions = &AgentDecisions{}
 	}
 
-	selectedContext := agentDecisions.Context
-	modelSelection := agentDecisions.ModelSelection
+	effortSelection := agentDecisions.EffortSelection
 
-	var modelToUse string
-	var fallbackModels []string
+	modelToUse := tariffModelConfig.PrimaryModel
+	fallbackModel := tariffModelConfig.FallbackModel
 	var reasoningEffort string
 	var temperature float32
 	var limitWarning string
 
-	// Log agent decision
-	agentSuccess := modelSelection != nil
-	log.I("agent_model_selection",
+	agentSuccess := effortSelection != nil
+	log.I("agent_effort_selection",
 		"agent_success", agentSuccess,
 		"user_grade", userGrade,
-		"context_size", len(selectedContext),
+		"context_size", len(history),
 	)
 
 	if !agentSuccess {
-		log.E("Model selection agent failed or returned nil, using defaults")
-
-		if len(tierModels) > 1 {
-			modelToUse = tierModels[1].Name
-		} else if len(tierModels) > 0 {
-			modelToUse = tierModels[0].Name
-		}
-		reasoningEffort = tariff.DialerReasoningEffort
-		temperature = 1.0 // Fallback temperature
-		if len(tierModels) > 2 {
-			fallbackModels = extractModelNames(tierModels[2:])
-		} else {
-			fallbackModels = []string{}
-		}
+		log.E("Effort selection agent failed or returned nil, using defaults")
+		reasoningEffort = "medium"
+		temperature = 1.0
 	} else {
-		modelToUse = modelSelection.RecommendedModel
-		reasoningEffort = modelSelection.ReasoningEffort
+		reasoningEffort = effortSelection.ReasoningEffort
 
 		if modeConfig.Params != nil && modeConfig.Params.Temperature != nil && modeConfig.Final {
 			if *modeConfig.Params.Temperature == 0 {
@@ -279,57 +258,31 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 				temperature = *modeConfig.Params.Temperature
 			}
 		} else {
-			temperature = modelSelection.Temperature
+			temperature = effortSelection.Temperature
 			if temperature == 0 {
 				temperature = 1.0
 			}
 		}
 
-		// Log successful agent decision details
-		log.I("agent_model_selection_success",
-			"recommended_model", modelSelection.RecommendedModel,
-			"reasoning_effort", modelSelection.ReasoningEffort,
-			"task_complexity", modelSelection.TaskComplexity,
-			"requires_speed", modelSelection.RequiresSpeed,
-			"requires_quality", modelSelection.RequiresQuality,
-			"is_trolling", modelSelection.IsTrolling,
-			"temperature", modelSelection.Temperature,
+		log.I("agent_effort_selection_success",
+			"reasoning_effort", effortSelection.ReasoningEffort,
+			"task_complexity", effortSelection.TaskComplexity,
+			"requires_speed", effortSelection.RequiresSpeed,
+			"requires_quality", effortSelection.RequiresQuality,
+			"temperature", effortSelection.Temperature,
 		)
-
-		if modelSelection.IsTrolling {
-			// For trolling, use remaining trolling models as fallback
-			for i, model := range x.config.AI.PlaceboModels {
-				if model == modelToUse {
-					if i+1 < len(x.config.AI.PlaceboModels) {
-						fallbackModels = x.config.AI.PlaceboModels[i+1:]
-					}
-					break
-				}
-			}
-			if len(fallbackModels) == 0 && len(x.config.AI.PlaceboModels) > 1 {
-				fallbackModels = x.config.AI.PlaceboModels[1:]
-			}
-		} else {
-			for i, model := range tierModels {
-				if model.Name == modelToUse {
-					fallbackModels = extractModelNames(tierModels[i+1:])
-					break
-				}
-			}
-			if len(fallbackModels) == 0 && len(tierModels) > 1 {
-				fallbackModels = extractModelNames(tierModels[1:])
-			}
-		}
 	}
 
-	// Check spending limits and override if necessary
 	originalModel := modelToUse
 	if limitErr := x.spendingLimiter.CheckSpendingLimits(log, user); limitErr != nil {
 		if spendingErr, ok := limitErr.(*SpendingLimitExceededError); ok {
 			log.W("Spending limit exceeded, overriding model selection", "user_grade", spendingErr.UserGrade, "limit_type", spendingErr.LimitType, "limit", spendingErr.LimitAmount, "spent", spendingErr.CurrentSpend)
 
 			modelToUse = x.config.AI.LimitExceededModel
-			fallbackModels = x.config.AI.LimitExceededFallbackModels
+			fallbackModel = ""
+			if len(x.config.AI.LimitExceededFallbackModels) > 0 {
+				fallbackModel = x.config.AI.LimitExceededFallbackModels[0]
+			}
 			reasoningEffort = "low"
 
 			log.I("spending_limit_override",
@@ -387,8 +340,8 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		},
 	}
 
-	if len(selectedContext) > 0 {
-		for _, h := range selectedContext {
+	if len(history) > 0 {
+		for _, h := range history {
 			var role string
 			switch h.Role {
 			case platform.MessageRoleUser:
@@ -426,12 +379,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		Content: userContent,
 	})
 
-	if len(fallbackModels) > 3 {
-		fallbackModels = fallbackModels[:3]
+	fallbackModels := []string{}
+	if fallbackModel != "" {
+		fallbackModels = []string{fallbackModel}
 	}
 
 	sort := openrouter.ProviderSortingLatency
-	if modelSelection != nil && modelSelection.RequiresSpeed {
+	if effortSelection != nil && effortSelection.RequiresSpeed {
 		sort = openrouter.ProviderSortingThroughput
 	}
 
@@ -469,32 +423,23 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		}
 	}
 
-	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(selectedContext))
+	log = log.With("ai requested", tracing.AiKind, "openrouter/variable", tracing.AiModel, request.Model, "reasoning_effort", reasoningEffort, "temperature", request.Temperature, "context_messages", len(history))
 
 	var responseText string
 	var banNotice string
 	var totalTokens int
 	var totalCost decimal.Decimal
+	var cacheReadTokens int
+	var cacheWriteTokens int
 	webSearchCalls := 0
 	maxWebSearchCalls := x.config.AI.Agents.WebSearch.MaxCallsPerQuery
 	if maxWebSearchCalls <= 0 {
 		maxWebSearchCalls = 3
 	}
 
-	if streamCallback != nil {
-		request.Stream = true
-
-		responseText, banNotice, totalTokens, totalCost, err = x.dialStreaming(
-			ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, streamCallback,
-		)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		responseText, banNotice, totalTokens, totalCost, err = x.dialNonStreaming(ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, &webSearchCalls, maxWebSearchCalls)
-		if err != nil {
-			return "", err
-		}
+	responseText, banNotice, totalTokens, totalCost, cacheReadTokens, cacheWriteTokens, err = x.dialNonStreaming(ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, &webSearchCalls, maxWebSearchCalls)
+	if err != nil {
+		return "", err
 	}
 
 	if err := x.messages.SaveMessage(log, msg, false); err != nil {
@@ -516,8 +461,13 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	anotherCost := decimal.NewFromFloat(agentUsage.GetCost())
 	anotherTokens := agentUsage.GetTotalTokens()
-	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, totalCost, totalTokens, anotherCost, anotherTokens); err != nil {
+	if err := x.usage.SaveUsage(log, user.ID, msg.Chat.ID, totalCost, totalTokens, cacheReadTokens, cacheWriteTokens, anotherCost, anotherTokens); err != nil {
 		log.E("Error saving usage", tracing.InnerError, err)
+	}
+
+	totalTokensUsed := totalTokens + anotherTokens
+	if err := x.usageLimiter.AddTokens(log, user.UserID, totalTokensUsed); err != nil {
+		log.E("Error adding tokens to limiter", tracing.InnerError, err)
 	}
 
 	x.metrics.RecordDialerUsage(totalTokens, totalCost.InexactFloat64(), modelToUse)
@@ -539,235 +489,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		responseText += banNotice
 	}
 
+	if summarizationOccurred {
+		summarizedNotice := x.localization.LocalizeBy(msg, "MsgChatSummarized")
+		responseText = summarizedNotice + "\n\n" + responseText
+	}
+
 	return responseText, nil
-}
-
-func (x *Dialer) dialStreaming(
-	ctx context.Context,
-	log *tracing.Logger,
-	user *entities.User,
-	msg *tgbotapi.Message,
-	request openrouter.ChatCompletionRequest,
-	messages []openrouter.ChatCompletionMessage,
-	modelToUse string,
-	userGrade platform.UserGrade,
-	agentUsage *AgentUsageAccumulator,
-	streamCallback StreamCallback,
-) (string, string, int, decimal.Decimal, error) {
-	defer tracing.ProfilePoint(log, "Dialer streaming completed", "artificial.dialer.streaming")()
-
-	var fullResponse string
-	var banNotice string
-	var totalTokens int
-	var totalCost decimal.Decimal
-	webSearchCalls := 0
-	maxWebSearchCalls := x.config.AI.Agents.WebSearch.MaxCallsPerQuery
-
-	for {
-		iterResponse, iterBanNotice, iterTokens, iterCost, shouldContinue, err := x.dialStreamingIteration(
-			ctx, log, user, msg, &request, &messages, modelToUse, userGrade, agentUsage,
-			&webSearchCalls, maxWebSearchCalls, streamCallback,
-		)
-
-		totalTokens += iterTokens
-		totalCost = totalCost.Add(iterCost)
-
-		if iterBanNotice != "" {
-			banNotice = iterBanNotice
-		}
-
-		if err != nil {
-			return fullResponse, banNotice, totalTokens, totalCost, err
-		}
-
-		if iterResponse != "" {
-			fullResponse = iterResponse
-		}
-
-		if !shouldContinue {
-			break
-		}
-	}
-
-	streamCallback(StreamChunk{Content: fullResponse, Done: true, Error: nil})
-
-	return fullResponse, banNotice, totalTokens, totalCost, nil
-}
-
-func (x *Dialer) dialStreamingIteration(
-	ctx context.Context,
-	log *tracing.Logger,
-	user *entities.User,
-	msg *tgbotapi.Message,
-	request *openrouter.ChatCompletionRequest,
-	messages *[]openrouter.ChatCompletionMessage,
-	modelToUse string,
-	userGrade platform.UserGrade,
-	agentUsage *AgentUsageAccumulator,
-	webSearchCalls *int,
-	maxWebSearchCalls int,
-	streamCallback StreamCallback,
-) (string, string, int, decimal.Decimal, bool, error) {
-	start := time.Now()
-	stream, err := x.ai.CreateChatCompletionStream(ctx, *request)
-	if err != nil {
-		switch e := err.(type) {
-		case *openrouter.APIError:
-			if e.Code == 402 {
-				insufficientMsg := x.localization.LocalizeBy(msg, "MsgInsufficientCredits")
-				streamCallback(StreamChunk{Content: insufficientMsg, Done: true, Error: nil})
-				return insufficientMsg, "", 0, decimal.Zero, false, nil
-			}
-			log.E("OpenRouter API error in streaming", "code", e.Code, "message", e.Message, tracing.InnerError, err)
-		default:
-			log.E("Failed to create stream", tracing.InnerError, err)
-		}
-		streamCallback(StreamChunk{Done: true, Error: err})
-		return "", "", 0, decimal.Zero, false, err
-	}
-	defer stream.Close()
-
-	var fullResponse string
-	var totalTokens int
-	var totalCost decimal.Decimal
-
-	// Accumulate tool calls from streaming chunks
-	toolCallsMap := make(map[int]*openrouter.ToolCall)
-	toolCallDetected := false
-
-	// Send initial "thinking" status
-	streamCallback(StreamChunk{Status: StreamStatusThinking})
-
-	for {
-		response, err := stream.Recv()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			log.E("Error receiving stream chunk", tracing.InnerError, err)
-			streamCallback(StreamChunk{Done: true, Error: err})
-			return fullResponse, "", totalTokens, totalCost, false, err
-		}
-
-		if len(response.Choices) > 0 {
-			delta := response.Choices[0].Delta
-
-			// Accumulate text content
-			if delta.Content != "" {
-				fullResponse += delta.Content
-				streamCallback(StreamChunk{Content: fullResponse, Done: false, Error: nil})
-			}
-
-			// Accumulate tool calls
-			for _, tc := range delta.ToolCalls {
-				// Notify about tool call detection (first time only)
-				if !toolCallDetected {
-					toolCallDetected = true
-					streamCallback(StreamChunk{Status: StreamStatusSearching})
-				}
-				idx := 0
-				if tc.Index != nil {
-					idx = *tc.Index
-				}
-
-				existing, ok := toolCallsMap[idx]
-				if !ok {
-					// New tool call
-					toolCallsMap[idx] = &openrouter.ToolCall{
-						Index:    tc.Index,
-						ID:       tc.ID,
-						Type:     tc.Type,
-						Function: tc.Function,
-					}
-				} else {
-					// Append arguments to existing tool call
-					if tc.Function.Arguments != "" {
-						existing.Function.Arguments += tc.Function.Arguments
-					}
-					if tc.ID != "" {
-						existing.ID = tc.ID
-					}
-					if tc.Function.Name != "" {
-						existing.Function.Name = tc.Function.Name
-					}
-				}
-			}
-		}
-
-		if response.Usage != nil {
-			totalTokens = response.Usage.TotalTokens
-			totalCost = decimal.NewFromFloat(response.Usage.Cost)
-		}
-	}
-
-	duration := time.Since(start)
-	x.metrics.RecordAIRequestDuration(duration, modelToUse)
-
-	// Convert tool calls map to slice
-	var toolCalls []openrouter.ToolCall
-	for _, tc := range toolCallsMap {
-		toolCalls = append(toolCalls, *tc)
-	}
-
-	// Sort by index for consistency
-	sort.Slice(toolCalls, func(i, j int) bool {
-		iIdx, jIdx := 0, 0
-		if toolCalls[i].Index != nil {
-			iIdx = *toolCalls[i].Index
-		}
-		if toolCalls[j].Index != nil {
-			jIdx = *toolCalls[j].Index
-		}
-		return iIdx < jIdx
-	})
-
-	log.I("streaming iteration completed",
-		tracing.AiCost, totalCost.String(),
-		tracing.AiTokens, totalTokens,
-		"response_length", len(fullResponse),
-		"tool_calls_count", len(toolCalls),
-	)
-
-	// If no tool calls, we're done
-	if len(toolCalls) == 0 {
-		return fullResponse, "", totalTokens, totalCost, false, nil
-	}
-
-	// Process tool calls
-	var banNotice string
-	toolResults := x.processToolCalls(log, user, msg, toolCalls, &banNotice, webSearchCalls, maxWebSearchCalls, agentUsage)
-
-	if len(toolResults) == 0 {
-		return fullResponse, banNotice, totalTokens, totalCost, false, nil
-	}
-
-	// Add assistant message with tool calls to messages
-	*messages = append(*messages, openrouter.ChatCompletionMessage{
-		Role:      openrouter.ChatMessageRoleAssistant,
-		Content:   openrouter.Content{Text: fullResponse},
-		ToolCalls: toolCalls,
-	})
-
-	// Add tool results to messages
-	for _, result := range toolResults {
-		*messages = append(*messages, openrouter.ChatCompletionMessage{
-			Role:       openrouter.ChatMessageRoleTool,
-			Content:    openrouter.Content{Text: result.Content},
-			ToolCallID: result.ToolCallID,
-		})
-
-		// Store tool response in context
-		toolMessage := platform.RedisMessage{Role: platform.MessageRoleTool, Content: result.Content}
-		if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, toolMessage); err != nil {
-			log.E("Error saving tool message to context", tracing.InnerError, err)
-		}
-	}
-
-	// Update request messages for next iteration
-	request.Messages = *messages
-
-	// Continue the loop
-	return fullResponse, banNotice, totalTokens, totalCost, true, nil
 }
 
 func (x *Dialer) dialNonStreaming(
@@ -782,11 +509,13 @@ func (x *Dialer) dialNonStreaming(
 	agentUsage *AgentUsageAccumulator,
 	webSearchCalls *int,
 	maxWebSearchCalls int,
-) (string, string, int, decimal.Decimal, error) {
+) (string, string, int, decimal.Decimal, int, int, error) {
 	var responseText string
 	var banNotice string
 	var totalTokens int
 	var totalCost decimal.Decimal
+	var cacheReadTokens int
+	var cacheWriteTokens int
 
 	for {
 		start := time.Now()
@@ -799,32 +528,62 @@ func (x *Dialer) dialNonStreaming(
 			switch e := err.(type) {
 			case *openrouter.APIError:
 				if e.Code == 402 {
-					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), "", 0, decimal.Zero, nil
+					return x.localization.LocalizeBy(msg, "MsgInsufficientCredits"), "", 0, decimal.Zero, 0, 0, nil
 				}
 				log.E("OpenRouter API error", "code", e.Code, "message", e.Message, "http_status", e.HTTPStatusCode, tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
+				return "", "", 0, decimal.Zero, 0, 0, err
 			default:
 				log.E("Failed to dial", tracing.InnerError, err)
-				return "", "", 0, decimal.Zero, err
+				return "", "", 0, decimal.Zero, 0, 0, err
 			}
 		}
 
 		totalTokens += response.Usage.TotalTokens
 		totalCost = totalCost.Add(decimal.NewFromFloat(response.Usage.Cost))
+		cacheReadTokens += response.Usage.PromptTokenDetails.CachedTokens
 
 		log.I("ai iteration completed", tracing.AiCost, totalCost.String(), tracing.AiTokens, totalTokens, "iteration_tokens", response.Usage.TotalTokens)
 
 		if len(response.Choices) == 0 {
 			log.E("Empty choices in dialer response")
-			return "", "", 0, decimal.Zero, fmt.Errorf("empty choices in AI response")
+			return "", "", 0, decimal.Zero, 0, 0, fmt.Errorf("empty choices in AI response")
 		}
 
-		choice := response.Choices[0]
-		responseText = choice.Message.Content.Text
+	choice := response.Choices[0]
+	responseText = choice.Message.Content.Text
 
-		if len(choice.Message.ToolCalls) == 0 {
-			break
+	finishReason := choice.FinishReason
+	log.I("ai_response_finish_reason", "finish_reason", finishReason)
+
+	switch finishReason {
+	case openrouter.FinishReasonLength:
+		log.W("Response truncated due to length limit", "finish_reason", finishReason)
+		lengthWarning := "\n\n" + x.localization.LocalizeBy(msg, "MsgFinishReasonLength")
+		responseText += lengthWarning
+
+	case openrouter.FinishReasonContentFilter:
+		log.W("Content filtered by provider", "finish_reason", finishReason)
+		filterNotice := "\n\n" + x.localization.LocalizeBy(msg, "MsgFinishReasonContentFilter")
+		responseText += filterNotice
+
+	case openrouter.FinishReasonStop:
+		log.D("Normal completion", "finish_reason", finishReason)
+
+	case openrouter.FinishReasonToolCalls:
+		log.D("Response includes tool calls", "finish_reason", finishReason)
+
+	case openrouter.FinishReasonNull:
+		log.W("Finish reason is null", "finish_reason", finishReason)
+
+	default:
+		if finishReason != "" {
+			log.W("Unknown finish reason", "finish_reason", finishReason)
 		}
+	}
+
+	if len(choice.Message.ToolCalls) == 0 {
+		break
+	}
 
 		toolResults := x.processToolCalls(log, user, msg, choice.Message.ToolCalls, &banNotice, webSearchCalls, maxWebSearchCalls, agentUsage)
 
@@ -844,17 +603,12 @@ func (x *Dialer) dialNonStreaming(
 				Content:    openrouter.Content{Text: toolResult.Content},
 				ToolCallID: toolResult.ToolCallID,
 			})
-
-			toolMessage := platform.RedisMessage{Role: platform.MessageRoleTool, Content: toolResult.Content}
-			if err := x.contextManager.Store(log, platform.ChatID(msg.Chat.ID), userGrade, toolMessage); err != nil {
-				log.E("Error saving tool message to context", tracing.InnerError, err)
-			}
 		}
 
 		request.Messages = messages
 	}
 
-	return responseText, banNotice, totalTokens, totalCost, nil
+	return responseText, banNotice, totalTokens, totalCost, cacheReadTokens, cacheWriteTokens, nil
 }
 
 type ToolResult struct {
@@ -955,13 +709,6 @@ func (x *Dialer) processToolCalls(
 	return results
 }
 
-func extractModelNames(models []ModelMeta) []string {
-	names := make([]string, len(models))
-	for i, model := range models {
-		names[i] = model.Name
-	}
-	return names
-}
 
 func (x *Dialer) buildTools(user *entities.User) []openrouter.Tool {
 	tools := []openrouter.Tool{
