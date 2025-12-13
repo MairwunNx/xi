@@ -50,6 +50,22 @@ func (w *Whisper) Whisperify(log *tracing.Logger, msg *tgbotapi.Message, file *o
 		userGrade = platform.GradeBronze
 	}
 
+	duration := 0
+	if msg.Voice != nil {
+		duration = msg.Voice.Duration
+	} else if msg.Audio != nil {
+		duration = msg.Audio.Duration
+	} else if msg.VideoNote != nil {
+		duration = msg.VideoNote.Duration
+	} else if msg.Video != nil {
+		duration = msg.Video.Duration
+	}
+
+	if duration > 900 {
+		log.W("Audio duration exceeded limit", "duration", duration, "limit", 900)
+		return w.localization.LocalizeBy(msg, "MsgVoiceDurationExceeded"), nil
+	}
+
 	limitResult, err := w.usageLimiter.checkAndIncrement(log, user.UserID, userGrade, UsageTypeWhisper)
 	if err != nil {
 		log.E("Failed to check usage limits", tracing.InnerError, err)
@@ -74,7 +90,7 @@ func (w *Whisper) Whisperify(log *tracing.Logger, msg *tgbotapi.Message, file *o
 			if e.Code == 402 {
 				return w.localization.LocalizeBy(msg, "MsgInsufficientCredits"), nil
 			}
-		}		
+		}
 		log.E("Failed to transcribe audio", tracing.InnerError, err)
 		return "", err
 	}

@@ -62,6 +62,18 @@ func (x *UsageLimiter) getUsageKey(usageType UsageType, period string, userID in
 	return fmt.Sprintf("usage:%s:%s:%d:%s", usageType, period, userID, timePart)
 }
 
+func (x *UsageLimiter) getTokensKey(period string, userID int64) string {
+	now := time.Now()
+	var timePart string
+	switch period {
+	case "daily":
+		timePart = now.Format("2006-01-02")
+	case "monthly":
+		timePart = now.Format("2006-01")
+	}
+	return fmt.Sprintf("tokens:%s:%d:%s", period, userID, timePart)
+}
+
 func (x *UsageLimiter) checkAndIncrement(
 	logger *tracing.Logger,
 	userID int64,
@@ -77,18 +89,8 @@ func (x *UsageLimiter) checkAndIncrement(
 		return nil, err
 	}
 
-	var dailyLimit, monthlyLimit int
-	switch usageType {
-	case UsageTypeVision:
-		dailyLimit = limits.UsageVisionDaily
-		monthlyLimit = limits.UsageVisionMonthly
-	case UsageTypeDialer:
-		dailyLimit = limits.UsageDialerDaily
-		monthlyLimit = limits.UsageDialerMonthly
-	case UsageTypeWhisper:
-		dailyLimit = limits.UsageWhisperDaily
-		monthlyLimit = limits.UsageWhisperMonthly
-	}
+	dailyLimit := limits.RequestsPerDay
+	monthlyLimit := limits.RequestsPerMonth
 
 	monthlyKey := x.getUsageKey(usageType, "monthly", userID)
 	monthlyCount, err := x.redis.Get(ctx, monthlyKey).Int()
@@ -96,12 +98,12 @@ func (x *UsageLimiter) checkAndIncrement(
 		logger.E("Failed to get monthly usage from Redis", "key", monthlyKey, tracing.InnerError, err)
 		return nil, err
 	}
-	
+
 	monthlyUsagePercent := 0
 	if monthlyLimit > 0 {
 		monthlyUsagePercent = int(float64(monthlyCount) / float64(monthlyLimit) * 100)
 	}
-	
+
 	if monthlyCount >= monthlyLimit {
 		logger.I("usage_limit_exceeded",
 			"user_id", userID,
@@ -121,12 +123,12 @@ func (x *UsageLimiter) checkAndIncrement(
 		logger.E("Failed to get daily usage from Redis", "key", dailyKey, tracing.InnerError, err)
 		return nil, err
 	}
-	
+
 	dailyUsagePercent := 0
 	if dailyLimit > 0 {
 		dailyUsagePercent = int(float64(dailyCount) / float64(dailyLimit) * 100)
 	}
-	
+
 	if dailyCount >= dailyLimit {
 		logger.I("usage_limit_exceeded",
 			"user_id", userID,
@@ -175,4 +177,118 @@ func (x *UsageLimiter) checkAndIncrement(
 	)
 
 	return &LimitCheckResult{Exceeded: false}, nil
+}
+
+func (x *UsageLimiter) CheckTokenLimits(
+	logger *tracing.Logger,
+	userID int64,
+	userGrade platform.UserGrade,
+) (*LimitCheckResult, error) {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	limits, err := x.getUsageLimits(ctx, userGrade)
+	if err != nil {
+		logger.E("Failed to get token limits", tracing.InnerError, err)
+		return nil, err
+	}
+
+	dailyTokenLimit := limits.TokensPerDay
+	monthlyTokenLimit := limits.TokensPerMonth
+
+	monthlyKey := x.getTokensKey("monthly", userID)
+	monthlyTokens, err := x.redis.Get(ctx, monthlyKey).Int64()
+	if err != nil && err != redis.Nil {
+		logger.E("Failed to get monthly tokens from Redis", "key", monthlyKey, tracing.InnerError, err)
+		return nil, err
+	}
+
+	monthlyUsagePercent := 0
+	if monthlyTokenLimit > 0 {
+		monthlyUsagePercent = int(float64(monthlyTokens) / float64(monthlyTokenLimit) * 100)
+	}
+
+	if monthlyTokens >= monthlyTokenLimit {
+		logger.I("token_limit_exceeded",
+			"user_id", userID,
+			"user_grade", userGrade,
+			"limit_type", "monthly",
+			"current_tokens", monthlyTokens,
+			"limit", monthlyTokenLimit,
+			"usage_percent", monthlyUsagePercent,
+		)
+		return &LimitCheckResult{Exceeded: true, IsDaily: false}, nil
+	}
+
+	dailyKey := x.getTokensKey("daily", userID)
+	dailyTokens, err := x.redis.Get(ctx, dailyKey).Int64()
+	if err != nil && err != redis.Nil {
+		logger.E("Failed to get daily tokens from Redis", "key", dailyKey, tracing.InnerError, err)
+		return nil, err
+	}
+
+	dailyUsagePercent := 0
+	if dailyTokenLimit > 0 {
+		dailyUsagePercent = int(float64(dailyTokens) / float64(dailyTokenLimit) * 100)
+	}
+
+	if dailyTokens >= dailyTokenLimit {
+		logger.I("token_limit_exceeded",
+			"user_id", userID,
+			"user_grade", userGrade,
+			"limit_type", "daily",
+			"current_tokens", dailyTokens,
+			"limit", dailyTokenLimit,
+			"usage_percent", dailyUsagePercent,
+		)
+		return &LimitCheckResult{Exceeded: true, IsDaily: true}, nil
+	}
+
+	dailyRemaining := dailyTokenLimit - dailyTokens
+	monthlyRemaining := monthlyTokenLimit - monthlyTokens
+
+	logger.I("token_check_success",
+		"user_id", userID,
+		"user_grade", userGrade,
+		"daily_tokens", dailyTokens,
+		"daily_limit", dailyTokenLimit,
+		"daily_remaining", dailyRemaining,
+		"daily_usage_percent", dailyUsagePercent,
+		"monthly_tokens", monthlyTokens,
+		"monthly_limit", monthlyTokenLimit,
+		"monthly_remaining", monthlyRemaining,
+		"monthly_usage_percent", monthlyUsagePercent,
+	)
+
+	return &LimitCheckResult{Exceeded: false}, nil
+}
+
+func (x *UsageLimiter) AddTokens(
+	logger *tracing.Logger,
+	userID int64,
+	tokens int,
+) error {
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
+	defer cancel()
+
+	dailyKey := x.getTokensKey("daily", userID)
+	monthlyKey := x.getTokensKey("monthly", userID)
+
+	pipe := x.redis.TxPipeline()
+	pipe.IncrBy(ctx, dailyKey, int64(tokens))
+	pipe.IncrBy(ctx, monthlyKey, int64(tokens))
+	pipe.Expire(ctx, dailyKey, 25*time.Hour)
+	pipe.Expire(ctx, monthlyKey, 32*24*time.Hour)
+
+	if _, err := pipe.Exec(ctx); err != nil {
+		logger.E("Failed to add tokens to Redis", tracing.InnerError, err)
+		return err
+	}
+
+	logger.D("tokens_added",
+		"user_id", userID,
+		"tokens", tokens,
+	)
+
+	return nil
 }

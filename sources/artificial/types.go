@@ -9,24 +9,6 @@ type ModelMeta struct {
 }
 
 type ContextLimits struct {
-	TTL         int
-	MaxMessages int
-	MaxTokens   int
+	TTL       int
+	MaxTokens int
 }
-
-type StreamStatus string
-
-const (
-	StreamStatusNone      StreamStatus = ""
-	StreamStatusThinking  StreamStatus = "thinking"
-	StreamStatusSearching StreamStatus = "searching"
-)
-
-type StreamChunk struct {
-	Content string
-	Done    bool
-	Error   error
-	Status  StreamStatus // Optional status indicator (thinking, searching, etc.)
-}
-
-type StreamCallback func(chunk StreamChunk)
