@@ -177,7 +177,7 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 
 	if userPrompt != "" {
 		persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
-		response, err := x.dialer.Dial(log, msg, transcriptedText, "", persona, false, nil)
+		response, err := x.dialer.Dial(log, msg, transcriptedText, "", persona, false)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
 			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
