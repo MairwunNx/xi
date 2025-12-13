@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -13,26 +12,18 @@ import (
 	"ximanager/sources/metrics"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
-	"ximanager/sources/texting/indices"
 	"ximanager/sources/tracing"
 
 	openrouter "github.com/revrost/go-openrouter"
 )
 
-// ContextSelectionResponse represents the response from context selection agent
-type ContextSelectionResponse struct {
-	RelevantIndices []string `json:"relevant_indices"`
-}
-
-// ModelSelectionResponse represents the response from model selection agent
-type ModelSelectionResponse struct {
-	RecommendedModel string  `json:"recommended_model"`
-	ReasoningEffort  string  `json:"reasoning_effort"`
-	TaskComplexity   string  `json:"task_complexity"`
-	RequiresSpeed    bool    `json:"requires_speed"`
-	RequiresQuality  bool    `json:"requires_quality"`
-	IsTrolling       bool    `json:"is_trolling"`
-	Temperature      float32 `json:"temperature"`
+// EffortSelectionResponse represents the response from effort selection agent
+type EffortSelectionResponse struct {
+	ReasoningEffort string  `json:"reasoning_effort"`
+	TaskComplexity  string  `json:"task_complexity"`
+	RequiresSpeed   bool    `json:"requires_speed"`
+	RequiresQuality bool    `json:"requires_quality"`
+	Temperature     float32 `json:"temperature"`
 }
 
 // PersonalizationValidationResponse represents the response from personalization validation agent
@@ -104,203 +95,29 @@ func NewAgentSystem(ai *openrouter.Client, config *configuration.Config, tariffs
 	}
 }
 
-// SelectRelevantContext uses an agent to determine which messages from history are relevant
-func (a *AgentSystem) SelectRelevantContext(
-	log *tracing.Logger,
-	history []platform.RedisMessage,
-	newUserMessage string,
-	userGrade platform.UserGrade,
-	agentUsage *AgentUsageAccumulator,
-) ([]platform.RedisMessage, error) {
-	defer tracing.ProfilePoint(log, "Agent select relevant context completed", "artificial.agents.select.relevant.context", "history_count", len(history), "user_grade", userGrade)()
-	a.metrics.RecordAgentUsage("context_selection")
-
-	if len(history) <= 4 {
-		return history, nil
-	}
-
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.Context.Timeout)*time.Second)
-	defer cancel()
-
-	// Create a lightweight prompt for context selection
-	historyText := a.formatHistoryForAgent(history)
-
-	prompt := a.getContextSelectionPrompt()
-
-	systemMessage := fmt.Sprintf(prompt, historyText, newUserMessage)
-
-	messages := []openrouter.ChatCompletionMessage{
-		{
-			Role:    openrouter.ChatMessageRoleSystem,
-			Content: openrouter.Content{Text: systemMessage},
-		},
-		{
-			Role:    openrouter.ChatMessageRoleUser,
-			Content: openrouter.Content{Text: "Analyze the conversation history and select relevant messages for the new user question. Return your response in the specified JSON format."},
-		},
-	}
-
-	model := a.config.AI.Agents.Context.Model
-
-	request := openrouter.ChatCompletionRequest{
-		Model:    model,
-		Messages: messages,
-		Provider: &openrouter.ChatProvider{
-			DataCollection: openrouter.DataCollectionDeny,
-			Sort:           openrouter.ProviderSortingLatency,
-		},
-		Temperature: 0.1,
-		Usage:       &openrouter.IncludeUsage{Include: true},
-		Transforms:  []string{},
-	}
-
-	log = log.With("ai_agent", "context_selector", tracing.AiModel, model)
-
-	startTime := time.Now()
-	response, err := a.ai.CreateChatCompletion(ctx, request)
-	duration := time.Since(startTime)
-
-	if err != nil {
-		log.E("Failed to get context selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
-		log.I("agent_context_selection_failed", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return history, nil
-	}
-
-	if agentUsage != nil {
-		agentUsage.Add(response.Usage.TotalTokens, response.Usage.Cost)
-	}
-
-	if len(response.Choices) == 0 {
-		log.E("Empty choices in context selection response")
-		log.I("agent_context_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return history, nil
-	}
-
-	responseText := cleanJSONFromMarkdown(response.Choices[0].Message.Content.Text)
-
-	var contextResponse ContextSelectionResponse
-	if err := json.Unmarshal([]byte(responseText), &contextResponse); err != nil {
-		log.E("Failed to parse context selection response", tracing.InnerError, err, "response_text", responseText)
-		log.I("agent_context_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return history, nil
-	}
-
-	indices := indices.Expand(log, contextResponse.RelevantIndices, len(history)-1)
-
-	indicesSet := make(map[int]bool)
-	for _, idx := range indices {
-		indicesSet[idx] = true
-	}
-
-	currentIndices := make([]int, 0, len(indicesSet))
-	for idx := range indicesSet {
-		currentIndices = append(currentIndices, idx)
-	}
-
-	for _, idx := range currentIndices {
-		if idx >= 0 && idx < len(history) {
-			msg := history[idx]
-
-			switch msg.Role {
-			case platform.MessageRoleUser:
-				a.addChainForward(history, indicesSet, idx)
-
-			case platform.MessageRoleAssistant:
-				a.addChainBackward(history, indicesSet, idx)
-
-			case platform.MessageRoleTool:
-				a.addChainBackward(history, indicesSet, idx)
-				a.addChainForward(history, indicesSet, idx)
-			}
-		}
-	}
-
-	// Convert back to sorted slice
-	var completedIndices []int
-	for idx := range indicesSet {
-		completedIndices = append(completedIndices, idx)
-	}
-
-	// Sort indices
-	sort.Ints(completedIndices)
-
-	relevantMessages := []platform.RedisMessage{}
-	for _, index := range completedIndices {
-		if index >= 0 && index < len(history) {
-			relevantMessages = append(relevantMessages, history[index])
-		}
-	}
-
-	reductionPercent := 0
-	if len(history) > 0 {
-		reductionPercent = int(float64(len(history)-len(relevantMessages)) / float64(len(history)) * 100)
-	}
-
-	log.I("agent_context_selection_success",
-		"original_count", len(history),
-		"selected_count", len(relevantMessages),
-		"reduction_percent", reductionPercent,
-		"raw_indices_and_ranges", contextResponse.RelevantIndices,
-		"parsed_indices_count", len(indices),
-		"duration_ms", duration.Milliseconds(),
-		"user_grade", userGrade,
-	)
-
-	return relevantMessages, nil
-}
-
-// SelectModelAndEffort uses an agent to determine the best model and reasoning effort
-func (a *AgentSystem) SelectModelAndEffort(
+// SelectEffort uses an agent to determine the appropriate reasoning effort
+func (a *AgentSystem) SelectEffort(
 	log *tracing.Logger,
 	selectedContext []platform.RedisMessage,
 	newUserMessage string,
 	userGrade platform.UserGrade,
 	agentUsage *AgentUsageAccumulator,
-) (*ModelSelectionResponse, error) {
-	defer tracing.ProfilePoint(log, "Agent select model and effort completed", "artificial.agents.select.model.and.effort", "context_count", len(selectedContext), "user_grade", userGrade)()
-	a.metrics.RecordAgentUsage("model_selection")
-	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.ModelSelection.Timeout)*time.Second)
+) (*EffortSelectionResponse, error) {
+	defer tracing.ProfilePoint(log, "Agent select effort completed", "artificial.agents.select.effort", "context_count", len(selectedContext), "user_grade", userGrade)()
+	a.metrics.RecordAgentUsage("effort_selection")
+
+	ctx, cancel := platform.ContextTimeoutVal(context.Background(), time.Duration(a.config.AI.Agents.EffortSelection.Timeout)*time.Second)
 	defer cancel()
 
-	// Get tier policy for the user
-	tierPolicy, err := a.getTierPolicy(ctx, userGrade)
-	if err != nil {
-		log.E("Failed to get tier policy", tracing.InnerError, err)
-		// Cannot proceed without tariff info, but maybe we can fallback?
-		// For now, return error or fallback to minimal.
-		// I'll fallback to a safe default manually if possible, but getTierPolicy tries fallback.
-		return nil, err
-	}
-
-	// Limit context to last 6 messages (3 pairs) to save tokens
 	limitedContext := selectedContext
 	if len(selectedContext) > 6 {
 		limitedContext = selectedContext[len(selectedContext)-6:]
 	}
 	contextText := a.formatHistoryForAgent(limitedContext)
 
-	prompt := a.getModelSelectionPrompt()
+	prompt := a.getEffortSelectionPrompt()
 
-	trollingModelsText := strings.Join(a.config.AI.PlaceboModels, ", ")
-
-	// Build downgrade models text based on user grade
-	// This requires knowing lower tier models.
-	// getTierPolicy now returns DowngradeModels.
-	downgradeModelsText := ""
-	if len(tierPolicy.DowngradeModels) > 0 {
-		downgradeModelsText = fmt.Sprintf("\n\nDowngrade models (use only for simple/fast tasks when tier models are overkill):\n\nLower tier models:\n%s",
-			formatModelsForPrompt(tierPolicy.DowngradeModels))
-	}
-
-	systemMessage := fmt.Sprintf(prompt,
-		tierPolicy.ModelsText,
-		tierPolicy.DefaultReasoning,
-		tierPolicy.Description,
-		downgradeModelsText,
-		trollingModelsText,
-		contextText,
-		newUserMessage,
-	)
+	systemMessage := fmt.Sprintf(prompt, "", contextText, newUserMessage)
 
 	messages := []openrouter.ChatCompletionMessage{
 		{
@@ -309,11 +126,11 @@ func (a *AgentSystem) SelectModelAndEffort(
 		},
 		{
 			Role:    openrouter.ChatMessageRoleUser,
-			Content: openrouter.Content{Text: "Analyze the task and recommend the optimal model and reasoning effort. Return your response in the specified JSON format."},
+			Content: openrouter.Content{Text: "Analyze the task and recommend the appropriate reasoning effort. Return your response in the specified JSON format."},
 		},
 	}
 
-	model := a.config.AI.Agents.ModelSelection.Model
+	model := a.config.AI.Agents.EffortSelection.Model
 
 	request := openrouter.ChatCompletionRequest{
 		Model:    model,
@@ -327,16 +144,24 @@ func (a *AgentSystem) SelectModelAndEffort(
 		Transforms:  []string{},
 	}
 
-	log = log.With("ai_agent", "model_selector", tracing.AiModel, model)
+	log = log.With("ai_agent", "effort_selector", tracing.AiModel, model)
 
 	startTime := time.Now()
 	response, err := a.ai.CreateChatCompletion(ctx, request)
 	duration := time.Since(startTime)
 
+	fallback := &EffortSelectionResponse{
+		ReasoningEffort: "medium",
+		TaskComplexity:  "medium",
+		RequiresSpeed:   false,
+		RequiresQuality: true,
+		Temperature:     1.0,
+	}
+
 	if err != nil {
-		log.E("Failed to get model selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
-		log.I("agent_model_selection_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return a.getModelSelectionFallback(tierPolicy), nil
+		log.E("Failed to get effort selection", tracing.InnerError, err, "duration_ms", duration.Milliseconds())
+		log.I("agent_effort_selection_failed", "reason", "api_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		return fallback, nil
 	}
 
 	if agentUsage != nil {
@@ -344,45 +169,31 @@ func (a *AgentSystem) SelectModelAndEffort(
 	}
 
 	if len(response.Choices) == 0 {
-		log.E("Empty choices in model selection response")
-		log.I("agent_model_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return a.getModelSelectionFallback(tierPolicy), nil
+		log.E("Empty choices in effort selection response")
+		log.I("agent_effort_selection_failed", "reason", "empty_choices", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		return fallback, nil
 	}
 
 	responseText := cleanJSONFromMarkdown(response.Choices[0].Message.Content.Text)
 
-	var modelResponse ModelSelectionResponse
-	if err := json.Unmarshal([]byte(responseText), &modelResponse); err != nil {
-		log.E("Failed to parse model selection response", tracing.InnerError, err, "response_text", responseText)
-		log.I("agent_model_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
-		return a.getModelSelectionFallback(tierPolicy), nil
+	var effortResponse EffortSelectionResponse
+	if err := json.Unmarshal([]byte(responseText), &effortResponse); err != nil {
+		log.E("Failed to parse effort selection response", tracing.InnerError, err, "response_text", responseText)
+		log.I("agent_effort_selection_failed", "reason", "json_parse_error", "duration_ms", duration.Milliseconds(), "user_grade", userGrade)
+		return fallback, nil
 	}
 
-	// Validate and adjust based on tier policy
-	originalModel := modelResponse.RecommendedModel
-	originalEffort := modelResponse.ReasoningEffort
-	modelResponse = a.validateModelSelection(modelResponse, tierPolicy, userGrade)
-
-	modelChanged := originalModel != modelResponse.RecommendedModel
-	effortChanged := originalEffort != modelResponse.ReasoningEffort
-
-	log.I("agent_model_selection_validated",
-		"final_model", modelResponse.RecommendedModel,
-		"final_reasoning_effort", modelResponse.ReasoningEffort,
-		"final_temperature", modelResponse.Temperature,
-		"model_changed", modelChanged,
-		"effort_changed", effortChanged,
-		"original_model", originalModel,
-		"original_effort", originalEffort,
-		"task_complexity", modelResponse.TaskComplexity,
-		"requires_speed", modelResponse.RequiresSpeed,
-		"requires_quality", modelResponse.RequiresQuality,
-		"is_trolling", modelResponse.IsTrolling,
+	log.I("agent_effort_selection_success",
+		"reasoning_effort", effortResponse.ReasoningEffort,
+		"task_complexity", effortResponse.TaskComplexity,
+		"temperature", effortResponse.Temperature,
+		"requires_speed", effortResponse.RequiresSpeed,
+		"requires_quality", effortResponse.RequiresQuality,
 		"duration_ms", duration.Milliseconds(),
 		"user_grade", userGrade,
 	)
 
-	return &modelResponse, nil
+	return &effortResponse, nil
 }
 
 func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) string {
@@ -392,64 +203,12 @@ func (a *AgentSystem) formatHistoryForAgent(history []platform.RedisMessage) str
 		switch msg.Role {
 		case platform.MessageRoleAssistant:
 			role = "Assistant"
-		case platform.MessageRoleTool:
-			role = "Tool"
 		case platform.MessageRoleSystem:
 			role = "System"
 		}
 		parts = append(parts, fmt.Sprintf("[%d] %s: %s", i, role, msg.Content))
 	}
 	return strings.Join(parts, "\n")
-}
-
-func (a *AgentSystem) addChainForward(history []platform.RedisMessage, indicesSet map[int]bool, startIdx int) {
-	for i := startIdx + 1; i < len(history); i++ {
-		role := history[i].Role
-		if role == platform.MessageRoleTool {
-			indicesSet[i] = true
-			continue
-		}
-		if role == platform.MessageRoleAssistant {
-			indicesSet[i] = true
-			break
-		}
-		break
-	}
-}
-
-func (a *AgentSystem) addChainBackward(history []platform.RedisMessage, indicesSet map[int]bool, startIdx int) {
-	for i := startIdx - 1; i >= 0; i-- {
-		role := history[i].Role
-		if role == platform.MessageRoleTool {
-			indicesSet[i] = true
-			continue
-		}
-		if role == platform.MessageRoleUser {
-			indicesSet[i] = true
-			break
-		}
-		break
-	}
-}
-
-func (a *AgentSystem) getModelSelectionFallback(tierPolicy TierPolicy) *ModelSelectionResponse {
-	fallbackModel := ""
-	if len(tierPolicy.Models) > 0 {
-		fallbackModel = tierPolicy.Models[0].Name
-		if len(tierPolicy.Models) > 1 {
-			fallbackModel = tierPolicy.Models[1].Name
-		}
-	}
-
-	return &ModelSelectionResponse{
-		RecommendedModel: fallbackModel,
-		ReasoningEffort:  tierPolicy.DefaultReasoning,
-		TaskComplexity:   "medium",
-		RequiresSpeed:    false,
-		RequiresQuality:  true,
-		IsTrolling:       false,
-		Temperature:      1.0,
-	}
 }
 
 func cleanJSONFromMarkdown(raw string) string {
@@ -467,130 +226,6 @@ func cleanJSONFromMarkdown(raw string) string {
 		}
 	}
 	return strings.TrimSpace(s)
-}
-
-type TierPolicy struct {
-	Models           []ModelMeta
-	ModelsText       string
-	DefaultReasoning string
-	Description      string
-	DowngradeModels  []ModelMeta
-}
-
-func (a *AgentSystem) getTierPolicy(ctx context.Context, userGrade platform.UserGrade) (TierPolicy, error) {
-	// 1. Fetch current tier tariff
-	currentTariff, err := a.tariffs.GetLatestByKey(a.log, string(userGrade))
-	if err != nil {
-		// Try fallback to bronze if not bronze
-		if userGrade != platform.GradeBronze {
-			currentTariff, err = a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
-		}
-		if err != nil {
-			return TierPolicy{}, fmt.Errorf("failed to fetch tariff: %w", err)
-		}
-	}
-
-	var currentModels []ModelMeta
-	if err := json.Unmarshal(currentTariff.DialerModels, &currentModels); err != nil {
-		return TierPolicy{}, fmt.Errorf("failed to unmarshal models: %w", err)
-	}
-
-	policy := TierPolicy{
-		Models:           currentModels,
-		ModelsText:       formatModelsForPrompt(currentModels),
-		DefaultReasoning: currentTariff.DialerReasoningEffort,
-		Description:      fmt.Sprintf("%s tier: %s", userGrade, currentTariff.DisplayName),
-	}
-
-	// 2. Fetch downgrade models
-	var downgradeModels []ModelMeta
-	if userGrade == platform.GradeGold {
-		// Need Silver + Bronze
-		silverTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeSilver))
-		if silverTariff != nil {
-			var silverModels []ModelMeta
-			_ = json.Unmarshal(silverTariff.DialerModels, &silverModels)
-			downgradeModels = append(downgradeModels, silverModels...)
-		}
-		bronzeTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
-		if bronzeTariff != nil {
-			var bronzeModels []ModelMeta
-			_ = json.Unmarshal(bronzeTariff.DialerModels, &bronzeModels)
-			downgradeModels = append(downgradeModels, bronzeModels...)
-		}
-	} else if userGrade == platform.GradeSilver {
-		// Need Bronze
-		bronzeTariff, _ := a.tariffs.GetLatestByKey(a.log, string(platform.GradeBronze))
-		if bronzeTariff != nil {
-			var bronzeModels []ModelMeta
-			_ = json.Unmarshal(bronzeTariff.DialerModels, &bronzeModels)
-			downgradeModels = append(downgradeModels, bronzeModels...)
-		}
-	}
-
-	policy.DowngradeModels = downgradeModels
-	return policy, nil
-}
-
-func (a *AgentSystem) validateModelSelection(response ModelSelectionResponse, tierPolicy TierPolicy, userGrade platform.UserGrade) ModelSelectionResponse {
-	// Check if recommended model is available for this tier or in trolling models
-	modelValid := false
-
-	// Check tier models first
-	for _, model := range tierPolicy.Models {
-		if model.Name == response.RecommendedModel {
-			modelValid = true
-			break
-		}
-	}
-
-	// Check downgrade models
-	if !modelValid {
-		for _, model := range tierPolicy.DowngradeModels {
-			if model.Name == response.RecommendedModel {
-				modelValid = true
-				break
-			}
-		}
-	}
-
-	// Check trolling models (regardless of is_trolling flag)
-	if !modelValid {
-		for _, model := range a.config.AI.PlaceboModels {
-			if model == response.RecommendedModel {
-				modelValid = true
-				// If LLM chose trolling model, mark as trolling
-				response.IsTrolling = true
-				break
-			}
-		}
-	}
-
-	// Fallback if model not valid
-	if !modelValid {
-		if response.IsTrolling && len(a.config.AI.PlaceboModels) > 0 {
-			response.RecommendedModel = a.config.AI.PlaceboModels[0]
-		} else if len(tierPolicy.Models) > 1 {
-			response.RecommendedModel = tierPolicy.Models[1].Name
-		} else if len(tierPolicy.Models) > 0 {
-			response.RecommendedModel = tierPolicy.Models[0].Name
-		}
-	}
-
-	// Set low reasoning for trolling
-	if response.IsTrolling {
-		response.ReasoningEffort = "low"
-	}
-
-	// Validate reasoning effort based on tier
-	switch userGrade {
-	case platform.GradeBronze:
-		if response.ReasoningEffort == "high" {
-			response.ReasoningEffort = "medium"
-		}
-	}
-
-	return response
 }
 
 func (a *AgentSystem) ValidatePersonalization(
@@ -616,7 +251,7 @@ func (a *AgentSystem) ValidatePersonalization(
 		},
 	}
 
-	model := a.config.AI.Agents.Context.Model
+	model := a.config.AI.Agents.EffortSelection.Model
 
 	request := openrouter.ChatCompletionRequest{
 		Model:    model,
@@ -739,20 +374,12 @@ func (a *AgentSystem) SummarizeContent(
 }
 
 // Prompt getters
-func (a *AgentSystem) getContextSelectionPrompt() string {
-	p := a.config.AI.Prompts.ContextSelection
+func (a *AgentSystem) getEffortSelectionPrompt() string {
+	p := a.config.AI.Prompts.EffortSelection
 	if p == "" {
-		return getDefaultContextSelectionPrompt()
+		return getDefaultEffortSelectionPrompt()
 	}
-	return decodePrompt(p, getDefaultContextSelectionPrompt())
-}
-
-func (a *AgentSystem) getModelSelectionPrompt() string {
-	p := a.config.AI.Prompts.ModelSelection
-	if p == "" {
-		return getDefaultModelSelectionPrompt()
-	}
-	return decodePrompt(p, getDefaultModelSelectionPrompt())
+	return decodePrompt(p, getDefaultEffortSelectionPrompt())
 }
 
 func (a *AgentSystem) getSummarizationPrompt() string {
@@ -866,7 +493,7 @@ func (a *AgentSystem) DetermineResponseLength(
 	}
 
 	responseText := cleanJSONFromMarkdown(response.Choices[0].Message.Content.Text)
-	
+
 	var lengthResponse ResponseLengthResponse
 	if err := json.Unmarshal([]byte(responseText), &lengthResponse); err != nil {
 		log.E("Failed to parse response length detection", tracing.InnerError, err)
