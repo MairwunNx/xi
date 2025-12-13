@@ -46,8 +46,8 @@ type TelegramHandler struct {
 	metrics           *metrics.MetricsService
 }
 
-func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, tariffs *repository.TariffsRepository, chatState *repository.ChatStateRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService) *TelegramHandler {
-	return &TelegramHandler{
+func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, rights *repository.RightsRepository, dialer *artificial.Dialer, whisper *artificial.Whisper, modes *repository.ModesRepository, donations *repository.DonationsRepository, messages *repository.MessagesRepository, personalizations *repository.PersonalizationsRepository, usage *repository.UsageRepository, throttler *throttler.Throttler, contextManager *artificial.ContextManager, health *repository.HealthRepository, bans *repository.BansRepository, broadcast *repository.BroadcastRepository, feedbacks *repository.FeedbacksRepository, tariffs *repository.TariffsRepository, chatState *repository.ChatStateRepository, agents *artificial.AgentSystem, fm *features.FeatureManager, localization *localization.LocalizationManager, personality *personality.XiPersonality, dateTimeFormatter *format.DateTimeFormatter, metrics *metrics.MetricsService, log *tracing.Logger) *TelegramHandler {
+	handler := &TelegramHandler{
 		diplomat:          diplomat,
 		users:             users,
 		rights:            rights,
@@ -73,6 +73,19 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		dateTimeFormatter: dateTimeFormatter,
 		metrics:           metrics,
 	}
+
+	contextManager.SetSummarizationHandler(handler)
+	log.I("Summarization handler registered")
+
+	return handler
+}
+
+func (x *TelegramHandler) OnSummarization(chatID platform.ChatID) {
+	dummyMsg := &tgbotapi.Message{
+		Chat: &tgbotapi.Chat{ID: int64(chatID)},
+	}
+	msg := x.localization.LocalizeBy(dummyMsg, "MsgContextSummarized")
+	x.diplomat.SendMessage(x.diplomat.log, int64(chatID), x.personality.XiifyManualPlain(msg))
 }
 
 func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Message) error {

@@ -11,8 +11,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"ximanager/sources/artificial"
-	"ximanager/sources/features"
 	"ximanager/sources/persistence/entities"
 	"ximanager/sources/platform"
 	"ximanager/sources/repository"
@@ -39,61 +37,7 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	if x.features.IsEnabled(features.FeatureStreamingResponses) {
-		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
-		if err != nil {
-			log.E("Failed to start streaming reply", tracing.InnerError, err)
-			x.xiCommandTextNonStreaming(log, msg, req, persona)
-			return
-		}
-
-		// Status animation state
-		statusAnimator := NewStatusAnimator(
-			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
-			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
-			streamReply,
-		)
-		defer statusAnimator.Stop()
-
-		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
-			// Handle status changes
-			if chunk.Status != artificial.StreamStatusNone {
-				statusAnimator.SetStatus(chunk.Status)
-				return
-			}
-
-			// Stop animation when content arrives
-			statusAnimator.Stop()
-
-			if chunk.Error != nil {
-				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
-				streamReply.FinishWithError(errorMsg)
-				return
-			}
-			if chunk.Done {
-				finalText := x.personality.Xiify(msg, chunk.Content)
-				if strings.TrimSpace(chunk.Content) == "" {
-					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
-				} else {
-					streamReply.Finish(finalText)
-				}
-				return
-			}
-			// Update with partial content (no Xiify during streaming for performance)
-			streamReply.Update(chunk.Content)
-		}
-
-		_, err = x.dialer.Dial(log, msg, req, "", persona, true, streamCallback)
-		if err != nil {
-			log.E("Error from dialer in streaming mode", tracing.InnerError, err)
-		}
-	} else {
-		x.xiCommandTextNonStreaming(log, msg, req, persona)
-	}
-}
-
-func (x *TelegramHandler) xiCommandTextNonStreaming(log *tracing.Logger, msg *tgbotapi.Message, req string, persona string) {
-	response, err := x.dialer.Dial(log, msg, req, "", persona, true, nil)
+	response, err := x.dialer.Dial(log, msg, req, "", persona, true)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
 		x.diplomat.Reply(log, msg, errorMsg)
@@ -139,57 +83,7 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	if x.features.IsEnabled(features.FeatureStreamingResponses) {
-		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
-		if err != nil {
-			log.E("Failed to start streaming reply for photo", tracing.InnerError, err)
-			x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
-			return
-		}
-
-		statusAnimator := NewStatusAnimator(
-			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
-			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
-			streamReply,
-		)
-		defer statusAnimator.Stop()
-
-		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
-			if chunk.Status != artificial.StreamStatusNone {
-				statusAnimator.SetStatus(chunk.Status)
-				return
-			}
-
-			statusAnimator.Stop()
-
-			if chunk.Error != nil {
-				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
-				streamReply.FinishWithError(errorMsg)
-				return
-			}
-			if chunk.Done {
-				finalText := x.personality.Xiify(msg, chunk.Content)
-				if strings.TrimSpace(chunk.Content) == "" {
-					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
-				} else {
-					streamReply.Finish(finalText)
-				}
-				return
-			}
-			streamReply.Update(chunk.Content)
-		}
-
-		_, err = x.dialer.Dial(log, msg, req, iurl, persona, true, streamCallback)
-		if err != nil {
-			log.E("Error from dialer in streaming mode for photo", tracing.InnerError, err)
-		}
-	} else {
-		x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
-	}
-}
-
-func (x *TelegramHandler) xiCommandPhotoNonStreaming(log *tracing.Logger, msg *tgbotapi.Message, req, iurl, persona string) {
-	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true, nil)
+	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
@@ -219,53 +113,13 @@ func (x *TelegramHandler) XiCommandPhotoFromReply(log *tracing.Logger, user *ent
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	if x.features.IsEnabled(features.FeatureStreamingResponses) {
-		streamReply, err := x.diplomat.StartStreamingReply(log, msg)
-		if err != nil {
-			log.E("Failed to start streaming reply for photo from reply", tracing.InnerError, err)
-			x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
-			return
-		}
-
-		statusAnimator := NewStatusAnimator(
-			x.localization.LocalizeBy(msg, "MsgStreamingThinking"),
-			x.localization.LocalizeBy(msg, "MsgStreamingSearching"),
-			streamReply,
-		)
-		defer statusAnimator.Stop()
-
-		var streamCallback artificial.StreamCallback = func(chunk artificial.StreamChunk) {
-			if chunk.Status != artificial.StreamStatusNone {
-				statusAnimator.SetStatus(chunk.Status)
-				return
-			}
-
-			statusAnimator.Stop()
-
-			if chunk.Error != nil {
-				errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
-				streamReply.FinishWithError(errorMsg)
-				return
-			}
-			if chunk.Done {
-				finalText := x.personality.Xiify(msg, chunk.Content)
-				if strings.TrimSpace(chunk.Content) == "" {
-					streamReply.FinishWithError(x.localization.LocalizeBy(msg, "MsgErrorResponse"))
-				} else {
-					streamReply.Finish(finalText)
-				}
-				return
-			}
-			streamReply.Update(chunk.Content)
-		}
-
-		_, err = x.dialer.Dial(log, msg, req, iurl, persona, true, streamCallback)
-		if err != nil {
-			log.E("Error from dialer in streaming mode for photo from reply", tracing.InnerError, err)
-		}
-	} else {
-		x.xiCommandPhotoNonStreaming(log, msg, req, iurl, persona)
+	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
+	if err != nil {
+		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
+		return
 	}
+
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
@@ -2541,7 +2395,7 @@ func (x *TelegramHandler) HealthCommand(log *tracing.Logger, user *entities.User
 
 	uptime := time.Since(platform.GetAppStartTime())
 	uptimeFormatted := x.dateTimeFormatter.Uptimeify(msg, uptime)
-	
+
 	version := platform.GetAppVersion()
 	buildTime := platform.GetAppBuildTime()
 	buildTimeFormatted := x.dateTimeFormatter.FormatBuildTime(msg, buildTime)
@@ -2869,14 +2723,8 @@ func (x *TelegramHandler) handleTariffConfigInput(log *tracing.Logger, user *ent
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorNameEmpty")
 		case errors.Is(err, repository.ErrTariffNameTooLong):
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorNameTooLong")
-		case errors.Is(err, repository.ErrTariffInvalidEffort):
-			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidEffort")
 		case errors.Is(err, repository.ErrTariffInvalidLimit):
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorInvalidLimit")
-		case errors.Is(err, repository.ErrTariffModelsEmpty):
-			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorModelsEmpty")
-		case errors.Is(err, repository.ErrTariffModelNameEmpty):
-			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorModelNameEmpty")
 		default:
 			errorMsg = x.localization.LocalizeBy(msg, "MsgTariffErrorCreate")
 		}
@@ -2951,61 +2799,28 @@ func (x *TelegramHandler) handleTariffInfoCallback(log *tracing.Logger, query *t
 		return
 	}
 
-	modelsFormatted := x.formatTariffModels(log, msg, tariff.DialerModels)
+	priceStr := fmt.Sprintf("%d₽", tariff.Price)
 
-	infoMsg := x.localization.LocalizeByTd(msg, "MsgTariffInfo", map[string]interface{}{
-		"ID":                    tariff.ID,
-		"Key":                   tariff.Key,
-		"DisplayName":           tariff.DisplayName,
-		"Models":                modelsFormatted,
-		"DialerReasoningEffort": tariff.DialerReasoningEffort,
-		"ContextTTLSeconds":     tariff.ContextTTLSeconds,
-		"ContextMaxMessages":    tariff.ContextMaxMessages,
-		"ContextMaxTokens":      tariff.ContextMaxTokens,
-		"UsageVisionDaily":      tariff.UsageVisionDaily,
-		"UsageVisionMonthly":    tariff.UsageVisionMonthly,
-		"UsageDialerDaily":      tariff.UsageDialerDaily,
-		"UsageDialerMonthly":    tariff.UsageDialerMonthly,
-		"UsageWhisperDaily":     tariff.UsageWhisperDaily,
-		"UsageWhisperMonthly":   tariff.UsageWhisperMonthly,
-		"SpendingDailyLimit":    tariff.SpendingDailyLimit.String(),
-		"SpendingMonthlyLimit":  tariff.SpendingMonthlyLimit.String(),
-		"CreatedAt":             tariff.CreatedAt.Format("02.01.2006 15:04:05"),
-	})
+	data := map[string]interface{}{
+		"ID":                   tariff.ID,
+		"Key":                  tariff.Key,
+		"DisplayName":          tariff.DisplayName,
+		"RequestsPerDay":       tariff.RequestsPerDay,
+		"RequestsPerMonth":     tariff.RequestsPerMonth,
+		"TokensPerDay":         tariff.TokensPerDay,
+		"TokensPerMonth":       tariff.TokensPerMonth,
+		"SpendingDailyLimit":   tariff.SpendingDailyLimit.String(),
+		"SpendingMonthlyLimit": tariff.SpendingMonthlyLimit.String(),
+		"Price":                priceStr,
+		"CreatedAt":            tariff.CreatedAt.Format("02.01.2006 15:04:05"),
+	}
+
+	infoMsg := x.localization.LocalizeByTd(msg, "MsgTariffInfo", data)
 
 	callback := tgbotapi.NewCallback(query.ID, "")
 	x.diplomat.bot.Request(callback)
 
 	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManualPlain(infoMsg))
-}
-
-func (x *TelegramHandler) formatTariffModels(log *tracing.Logger, msg *tgbotapi.Message, modelsJSON []byte) string {
-	var models []repository.ModelMeta
-	if err := json.Unmarshal(modelsJSON, &models); err != nil {
-		log.W("Failed to parse tariff models for display", tracing.InnerError, err)
-		return x.localization.LocalizeBy(msg, "MsgTariffModelsParseError")
-	}
-
-	if len(models) == 0 {
-		return x.localization.LocalizeBy(msg, "MsgTariffNoModels")
-	}
-
-	var builder strings.Builder
-	for i, model := range models {
-		itemMsg := x.localization.LocalizeByTd(msg, "MsgTariffModelItem", map[string]interface{}{
-			"Name":       model.Name,
-			"AAI":        model.AAI,
-			"InputCost":  model.InputPricePerM,
-			"OutputCost": model.OutputPricePerM,
-			"Context":    model.CtxTokens,
-		})
-		builder.WriteString(itemMsg)
-		if i < len(models)-1 {
-			builder.WriteString("\n")
-		}
-	}
-
-	return builder.String()
 }
 
 func (x *TelegramHandler) BroadcastCommandStart(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
