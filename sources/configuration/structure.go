@@ -40,6 +40,7 @@ type RedisConfig struct {
 	DB          int           `yaml:"db"`
 	MaxRetries  int           `yaml:"max_retries"`
 	DialTimeout time.Duration `yaml:"dial_timeout"`
+	MessagesTTL time.Duration `yaml:"messages_ttl"`
 }
 
 type TelegramConfig struct {
@@ -64,14 +65,15 @@ type AIConfig struct {
 
 	LimitExceededModel          string   `yaml:"limit_exceeded_model"`
 	LimitExceededFallbackModels []string `yaml:"limit_exceeded_fallback_models"`
+
+	TariffModels AI_TariffModelsConfig `yaml:"tariff_models"`
 }
 
 type AI_AgentsConfig struct {
-	Context                 AI_AgentConfig         `yaml:"context"`
-	ModelSelection          AI_AgentConfig         `yaml:"model_selection"`
-	ResponseLength          AI_AgentConfig         `yaml:"response_length"`
-	Summarization           AI_SummarizationConfig `yaml:"summarization"`
-	WebSearch               AI_WebSearchConfig     `yaml:"web_search"`
+	EffortSelection          AI_AgentConfig         `yaml:"effort_selection"`
+	ResponseLength           AI_AgentConfig         `yaml:"response_length"`
+	Summarization            AI_SummarizationConfig `yaml:"summarization"`
+	WebSearch                AI_WebSearchConfig     `yaml:"web_search"`
 	PersonalizationExtractor AI_AgentConfig         `yaml:"personalization_extractor"`
 }
 
@@ -81,12 +83,11 @@ type AI_AgentConfig struct {
 }
 
 type AI_SummarizationConfig struct {
-	Model                       string `yaml:"model"`
-	Timeout                     int    `yaml:"timeout"`
-	SingleMessageTokenThreshold int    `yaml:"single_message_token_threshold"`
-	ClusterTokenThreshold       int    `yaml:"cluster_token_threshold"`
-	ClusterSize                 int    `yaml:"cluster_size"`
-	RecentMessagesCount         int    `yaml:"recent_messages_count"`
+	Model                   string `yaml:"model"`
+	Timeout                 int    `yaml:"timeout"`
+	RecentMessagesToKeep    int    `yaml:"recent_messages_to_keep"`
+	TriggerThresholdPercent int    `yaml:"trigger_threshold_percent"`
+	MaxContextTokens        int    `yaml:"max_context_tokens"`
 }
 
 type AI_WebSearchConfig struct {
@@ -99,13 +100,23 @@ type AI_WebSearchConfig struct {
 }
 
 type AI_PromptsConfig struct {
-	ContextSelection          string `yaml:"context_selection"`
-	ModelSelection            string `yaml:"model_selection"`
+	EffortSelection           string `yaml:"effort_selection"`
 	ResponseLength            string `yaml:"response_length"`
 	Summarization             string `yaml:"summarization"`
 	PersonalizationValidation string `yaml:"personalization_validation"`
 	PersonalizationExtraction string `yaml:"personalization_extraction"`
 	WebSearch                 string `yaml:"web_search"`
+}
+
+type AI_TariffModelsConfig struct {
+	Bronze AI_TariffModelConfig `yaml:"bronze"`
+	Silver AI_TariffModelConfig `yaml:"silver"`
+	Gold   AI_TariffModelConfig `yaml:"gold"`
+}
+
+type AI_TariffModelConfig struct {
+	PrimaryModel  string   `yaml:"primary_model"`
+	FallbackModel string   `yaml:"fallback_model"`
 }
 
 type ProxyConfig struct {

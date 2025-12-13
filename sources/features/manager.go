@@ -10,13 +10,12 @@ import (
 )
 
 const (
-	FeatureLocalizationAuto           = "general/localization/auto"
-	FeatureMessageSummarization       = "dialer/context/message/summarization"
-	FeatureClusterSummarization       = "dialer/context/cluster/summarization"
-	FeatureResponseLengthDetection    = "dialer/response/length-detection"
-	FeatureFeedbackButtons            = "dialer/response/feedback-buttons"
-	FeaturePersonalizationExtraction  = "dialer/personalization/extraction"
-	FeatureStreamingResponses         = "dialer/response/streaming"
+	FeatureLocalizationAuto          = "general/localization/auto"
+	FeatureMessageSummarization      = "dialer/context/message/summarization"
+	FeatureClusterSummarization      = "dialer/context/cluster/summarization"
+	FeatureResponseLengthDetection   = "dialer/response/length-detection"
+	FeatureFeedbackButtons           = "dialer/response/feedback-buttons"
+	FeaturePersonalizationExtraction = "dialer/personalization/extraction"
 )
 
 type FeatureManager struct {
@@ -79,4 +78,4 @@ func (x *unleashListener) OnRegistered(payload unleash.ClientData) {
 
 func (x *unleashListener) OnCount(name string, enabled bool) {}
 func (x *unleashListener) OnSent(payload unleash.MetricsData) {}
-func (x *FeatureManager) OnStop(ctx context.Context) error { return x.Close() } 
+func (x *FeatureManager) OnStop(ctx context.Context) error { return x.Close() }
