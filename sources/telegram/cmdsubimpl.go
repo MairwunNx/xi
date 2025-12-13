@@ -37,21 +37,25 @@ func (x *TelegramHandler) XiCommandText(log *tracing.Logger, msg *tgbotapi.Messa
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	response, err := x.dialer.Dial(log, msg, req, "", persona, true)
+	result, err := x.dialer.Dial(log, msg, req, "", persona, true)
 	if err != nil {
 		errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
 		x.diplomat.Reply(log, msg, errorMsg)
 		return
 	}
 
-	if strings.TrimSpace(response) == "" {
-		log.W("Empty response from AI orchestrator", "response", response)
+	if strings.TrimSpace(result.Text) == "" {
+		log.W("Empty response from AI orchestrator", "response", result.Text)
 		errorMsg := x.localization.LocalizeBy(msg, "MsgErrorResponse")
 		x.diplomat.Reply(log, msg, errorMsg)
 		return
 	}
 
-	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
+	if result.IsSummarized {
+		x.notifySummarization(log, msg)
+	}
+
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, result.Text))
 }
 
 func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message) {
@@ -83,13 +87,17 @@ func (x *TelegramHandler) XiCommandPhoto(log *tracing.Logger, user *entities.Use
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
+	result, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
+	if result.IsSummarized {
+		x.notifySummarization(log, msg)
+	}
+
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, result.Text))
 }
 
 func (x *TelegramHandler) XiCommandPhotoFromReply(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
@@ -113,13 +121,17 @@ func (x *TelegramHandler) XiCommandPhotoFromReply(log *tracing.Logger, user *ent
 
 	persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
 
-	response, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
+	result, err := x.dialer.Dial(log, msg, req, iurl, persona, true)
 	if err != nil {
 		x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgErrorResponse"))
 		return
 	}
 
-	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, response))
+	if result.IsSummarized {
+		x.notifySummarization(log, msg)
+	}
+
+	x.diplomat.Reply(log, msg, x.personality.Xiify(msg, result.Text))
 }
 
 func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.User, msg *tgbotapi.Message, replyMsg *tgbotapi.Message) {
@@ -177,13 +189,16 @@ func (x *TelegramHandler) XiCommandAudio(log *tracing.Logger, user *entities.Use
 
 	if userPrompt != "" {
 		persona := msg.From.FirstName + " " + msg.From.LastName + " (@" + msg.From.UserName + ")"
-		response, err := x.dialer.Dial(log, msg, transcriptedText, "", persona, false)
+		result, err := x.dialer.Dial(log, msg, transcriptedText, "", persona, false)
 		if err != nil {
 			log.E("Error processing with lightweight model", tracing.InnerError, err)
 			x.diplomat.Reply(log, msg, x.localization.LocalizeBy(msg, "MsgAudioError"))
 			return
 		}
-		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, response))
+		if result.IsSummarized {
+			x.notifySummarization(log, msg)
+		}
+		x.diplomat.Reply(log, msg, x.personality.XiifyAudio(msg, result.Text))
 	} else {
 		x.diplomat.ReplyAudio(log, msg, x.personality.XiifyAudio(msg, transcriptedText))
 	}

@@ -74,18 +74,12 @@ func NewTelegramHandler(diplomat *Diplomat, users *repository.UsersRepository, r
 		metrics:           metrics,
 	}
 
-	contextManager.SetSummarizationHandler(handler)
-	log.I("Summarization handler registered")
-
 	return handler
 }
 
-func (x *TelegramHandler) OnSummarization(chatID platform.ChatID) {
-	dummyMsg := &tgbotapi.Message{
-		Chat: &tgbotapi.Chat{ID: int64(chatID)},
-	}
-	msg := x.localization.LocalizeBy(dummyMsg, "MsgContextSummarized")
-	x.diplomat.SendMessage(x.diplomat.log, int64(chatID), x.personality.XiifyManualPlain(msg))
+func (x *TelegramHandler) notifySummarization(log *tracing.Logger, msg *tgbotapi.Message) {
+	notification := x.localization.LocalizeBy(msg, "MsgContextSummarized")
+	x.diplomat.SendMessage(log, msg.Chat.ID, x.personality.XiifyManualPlain(notification))
 }
 
 func (x *TelegramHandler) HandleMessage(log *tracing.Logger, msg *tgbotapi.Message) error {

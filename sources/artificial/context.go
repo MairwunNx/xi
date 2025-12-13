@@ -17,18 +17,13 @@ import (
 )
 
 type ContextManager struct {
-	redis                *redis.Client
-	config               *configuration.Config
-	donations            *repository.DonationsRepository
-	agentSystem          *AgentSystem
-	features             *features.FeatureManager
-	tariffs              *repository.TariffsRepository
-	log                  *tracing.Logger
-	summarizationHandler SummarizationHandler
-}
-
-type SummarizationHandler interface {
-	OnSummarization(chatID platform.ChatID)
+	redis       *redis.Client
+	config      *configuration.Config
+	donations   *repository.DonationsRepository
+	agentSystem *AgentSystem
+	features    *features.FeatureManager
+	tariffs     *repository.TariffsRepository
+	log         *tracing.Logger
 }
 
 func NewContextManager(
@@ -41,19 +36,14 @@ func NewContextManager(
 	log *tracing.Logger,
 ) (*ContextManager, error) {
 	return &ContextManager{
-		redis:                redis,
-		config:               config,
-		donations:            donations,
-		agentSystem:          agentSystem,
-		features:             fm,
-		tariffs:              tariffs,
-		log:                  log,
-		summarizationHandler: nil,
+		redis:       redis,
+		config:      config,
+		donations:   donations,
+		agentSystem: agentSystem,
+		features:    fm,
+		tariffs:     tariffs,
+		log:         log,
 	}, nil
-}
-
-func (x *ContextManager) SetSummarizationHandler(handler SummarizationHandler) {
-	x.summarizationHandler = handler
 }
 
 func (x *ContextManager) getContextLimits() ContextLimits {
@@ -144,9 +134,6 @@ func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, u
 
 	if summarizationOccurred {
 		x.updateRedisAfterSummarization(logger, chatID, userGrade, finalMessages)
-		if x.summarizationHandler != nil {
-			x.summarizationHandler.OnSummarization(chatID)
-		}
 	}
 
 	messages := x.applyTokenLimit(logger, finalMessages, limits.MaxTokens)

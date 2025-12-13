@@ -89,6 +89,11 @@ type AgentDecisions struct {
 	ResponseLength  *ResponseLengthResponse
 }
 
+type DialResult struct {
+	Text         string
+	IsSummarized bool
+}
+
 func (x *Dialer) runAgentsParallel(
 	ctx context.Context,
 	log *tracing.Logger,
@@ -135,7 +140,7 @@ func (x *Dialer) runAgentsParallel(
 	return results, nil
 }
 
-func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool) (string, error) {
+func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, imageURL string, persona string, stackful bool) (*DialResult, error) {
 	defer tracing.ProfilePoint(log, "Dialer dial completed", "artificial.dialer.dial")()
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Minute)
 	defer cancel()
@@ -143,12 +148,12 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	mode, err := x.modes.GetCurrentModeForChat(log, msg.Chat.ID)
 	if err != nil {
 		log.E("Failed to get mode config", tracing.InnerError, err)
-		return "", err
+		return nil, err
 	}
 
 	if mode == nil {
 		log.E("No available mode config")
-		return "", errors.New("no available mode config")
+		return nil, errors.New("no available mode config")
 	}
 
 	modeConfig := x.modes.ParseModeConfig(mode, log)
@@ -156,7 +161,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	user, err := x.users.GetUserByEid(log, msg.From.ID)
 	if err != nil {
 		log.E("Failed to get user", tracing.InnerError, err)
-		return "", err
+		return nil, err
 	}
 
 	userGrade, err := x.donations.GetUserGrade(log, user)
@@ -173,27 +178,27 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 	limitResult, err := x.usageLimiter.checkAndIncrement(log, user.UserID, userGrade, usageType)
 	if err != nil {
 		log.E("Failed to check usage limits", tracing.InnerError, err)
-		return "", err
+		return nil, err
 	}
 
 	if limitResult.Exceeded {
 		if limitResult.IsDaily {
-			return x.localization.LocalizeBy(msg, "MsgDailyLimitExceeded"), nil
+			return &DialResult{Text: x.localization.LocalizeBy(msg, "MsgDailyLimitExceeded"), IsSummarized: false}, nil
 		}
-		return x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), nil
+		return &DialResult{Text: x.localization.LocalizeBy(msg, "MsgMonthlyLimitExceeded"), IsSummarized: false}, nil
 	}
 
 	tokenLimitResult, err := x.usageLimiter.CheckTokenLimits(log, user.UserID, userGrade)
 	if err != nil {
 		log.E("Failed to check token limits", tracing.InnerError, err)
-		return "", err
+		return nil, err
 	}
 
 	if tokenLimitResult.Exceeded {
 		if tokenLimitResult.IsDaily {
-			return x.localization.LocalizeBy(msg, "MsgDailyTokenLimitExceeded"), nil
+			return &DialResult{Text: x.localization.LocalizeBy(msg, "MsgDailyTokenLimitExceeded"), IsSummarized: false}, nil
 		}
-		return x.localization.LocalizeBy(msg, "MsgMonthlyTokenLimitExceeded"), nil
+		return &DialResult{Text: x.localization.LocalizeBy(msg, "MsgMonthlyTokenLimitExceeded"), IsSummarized: false}, nil
 	}
 
 	var tariffModelConfig configuration.AI_TariffModelConfig
@@ -439,7 +444,7 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 
 	responseText, banNotice, totalTokens, totalCost, cacheReadTokens, cacheWriteTokens, err = x.dialNonStreaming(ctx, log, user, msg, request, messages, modelToUse, userGrade, agentUsage, &webSearchCalls, maxWebSearchCalls)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	if err := x.messages.SaveMessage(log, msg, false); err != nil {
@@ -489,12 +494,10 @@ func (x *Dialer) Dial(log *tracing.Logger, msg *tgbotapi.Message, req string, im
 		responseText += banNotice
 	}
 
-	if summarizationOccurred {
-		summarizedNotice := x.localization.LocalizeBy(msg, "MsgChatSummarized")
-		responseText = summarizedNotice + "\n\n" + responseText
-	}
-
-	return responseText, nil
+	return &DialResult{
+		Text:         responseText,
+		IsSummarized: summarizationOccurred,
+	}, nil
 }
 
 func (x *Dialer) dialNonStreaming(
