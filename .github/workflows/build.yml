@@ -55,7 +55,7 @@ jobs:
       should-release: ${{ steps.should-release.outputs.release }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 2
       - name: Get current version
@@ -93,7 +93,7 @@ jobs:
       xi: ${{ steps.filter.outputs.xi }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
 
       - name: Paths filter
         id: filter
@@ -122,7 +122,7 @@ jobs:
     needs: changes
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Set up Docker Buildx
@@ -159,7 +159,7 @@ jobs:
     if: needs.changes.outputs.flyway == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: docker/setup-qemu-action@v3
 
@@ -202,7 +202,7 @@ jobs:
     if: needs.changes.outputs.xi == 'true' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: docker/setup-qemu-action@v3
 
@@ -249,7 +249,7 @@ jobs:
     if: needs.version-check.outputs.should-release == 'true' && (needs.build-flyway.result == 'success' || needs.build-flyway.result == 'skipped') && (needs.build-xi.result == 'success' || needs.build-xi.result == 'skipped')
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
