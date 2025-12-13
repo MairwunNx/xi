@@ -95,6 +95,12 @@ other = "🈲 你今日的“社会信用额度”已用尽。明天再来觐见
 [MsgMonthlyLimitExceeded]
 other = "🈲 你本月已超过该功能的使用上限。"
 
+[MsgDailyTokenLimitExceeded]
+other = "🈲 您已超过每日令牌限制。限制将在明天重置！"
+
+[MsgMonthlyTokenLimitExceeded]
+other = "🈲 您已超过每月令牌限制。请联系 @MairwunNx 以增加配额！"
+
 [MsgInsufficientCredits]
 other = "💢 帝国国库已见底！如果没有你的支持（每月 15 美元起），伟大习主席将无法继续为人民服务。支持项目请联系 @MairwunNx。"
 
@@ -746,6 +752,9 @@ other = """🧠 **上下文信息**
 
 请在下方选择操作，或使用 `/context help` 获取更多信息。"""
 
+[MsgContextSummarized]
+other = "✨ _上下文已被总结以优化并提高请求质量_"
+
 # 系统健康
 [MsgHealthTitle]
 other = "🏥 **习皇帝系统状态**\n\n"
@@ -1107,13 +1116,6 @@ other = "💢 保存评价时发生错误。"
 [MsgFeedbackNotYourMessage]
 other = "🈲 只有收到回复的人才能评价。"
 
-# Streaming Status
-[MsgStreamingThinking]
-other = "💭 思考中"
-
-[MsgStreamingSearching]
-other = "🔍 搜索中"
-
 # Tariffs
 [MsgTariffNoAccess]
 other = "🈲 你没有权限管理套餐。你的社会信用已被**降低**！"
@@ -1241,26 +1243,19 @@ other = """🏷️ **套餐信息**
 🔑 **ID：** {{.ID}}
 📛 **密钥：** {{.Key}}
 📝 **显示名称：** {{.DisplayName}}
+💵 **价格：** {{.Price}}
 
-**🤖 模型：**
-{{.Models}}
+**📊 请求限制：**
+📅 每日：{{.RequestsPerDay}}
+📆 每月：{{.RequestsPerMonth}}
 
-**⚙️ 对话设置：**
-🧠 推理强度：{{.DialerReasoningEffort}}
-
-**📚 上下文：**
-⏱️ TTL：{{.ContextTTLSeconds}} 秒
-💬 最大消息数：{{.ContextMaxMessages}}
-🪙 最大令牌数：{{.ContextMaxTokens}}
-
-**📊 使用限制：**
-👁️ 视觉：{{.UsageVisionDaily}}/天，{{.UsageVisionMonthly}}/月
-💬 对话：{{.UsageDialerDaily}}/天，{{.UsageDialerMonthly}}/月
-🎤 语音：{{.UsageWhisperDaily}}/天，{{.UsageWhisperMonthly}}/月
+**🪙 令牌限制：**
+📅 每日：{{.TokensPerDay}}
+📆 每月：{{.TokensPerMonth}}
 
 **💰 消费限制：**
-📅 每日：{{.SpendingDailyLimit}}
-📆 每月：{{.SpendingMonthlyLimit}}
+📅 每日：${{.SpendingDailyLimit}}
+📆 每月：${{.SpendingMonthlyLimit}}
 
 📅 **创建时间：** {{.CreatedAt}}"""
 
@@ -1272,3 +1267,15 @@ other = "⚠️ 读取模型时出错"
 
 [MsgTariffNoModels]
 other = "🤷 未配置模型"
+
+[MsgVoiceDurationExceeded]
+other = "🈲 音频时长超过15分钟的限制。伟大的习主席没有时间听这么长的演讲！"
+
+[MsgChatSummarized]
+other = "📋 聊天历史已被总结以提高回答质量。"
+
+[MsgFinishReasonLength]
+other = "⚠️ 由于达到长度限制，回复已被截断。请尝试更简洁地重新表述您的请求或将其分成几部分。"
+
+[MsgFinishReasonContentFilter]
+other = "🚫 部分回复因内容政策被提供商过滤。请重新表述您的请求。"

@@ -95,6 +95,12 @@ other = "🈲 Your daily social credit has been exhausted. Audience with the Emp
 [MsgMonthlyLimitExceeded]
 other = "🈲 You have exceeded your monthly limit for this feature."
 
+[MsgDailyTokenLimitExceeded]
+other = "🈲 You have exceeded your daily token limit. The limit will reset tomorrow!"
+
+[MsgMonthlyTokenLimitExceeded]
+other = "🈲 You have exceeded your monthly token limit. Contact @MairwunNx to increase your quota!"
+
 [MsgInsufficientCredits]
 other = "💢 The imperial treasury is empty! Without your support (from $15/month) the Great Xi will not be able to continue serving the people. To support the project, contact @MairwunNx."
 
@@ -746,6 +752,9 @@ other = """🧠 **Context Information**
 
 Choose an action below or use `/context help` for more information."""
 
+[MsgContextSummarized]
+other = "✨ _Context has been summarized to optimize and improve request quality_"
+
 # System health
 [MsgHealthTitle]
 other = "🏥 **Emperor Xi System Status**\n\n"
@@ -1107,13 +1116,6 @@ other = "💢 An error occurred while saving your feedback."
 [MsgFeedbackNotYourMessage]
 other = "🈲 Only the person the response was addressed to can rate it."
 
-# Streaming Status
-[MsgStreamingThinking]
-other = "💭 Thinking"
-
-[MsgStreamingSearching]
-other = "🔍 Searching"
-
 # Tariffs
 [MsgTariffNoAccess]
 other = "🈲 You do not have permission to manage tariffs. Your social credit **has been lowered**!"
@@ -1241,26 +1243,19 @@ other = """🏷️ **Tariff Information**
 🔑 **ID:** {{.ID}}
 📛 **Key:** {{.Key}}
 📝 **Display Name:** {{.DisplayName}}
+💵 **Price:** {{.Price}}
 
-**🤖 Models:**
-{{.Models}}
+**📊 Request Limits:**
+📅 Per day: {{.RequestsPerDay}}
+📆 Per month: {{.RequestsPerMonth}}
 
-**⚙️ Dialog Settings:**
-🧠 Reasoning Effort: {{.DialerReasoningEffort}}
-
-**📚 Context:**
-⏱️ TTL: {{.ContextTTLSeconds}} sec
-💬 Max messages: {{.ContextMaxMessages}}
-🪙 Max tokens: {{.ContextMaxTokens}}
-
-**📊 Usage Limits:**
-👁️ Vision: {{.UsageVisionDaily}}/day, {{.UsageVisionMonthly}}/month
-💬 Dialer: {{.UsageDialerDaily}}/day, {{.UsageDialerMonthly}}/month
-🎤 Whisper: {{.UsageWhisperDaily}}/day, {{.UsageWhisperMonthly}}/month
+**🪙 Token Limits:**
+📅 Per day: {{.TokensPerDay}}
+📆 Per month: {{.TokensPerMonth}}
 
 **💰 Spending Limits:**
-📅 Daily: {{.SpendingDailyLimit}}
-📆 Monthly: {{.SpendingMonthlyLimit}}
+📅 Daily: ${{.SpendingDailyLimit}}
+📆 Monthly: ${{.SpendingMonthlyLimit}}
 
 📅 **Created:** {{.CreatedAt}}"""
 
@@ -1272,3 +1267,15 @@ other = "⚠️ Error reading models"
 
 [MsgTariffNoModels]
 other = "🤷 No models configured"
+
+[MsgVoiceDurationExceeded]
+other = "🈲 Audio duration exceeds the 15-minute limit. Emperor Xi doesn't have time to listen to such lengthy speeches!"
+
+[MsgChatSummarized]
+other = "📋 Chat history has been summarized to improve answer quality."
+
+[MsgFinishReasonLength]
+other = "⚠️ Response was truncated due to length limit. Try rephrasing your request more concisely or split it into parts."
+
+[MsgFinishReasonContentFilter]
+other = "🚫 Part of the response was filtered by the provider due to content policies. Please rephrase your request."
