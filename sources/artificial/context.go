@@ -17,13 +17,18 @@ import (
 )
 
 type ContextManager struct {
-	redis       *redis.Client
-	config      *configuration.Config
-	donations   *repository.DonationsRepository
-	agentSystem *AgentSystem
-	features    *features.FeatureManager
-	tariffs     *repository.TariffsRepository
-	log         *tracing.Logger
+	redis                *redis.Client
+	config               *configuration.Config
+	donations            *repository.DonationsRepository
+	agentSystem          *AgentSystem
+	features             *features.FeatureManager
+	tariffs              *repository.TariffsRepository
+	log                  *tracing.Logger
+	summarizationHandler SummarizationHandler
+}
+
+type SummarizationHandler interface {
+	OnSummarization(chatID platform.ChatID)
 }
 
 func NewContextManager(
@@ -36,59 +41,54 @@ func NewContextManager(
 	log *tracing.Logger,
 ) (*ContextManager, error) {
 	return &ContextManager{
-		redis:       redis,
-		config:      config,
-		donations:   donations,
-		agentSystem: agentSystem,
-		features:    fm,
-		tariffs:     tariffs,
-		log:         log,
+		redis:                redis,
+		config:               config,
+		donations:            donations,
+		agentSystem:          agentSystem,
+		features:             fm,
+		tariffs:              tariffs,
+		log:                  log,
+		summarizationHandler: nil,
 	}, nil
 }
 
-func (x *ContextManager) getContextLimits(ctx context.Context, grade platform.UserGrade) (ContextLimits, error) {
-	tariff, err := getTariffWithFallback(x.log, x.tariffs, grade)
-	if err != nil {
-		return ContextLimits{}, err
-	}
+func (x *ContextManager) SetSummarizationHandler(handler SummarizationHandler) {
+	x.summarizationHandler = handler
+}
+
+func (x *ContextManager) getContextLimits() ContextLimits {
 	return ContextLimits{
-		TTL:         tariff.ContextTTLSeconds,
-		MaxMessages: tariff.ContextMaxMessages,
-		MaxTokens:   tariff.ContextMaxTokens,
-	}, nil
+		TTL:       int(x.config.Redis.MessagesTTL.Seconds()),
+		MaxTokens: x.config.AI.Agents.Summarization.MaxContextTokens,
+	}
 }
 
 func (x *ContextManager) getChatHistoryKey(chatID platform.ChatID) string {
 	return fmt.Sprintf("chat_history:%d", chatID)
 }
 
-func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, error) {
+func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, userGrade platform.UserGrade) ([]platform.RedisMessage, bool, error) {
 	defer tracing.ProfilePoint(logger, "Context fetch completed", "artificial.context.fetch", "chat_id", chatID, "user_grade", userGrade)()
 
 	if !x.IsEnabled(logger, chatID) {
 		logger.I("Context collection is disabled for this chat, returning empty", "chat_id", chatID)
-		return []platform.RedisMessage{}, nil
+		return []platform.RedisMessage{}, false, nil
 	}
 
 	startTime := time.Now()
-	
+
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
 	defer cancel()
 
-	limits, err := x.getContextLimits(ctx, userGrade)
-	if err != nil {
-		logger.E("Failed to get context limits", tracing.InnerError, err)
-		return nil, err
-	}
-
+	limits := x.getContextLimits()
 	key := x.getChatHistoryKey(chatID)
 
-	messageStrings, err := x.redis.LRange(ctx, key, 0, int64(limits.MaxMessages-1)).Result()
+	messageStrings, err := x.redis.LRange(ctx, key, 0, -1).Result()
 	redisLatency := time.Since(startTime)
-	
+
 	if err != nil {
 		logger.E("Failed to fetch chat history from Redis", "key", key, "redis_latency_ms", redisLatency.Milliseconds(), tracing.InnerError, err)
-		return nil, err
+		return nil, false, err
 	}
 
 	rawMessageCount := len(messageStrings)
@@ -107,39 +107,52 @@ func (x *ContextManager) Fetch(logger *tracing.Logger, chatID platform.ChatID, u
 
 	x.reverseMessages(allMessages)
 
-	recentCount := x.config.AI.Agents.Summarization.RecentMessagesCount
+	recentCount := x.config.AI.Agents.Summarization.RecentMessagesToKeep
 	if recentCount <= 0 {
-		recentCount = 4 // Fallback to default
+		recentCount = 3
 	}
 
-	if len(allMessages) <= recentCount {
-		x.logFetchSuccess(logger, chatID, userGrade, rawMessageCount, allMessages, skippedMessages, false, redisLatency, time.Since(startTime), limits.MaxTokens)
-		return allMessages, nil
+	totalTokens := x.countTotalTokens(logger, allMessages)
+	triggerThreshold := int(float64(limits.MaxTokens) * float64(x.config.AI.Agents.Summarization.TriggerThresholdPercent) / 100.0)
+	if triggerThreshold <= 0 {
+		triggerThreshold = int(float64(limits.MaxTokens) * 0.75)
 	}
 
-	var lastFourMessages []platform.RedisMessage
-	var olderMessages []platform.RedisMessage
+	summarizationNeeded := totalTokens > triggerThreshold
 	summarizationOccurred := false
-	
-	lastFourMessages = allMessages[len(allMessages)-recentCount:]
-	olderMessages = allMessages[:len(allMessages)-recentCount]
-	
-	processedOlderMessages, summarizationOccurred, err := x.processMessagesWithSummarization(logger, olderMessages)
-	if err != nil {
-		logger.W("Failed to process messages with summarization, using original", tracing.InnerError, err)
-		processedOlderMessages = olderMessages
+
+	var finalMessages []platform.RedisMessage
+	if summarizationNeeded && len(allMessages) > recentCount {
+		logger.I("context_summarization_triggered",
+			"total_tokens", totalTokens,
+			"trigger_threshold", triggerThreshold,
+			"max_tokens", limits.MaxTokens,
+			"messages_count", len(allMessages),
+		)
+
+		processedMessages, err := x.summarizeHistory(logger, allMessages, recentCount)
+		if err != nil {
+			logger.W("Failed to summarize history, using original", tracing.InnerError, err)
+			finalMessages = allMessages
+		} else {
+			finalMessages = processedMessages
+			summarizationOccurred = true
+		}
+	} else {
+		finalMessages = allMessages
 	}
-	
-	finalMessages := append(processedOlderMessages, lastFourMessages...)
-	
+
 	if summarizationOccurred {
-		x.updateRedisAfterSummarization(logger, chatID, userGrade, finalMessages, processedOlderMessages, lastFourMessages)
+		x.updateRedisAfterSummarization(logger, chatID, userGrade, finalMessages)
+		if x.summarizationHandler != nil {
+			x.summarizationHandler.OnSummarization(chatID)
+		}
 	}
-	
+
 	messages := x.applyTokenLimit(logger, finalMessages, limits.MaxTokens)
 	x.logFetchSuccess(logger, chatID, userGrade, rawMessageCount, messages, skippedMessages, summarizationOccurred, redisLatency, time.Since(startTime), limits.MaxTokens)
 
-	return messages, nil
+	return messages, summarizationOccurred, nil
 }
 
 func (x *ContextManager) Store(
@@ -150,22 +163,22 @@ func (x *ContextManager) Store(
 ) error {
 	defer tracing.ProfilePoint(logger, "Context store completed", "artificial.context.store", "chat_id", chatID, "user_grade", userGrade, "message_role", message.Role)()
 
+	if message.Role == platform.MessageRoleTool {
+		logger.D("Skipping tool message storage", "chat_id", chatID)
+		return nil
+	}
+
 	if !x.IsEnabled(logger, chatID) {
 		logger.I("Context collection is disabled for this chat, skipping store", "chat_id", chatID)
 		return nil
 	}
 
 	startTime := time.Now()
-	
+
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
 	defer cancel()
 
-	limits, err := x.getContextLimits(ctx, userGrade)
-	if err != nil {
-		logger.E("Failed to get context limits", tracing.InnerError, err)
-		return err
-	}
-
+	limits := x.getContextLimits()
 	key := x.getChatHistoryKey(chatID)
 
 	messageStr, err := json.Marshal(message)
@@ -178,7 +191,6 @@ func (x *ContextManager) Store(
 
 	pipe := x.redis.TxPipeline()
 	pipe.LPush(ctx, key, messageStr)
-	pipe.LTrim(ctx, key, 0, int64(limits.MaxMessages-1))
 	pipe.Expire(ctx, key, time.Duration(limits.TTL)*time.Second)
 
 	if _, err := pipe.Exec(ctx); err != nil {
@@ -193,7 +205,6 @@ func (x *ContextManager) Store(
 		"user_grade", userGrade,
 		"message_role", message.Role,
 		"message_tokens", messageTokens,
-		"max_messages", limits.MaxMessages,
 		"ttl_seconds", limits.TTL,
 		"duration_ms", duration.Milliseconds(),
 	)
@@ -282,12 +293,7 @@ func (x *ContextManager) GetStats(logger *tracing.Logger, chatID platform.ChatID
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 5*time.Second)
 	defer cancel()
 
-	limits, err := x.getContextLimits(ctx, userGrade)
-	if err != nil {
-		logger.E("Failed to get context limits for stats", tracing.InnerError, err)
-		return nil, err
-	}
-
+	limits := x.getContextLimits()
 	key := x.getChatHistoryKey(chatID)
 	messageStrings, err := x.redis.LRange(ctx, key, 0, -1).Result()
 	if err != nil {
@@ -309,7 +315,7 @@ func (x *ContextManager) GetStats(logger *tracing.Logger, chatID platform.ChatID
 	return &ContextStats{
 		Enabled:         enabled,
 		CurrentMessages: len(messageStrings),
-		MaxMessages:     limits.MaxMessages,
+		MaxMessages:     0,
 		CurrentTokens:   totalTokens,
 		MaxTokens:       limits.MaxTokens,
 	}, nil
@@ -324,7 +330,7 @@ func (x *ContextManager) reverseMessages(messages []platform.RedisMessage) {
 func (x *ContextManager) applyTokenLimit(logger *tracing.Logger, messages []platform.RedisMessage, maxTokens int) []platform.RedisMessage {
 	var result []platform.RedisMessage
 	totalTokens := 0
-	
+
 	for _, msg := range messages {
 		msgTokens := tokenizer.Tokens(logger, msg.Content)
 		if totalTokens+msgTokens > maxTokens {
@@ -338,7 +344,7 @@ func (x *ContextManager) applyTokenLimit(logger *tracing.Logger, messages []plat
 		result = append(result, msg)
 		totalTokens += msgTokens
 	}
-	
+
 	return result
 }
 
@@ -347,8 +353,6 @@ func (x *ContextManager) updateRedisAfterSummarization(
 	chatID platform.ChatID,
 	userGrade platform.UserGrade,
 	finalMessages []platform.RedisMessage,
-	olderMessages []platform.RedisMessage,
-	recentMessages []platform.RedisMessage,
 ) {
 	if err := x.replaceHistoryInRedis(logger, chatID, userGrade, finalMessages); err != nil {
 		logger.E("Failed to update Redis with summarized history", tracing.InnerError, err)
@@ -356,8 +360,6 @@ func (x *ContextManager) updateRedisAfterSummarization(
 		logger.I("redis_history_updated_after_summarization",
 			"chat_id", chatID,
 			"total_messages", len(finalMessages),
-			"older_messages", len(olderMessages),
-			"recent_messages", len(recentMessages),
 		)
 	}
 }
@@ -403,260 +405,91 @@ func (x *ContextManager) countTotalTokens(logger *tracing.Logger, messages []pla
 	return total
 }
 
-func (x *ContextManager) processMessagesWithSummarization(
+func (x *ContextManager) summarizeHistory(
 	logger *tracing.Logger,
 	messages []platform.RedisMessage,
-) ([]platform.RedisMessage, bool, error) {
-	messageFeatureEnabled := x.features.IsEnabled(features.FeatureMessageSummarization)
-	clusterFeatureEnabled := x.features.IsEnabled(features.FeatureClusterSummarization)
-	
-	if (!messageFeatureEnabled && !clusterFeatureEnabled) || len(messages) == 0 {
-		return messages, false, nil
+	recentToKeep int,
+) ([]platform.RedisMessage, error) {
+	if len(messages) <= recentToKeep {
+		return messages, nil
 	}
-	
+
 	startTime := time.Now()
 	originalTokens := x.countTotalTokens(logger, messages)
-	
-	messagesAfterFirstPass, firstPassCount := messages, 0
-	if messageFeatureEnabled {
-		messagesAfterFirstPass, firstPassCount = x.summarizeIndividualMessages(logger, messages)
-	}
-	
-	finalMessages, secondPassCount := messagesAfterFirstPass, 0
-	if clusterFeatureEnabled {
-		finalMessages, secondPassCount = x.summarizeClusters(logger, messagesAfterFirstPass)
-	}
-	
-	summarizationOccurred := firstPassCount > 0 || secondPassCount > 0
-	if summarizationOccurred {
-		x.logSummarizationStats(logger, messages, finalMessages, firstPassCount, secondPassCount, originalTokens, time.Since(startTime))
-	}
-	
-	return finalMessages, summarizationOccurred, nil
-}
 
-func (x *ContextManager) logSummarizationStats(
-	logger *tracing.Logger,
-	originalMessages []platform.RedisMessage,
-	finalMessages []platform.RedisMessage,
-	individualCount int,
-	clusterCount int,
-	originalTokens int,
-	duration time.Duration,
-) {
-	finalTokens := x.countTotalTokens(logger, finalMessages)
-	tokenReduction := originalTokens - finalTokens
-	reductionPercent := 0
-	if originalTokens > 0 {
-		reductionPercent = int(float64(tokenReduction) / float64(originalTokens) * 100)
-	}
-	
-	logger.I("summarization_completed",
-		"original_messages", len(originalMessages),
-		"final_messages", len(finalMessages),
-		"individual_summarized", individualCount,
-		"clusters_summarized", clusterCount,
-		"original_tokens", originalTokens,
-		"final_tokens", finalTokens,
-		"tokens_reduced", tokenReduction,
-		"reduction_percent", reductionPercent,
-		"duration_ms", duration.Milliseconds(),
-	)
-}
+	recentMessages := messages[len(messages)-recentToKeep:]
+	olderMessages := messages[:len(messages)-recentToKeep]
 
-func (x *ContextManager) summarizeIndividualMessages(
-	logger *tracing.Logger,
-	messages []platform.RedisMessage,
-) ([]platform.RedisMessage, int) {
-	
-	result := make([]platform.RedisMessage, 0, len(messages))
-	summarizedCount := 0
-	
-	for _, msg := range messages {
-		if msg.Role == platform.MessageRoleSystem || msg.Role == platform.MessageRoleTool || msg.IsCompressed {
-			result = append(result, msg)
-			continue
-		}
-		
-		tokens := tokenizer.Tokens(logger, msg.Content)
-		
-		if tokens > x.config.AI.Agents.Summarization.SingleMessageTokenThreshold {
-			summarized, err := x.agentSystem.SummarizeContent(logger, msg.Content, "message")
-			if err != nil {
-				logger.W("Failed to summarize individual message, using original", tracing.InnerError, err)
-				result = append(result, msg)
-				continue
-			}
-			
-			summarizedTokens := tokenizer.Tokens(logger, summarized)
-			tokenReduction := tokens - summarizedTokens
-			reductionPercent := 0
-			if tokens > 0 {
-				reductionPercent = int(float64(tokenReduction) / float64(tokens) * 100)
-			}
-			
-			logger.I("individual_message_summarized",
-				"role", msg.Role,
-				"original_tokens", tokens,
-				"summarized_tokens", summarizedTokens,
-				"tokens_reduced", tokenReduction,
-				"reduction_percent", reductionPercent,
-			)
-			
-			summarizedMsg := platform.RedisMessage{
-				Role:         msg.Role,
-				Content:      summarized,
-				IsCompressed: false,
-			}
-			result = append(result, summarizedMsg)
-			summarizedCount++
-		} else {
-			result = append(result, msg)
-		}
-	}
-	
-	return result, summarizedCount
-}
+	var messagesToSummarize []platform.RedisMessage
+	var previousSummary string
 
-func (x *ContextManager) summarizeClusters(
-	logger *tracing.Logger,
-	messages []platform.RedisMessage,
-) ([]platform.RedisMessage, int) {
-
-	if len(messages) == 0 {
-		return messages, 0
-	}
-
-	result := make([]platform.RedisMessage, 0, len(messages))
-	summarizedClusters := 0
-	i := 0
-
-	for i < len(messages) {
-		// Tool messages are added as-is
-		if messages[i].Role == platform.MessageRoleTool {
-			result = append(result, messages[i])
-			i++
-			continue
-		}
-
-		// If message doesn't start a pair (not user), add and continue
-		if messages[i].Role != platform.MessageRoleUser {
-			result = append(result, messages[i])
-			i++
-			continue
-		}
-
-		// Try to form a cluster of pairs: user -> [tool*] -> assistant
-		clusterStart := i
-		clusterEnd := i
-		pairsInCluster := 0
-
-		for clusterEnd < len(messages) && pairsInCluster < x.config.AI.Agents.Summarization.ClusterSize {
-			// Pair must start with user
-			if messages[clusterEnd].Role != platform.MessageRoleUser {
-				break
-			}
-
-			pairStart := clusterEnd
-			clusterEnd++ // Move past user
-
-			// Skip tool messages between user and assistant
-			for clusterEnd < len(messages) && messages[clusterEnd].Role == platform.MessageRoleTool {
-				clusterEnd++
-			}
-
-			// Check if assistant follows
-			if clusterEnd < len(messages) && messages[clusterEnd].Role == platform.MessageRoleAssistant {
-				clusterEnd++ // Include assistant
-				pairsInCluster++
-			} else {
-				// No assistant found — rollback, pair not formed
-				clusterEnd = pairStart
-				break
-			}
-		}
-
-		// If formed less than 2 pairs — add as-is and CONTINUE (not break!)
-		if pairsInCluster < 2 {
-			if clusterEnd == clusterStart {
-				// Couldn't form any pair — add current message and move on
-				result = append(result, messages[i])
-				i++
-			} else {
-				// Formed 1 pair — add it as-is
-				result = append(result, messages[clusterStart:clusterEnd]...)
-				i = clusterEnd
-			}
-			continue
-		}
-
-		// Formed cluster of >=2 pairs
-		clusterMessages := messages[clusterStart:clusterEnd]
-		clusterTokens := x.countTotalTokens(logger, clusterMessages)
-
-		if clusterTokens > x.config.AI.Agents.Summarization.ClusterTokenThreshold {
-			clusterContent := x.formatClusterContent(clusterMessages)
-
-			summarized, err := x.agentSystem.SummarizeContent(logger, clusterContent, "cluster")
-			if err != nil {
-				logger.W("Failed to summarize cluster, using original messages", tracing.InnerError, err)
-				result = append(result, clusterMessages...)
-				i = clusterEnd
-				continue
-			}
-
-			x.logClusterSummarization(logger, pairsInCluster, clusterMessages, clusterTokens, summarized)
-
-			result = append(result, platform.RedisMessage{
-				Role:         platform.MessageRoleSystem,
-				Content:      summarized,
-				IsCompressed: true,
-			})
-			summarizedClusters++
-			i = clusterEnd
-		} else {
-			result = append(result, clusterMessages...)
-			i = clusterEnd
+	for _, msg := range olderMessages {
+		if msg.Role == platform.MessageRoleSystem && msg.IsCompressed {
+			previousSummary = msg.Content
+		} else if msg.Role != platform.MessageRoleSystem {
+			messagesToSummarize = append(messagesToSummarize, msg)
 		}
 	}
 
-	return result, summarizedClusters
-}
-
-func (x *ContextManager) formatClusterContent(messages []platform.RedisMessage) string {
-	var builder strings.Builder
-	for idx, msg := range messages {
-		role := "User"
-		if msg.Role == platform.MessageRoleAssistant {
-			role = "Assistant"
-		}
-		builder.WriteString(fmt.Sprintf("[Message %d] %s: %s\n\n", idx+1, role, msg.Content))
+	if len(messagesToSummarize) == 0 && previousSummary == "" {
+		return recentMessages, nil
 	}
-	return builder.String()
-}
 
-func (x *ContextManager) logClusterSummarization(
-	logger *tracing.Logger,
-	pairsCount int,
-	clusterMessages []platform.RedisMessage,
-	originalTokens int,
-	summarized string,
-) {
+	if len(messagesToSummarize) == 0 && previousSummary != "" {
+		summarizedMessage := platform.RedisMessage{
+			Role:         platform.MessageRoleSystem,
+			Content:      previousSummary,
+			IsCompressed: true,
+		}
+		return append([]platform.RedisMessage{summarizedMessage}, recentMessages...), nil
+	}
+
+	historyText := x.formatHistoryForSummarization(messagesToSummarize, previousSummary)
+
+	summarized, err := x.agentSystem.SummarizeContent(logger, historyText, "history")
+	if err != nil {
+		return nil, err
+	}
+
 	summarizedTokens := tokenizer.Tokens(logger, summarized)
-	tokenReduction := originalTokens - summarizedTokens
-	reductionPercent := 0
-	if originalTokens > 0 {
-		reductionPercent = int(float64(tokenReduction) / float64(originalTokens) * 100)
-	}
-	
-	logger.I("cluster_summarized",
-		"pairs_count", pairsCount,
-		"messages_in_cluster", len(clusterMessages),
+	tokenReduction := originalTokens - (summarizedTokens + x.countTotalTokens(logger, recentMessages))
+
+	logger.I("history_summarized",
+		"original_messages", len(olderMessages),
+		"recent_messages", len(recentMessages),
 		"original_tokens", originalTokens,
 		"summarized_tokens", summarizedTokens,
 		"tokens_reduced", tokenReduction,
-		"reduction_percent", reductionPercent,
+		"duration_ms", time.Since(startTime).Milliseconds(),
 	)
+
+	summarizedMessage := platform.RedisMessage{
+		Role:         platform.MessageRoleSystem,
+		Content:      summarized,
+		IsCompressed: true,
+	}
+
+	return append([]platform.RedisMessage{summarizedMessage}, recentMessages...), nil
+}
+
+func (x *ContextManager) formatHistoryForSummarization(messages []platform.RedisMessage, previousSummary string) string {
+	var builder strings.Builder
+
+	if previousSummary != "" {
+		builder.WriteString(fmt.Sprintf("[Summary] System: %s\n\n", previousSummary))
+	}
+
+	for idx, msg := range messages {
+		role := "User"
+		switch msg.Role {
+		case platform.MessageRoleAssistant:
+			role = "Assistant"
+		case platform.MessageRoleSystem:
+			role = "System"
+		}
+		builder.WriteString(fmt.Sprintf("[%d] %s: %s\n\n", idx+1, role, msg.Content))
+	}
+	return builder.String()
 }
 
 func (x *ContextManager) replaceHistoryInRedis(
@@ -670,10 +503,7 @@ func (x *ContextManager) replaceHistoryInRedis(
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 10*time.Second)
 	defer cancel()
 
-	limits, err := x.getContextLimits(ctx, userGrade)
-	if err != nil {
-		return err
-	}
+	limits := x.getContextLimits()
 
 	// Use transaction pipeline for atomicity — Del + LPush + Expire all together
 	pipe := x.redis.TxPipeline()
