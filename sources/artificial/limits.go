@@ -107,7 +107,7 @@ func (x *SpendingLimiter) CheckSpendingLimits(logger *tracing.Logger, user *enti
 func (x *SpendingLimiter) getSpend(logger *tracing.Logger, user *entities.User, period string) (decimal.Decimal, error) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 3*time.Second)
 	defer cancel()
-	
+
 	key := x.getSpendKey(user.ID.String(), period)
 
 	// Try to get from Redis first
@@ -158,14 +158,16 @@ func (x *SpendingLimiter) getSpend(logger *tracing.Logger, user *entities.User, 
 func (x *SpendingLimiter) IncrementSpend(logger *tracing.Logger, userID string, amount decimal.Decimal) {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	dailyKey := x.getSpendKey(userID, "daily")
 	monthlyKey := x.getSpendKey(userID, "monthly")
 
 	pipe := x.redis.TxPipeline()
 	pipe.IncrByFloat(ctx, dailyKey, amount.InexactFloat64())
 	pipe.IncrByFloat(ctx, monthlyKey, amount.InexactFloat64())
-	
+	pipe.Expire(ctx, dailyKey, 25*time.Hour)
+	pipe.Expire(ctx, monthlyKey, 32*24*time.Hour)
+
 	if _, err := pipe.Exec(ctx); err != nil {
 		logger.E("Failed to increment spend in Redis", "user_id", userID, "amount", amount.String(), tracing.InnerError, err)
 	}
