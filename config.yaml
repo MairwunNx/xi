@@ -19,6 +19,7 @@ redis:
   db: ${REDIS_DB}
   max_retries: ${REDIS_MAX_RETRIES}
   dial_timeout: ${REDIS_DIAL_TIMEOUT}
+  messages_ttl: 720h
 
 telegram:
   bot_token: ${TELEGRAM_BOT_TOKEN}
@@ -36,22 +37,18 @@ ai:
   limit_exceeded_fallback_models: [deepseek/deepseek-chat]
   placebo_models: [openai/gpt-4.1-mini, x-ai/grok-4-fast, x-ai/grok-4-fast:free]
   agents:
-    context:
-      model: openai/gpt-4o-mini
-      timeout: 45
-    model_selection:
+    effort_selection:
       model: openai/gpt-4o-mini
       timeout: 30
     response_length:
       model: openai/gpt-4o-mini
       timeout: 20
     summarization:
-      model: openai/gpt-4o-mini
+      model: google/gemini-2.5-flash-lite
       timeout: 60
-      single_message_token_threshold: 2100
-      cluster_token_threshold: 10000
-      cluster_size: 10
-      recent_messages_count: 5
+      recent_messages_to_keep: 3
+      trigger_threshold_percent: 75
+      max_context_tokens: 300000
     web_search:
       deep_model: perplexity/sonar-pro-search
       brief_model: perplexity/sonar-pro
@@ -63,13 +60,22 @@ ai:
       model: openai/gpt-4o-mini
       timeout: 30
   prompts:
-    context_selection: ${AGENT_CONTEXT_SELECTION_PROMPT}
-    model_selection: ${AGENT_MODEL_SELECTION_PROMPT}
+    effort_selection: ${AGENT_EFFORT_SELECTION_PROMPT}
     response_length: ${AGENT_RESPONSE_LENGTH_PROMPT}
     summarization: ${SUMMARIZATION_PROMPT}
     personalization_validation: ${AGENT_PERSONALIZATION_VALIDATION_PROMPT}
     personalization_extraction: ${AGENT_PERSONALIZATION_EXTRACTION_PROMPT}
     web_search: ${AGENT_WEB_SEARCH_PROMPT}
+  tariff_models:
+    bronze:
+      primary_model: google/gemini-2.5-flash
+      fallback_model: x-ai/grok-4.1-fast
+    silver:
+      primary_model: google/gemini-2.5-pro
+      fallback_model: anthropic/claude-sonnet-4
+    gold:
+      primary_model: google/gemini-3-pro-preview
+      fallback_model: anthropic/claude-sonnet-4.5
 
 proxy:
   url: ${PROXY_ADDRESS}
