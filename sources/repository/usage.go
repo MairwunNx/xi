@@ -18,21 +18,23 @@ func NewUsageRepository() *UsageRepository {
 	return &UsageRepository{}
 }
 
-func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, chatID int64, cost decimal.Decimal, tokens int, anotherCost decimal.Decimal, anotherTokens int) error {
+func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, chatID int64, cost decimal.Decimal, tokens int, cacheReadTokens int, cacheWriteTokens int, anotherCost decimal.Decimal, anotherTokens int) error {
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	usage := &entities.Usage{
-		UserID: userID,
-		ChatID: chatID,
-		Cost:   cost,
-		Tokens: tokens,
+		UserID:           userID,
+		ChatID:           chatID,
+		Cost:             cost,
+		Tokens:           tokens,
+		CacheReadTokens:  cacheReadTokens,
+		CacheWriteTokens: cacheWriteTokens,
 	}
 
 	if !anotherCost.IsZero() {
 		usage.AnotherCost = &anotherCost
 	}
-	
+
 	if anotherTokens > 0 {
 		usage.AnotherTokens = &anotherTokens
 	}
@@ -44,7 +46,7 @@ func (x *UsageRepository) SaveUsage(logger *tracing.Logger, userID uuid.UUID, ch
 		return err
 	}
 
-	logger.I("Usage saved", "cost", cost, "tokens", tokens, "another_cost", anotherCost, "another_tokens", anotherTokens)
+	logger.I("Usage saved", "cost", cost, "tokens", tokens, "cache_read", cacheReadTokens, "cache_write", cacheWriteTokens, "another_cost", anotherCost, "another_tokens", anotherTokens)
 	return nil
 }
 
@@ -55,7 +57,7 @@ func (x *UsageRepository) GetTotalCost(logger *tracing.Logger) (decimal.Decimal,
 
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Select(query.Usage.Cost.Sum()).
 		Row().Scan(&totalCost)
@@ -80,7 +82,7 @@ func (x *UsageRepository) GetTotalCostLastMonth(logger *tracing.Logger) (decimal
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
 		Select(query.Usage.Cost.Sum()).
@@ -105,7 +107,7 @@ func (x *UsageRepository) GetUserCost(logger *tracing.Logger, user *entities.Use
 
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Select(query.Usage.Cost.Sum()).
@@ -131,7 +133,7 @@ func (x *UsageRepository) GetUserCostLastMonth(logger *tracing.Logger, user *ent
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
@@ -183,7 +185,7 @@ func (x *UsageRepository) GetTotalTokens(logger *tracing.Logger) (int64, error) 
 
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Select(query.Usage.Tokens.Sum()).
 		Row().Scan(&totalTokens)
@@ -208,7 +210,7 @@ func (x *UsageRepository) GetTotalTokensLastMonth(logger *tracing.Logger) (int64
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
 		Select(query.Usage.Tokens.Sum()).
@@ -233,7 +235,7 @@ func (x *UsageRepository) GetUserTokens(logger *tracing.Logger, user *entities.U
 
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Select(query.Usage.Tokens.Sum()).
@@ -259,7 +261,7 @@ func (x *UsageRepository) GetUserTokensLastMonth(logger *tracing.Logger, user *e
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
@@ -284,11 +286,11 @@ func (x *UsageRepository) GetAverageDailyCost(logger *tracing.Logger) (decimal.D
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-	
+
 	firstUsage, err := q.Usage.
 		Order(query.Usage.CreatedAt).
 		First()
-	
+
 	if err != nil || firstUsage == nil {
 		logger.E("Failed to get first usage record", tracing.InnerError, err)
 		return decimal.Zero, nil
@@ -305,7 +307,7 @@ func (x *UsageRepository) GetAverageDailyCost(logger *tracing.Logger) (decimal.D
 	}
 
 	avgDailyCost := totalCost.Div(decimal.NewFromFloat(daysSince))
-	
+
 	return avgDailyCost, nil
 }
 
@@ -315,12 +317,12 @@ func (x *UsageRepository) GetUserAverageDailyCost(logger *tracing.Logger, user *
 	defer cancel()
 
 	q := query.Q.WithContext(ctx)
-	
+
 	firstUsage, err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Order(query.Usage.CreatedAt).
 		First()
-	
+
 	if err != nil || firstUsage == nil {
 		logger.E("Failed to get first user usage record", tracing.InnerError, err)
 		return decimal.Zero, nil
@@ -337,7 +339,7 @@ func (x *UsageRepository) GetUserAverageDailyCost(logger *tracing.Logger, user *
 	}
 
 	avgDailyCost := totalCost.Div(decimal.NewFromFloat(daysSince))
-	
+
 	return avgDailyCost, nil
 }
 
@@ -348,10 +350,10 @@ func (x *UsageRepository) GetUserDailyCost(logger *tracing.Logger, user *entitie
 
 	now := time.Now()
 	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	
+
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(startOfDay)).
@@ -377,10 +379,10 @@ func (x *UsageRepository) GetUserMonthlyCost(logger *tracing.Logger, user *entit
 
 	now := time.Now()
 	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-	
+
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(startOfMonth)).
@@ -406,7 +408,7 @@ func (x *UsageRepository) GetTotalAnotherCost(logger *tracing.Logger) (decimal.D
 
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Select(query.Usage.AnotherCost.Sum()).
 		Row().Scan(&totalCost)
@@ -431,7 +433,7 @@ func (x *UsageRepository) GetTotalAnotherCostLastMonth(logger *tracing.Logger) (
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
 		Select(query.Usage.AnotherCost.Sum()).
@@ -456,7 +458,7 @@ func (x *UsageRepository) GetUserAnotherCost(logger *tracing.Logger, user *entit
 
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Select(query.Usage.AnotherCost.Sum()).
@@ -482,7 +484,7 @@ func (x *UsageRepository) GetUserAnotherCostLastMonth(logger *tracing.Logger, us
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalCost *decimal.Decimal
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
@@ -508,7 +510,7 @@ func (x *UsageRepository) GetTotalAnotherTokens(logger *tracing.Logger) (int64, 
 
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Select(query.Usage.AnotherTokens.Sum()).
 		Row().Scan(&totalTokens)
@@ -533,7 +535,7 @@ func (x *UsageRepository) GetTotalAnotherTokensLastMonth(logger *tracing.Logger)
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).
 		Select(query.Usage.AnotherTokens.Sum()).
@@ -558,7 +560,7 @@ func (x *UsageRepository) GetUserAnotherTokens(logger *tracing.Logger, user *ent
 
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Select(query.Usage.AnotherTokens.Sum()).
@@ -584,7 +586,7 @@ func (x *UsageRepository) GetUserAnotherTokensLastMonth(logger *tracing.Logger, 
 	lastMonth := time.Now().AddDate(0, -1, 0)
 	var totalTokens *int64
 	q := query.Q.WithContext(ctx)
-	
+
 	err := q.Usage.
 		Where(query.Usage.UserID.Eq(user.ID)).
 		Where(query.Usage.CreatedAt.Gte(lastMonth)).

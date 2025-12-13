@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -14,24 +13,13 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-type ModelMeta struct {
-	Name            string `json:"name"`
-	AAI             int    `json:"aai"`
-	InputPricePerM  string `json:"input_price_per_m"`
-	OutputPricePerM string `json:"output_price_per_m"`
-	CtxTokens       string `json:"ctx_tokens"`
-}
-
 var (
-	ErrTariffNotFound       = errors.New("tariff not found")
-	ErrTariffKeyEmpty       = errors.New("tariff key cannot be empty")
-	ErrTariffKeyTooLong     = errors.New("tariff key cannot exceed 50 characters")
-	ErrTariffNameEmpty      = errors.New("tariff display name cannot be empty")
-	ErrTariffNameTooLong    = errors.New("tariff display name cannot exceed 100 characters")
-	ErrTariffInvalidEffort  = errors.New("invalid reasoning effort (must be: low, medium, high)")
-	ErrTariffInvalidLimit   = errors.New("limit values must be non-negative")
-	ErrTariffModelsEmpty    = errors.New("dialer_models cannot be empty")
-	ErrTariffModelNameEmpty = errors.New("model name cannot be empty")
+	ErrTariffNotFound      = errors.New("tariff not found")
+	ErrTariffKeyEmpty      = errors.New("tariff key cannot be empty")
+	ErrTariffKeyTooLong    = errors.New("tariff key cannot exceed 50 characters")
+	ErrTariffNameEmpty     = errors.New("tariff display name cannot be empty")
+	ErrTariffNameTooLong   = errors.New("tariff display name cannot exceed 100 characters")
+	ErrTariffInvalidLimit  = errors.New("limit values must be non-negative")
 )
 
 type TariffsRepository struct{}
@@ -93,22 +81,15 @@ func (x *TariffsRepository) GetAllLatest(log *tracing.Logger) ([]*entities.Tarif
 type TariffConfig struct {
 	DisplayName string `json:"display_name"`
 
-	DialerModels          []ModelMeta `json:"dialer_models"`
-	DialerReasoningEffort string      `json:"dialer_reasoning_effort"`
-
-	ContextTTLSeconds  int `json:"context_ttl_seconds"`
-	ContextMaxMessages int `json:"context_max_messages"`
-	ContextMaxTokens   int `json:"context_max_tokens"`
-
-	UsageVisionDaily    int `json:"usage_vision_daily"`
-	UsageVisionMonthly  int `json:"usage_vision_monthly"`
-	UsageDialerDaily    int `json:"usage_dialer_daily"`
-	UsageDialerMonthly  int `json:"usage_dialer_monthly"`
-	UsageWhisperDaily   int `json:"usage_whisper_daily"`
-	UsageWhisperMonthly int `json:"usage_whisper_monthly"`
+	RequestsPerDay   int   `json:"requests_per_day"`
+	RequestsPerMonth int   `json:"requests_per_month"`
+	TokensPerDay     int64 `json:"tokens_per_day"`
+	TokensPerMonth   int64 `json:"tokens_per_month"`
 
 	SpendingDailyLimit   string `json:"spending_daily_limit"`
 	SpendingMonthlyLimit string `json:"spending_monthly_limit"`
+
+	Price int `json:"price"`
 }
 
 func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config *TariffConfig) (*entities.Tariff, error) {
@@ -130,34 +111,9 @@ func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config
 		return nil, ErrTariffNameTooLong
 	}
 
-	// Validate reasoning effort
-	validEfforts := []string{"low", "medium", "high"}
-	effortValid := false
-	for _, e := range validEfforts {
-		if config.DialerReasoningEffort == e {
-			effortValid = true
-			break
-		}
-	}
-	if !effortValid {
-		return nil, ErrTariffInvalidEffort
-	}
-
-	// Validate dialer models
-	if len(config.DialerModels) == 0 {
-		return nil, ErrTariffModelsEmpty
-	}
-	for _, model := range config.DialerModels {
-		if model.Name == "" {
-			return nil, ErrTariffModelNameEmpty
-		}
-	}
-
 	// Validate non-negative limits
-	if config.ContextTTLSeconds < 0 || config.ContextMaxMessages < 0 || config.ContextMaxTokens < 0 ||
-		config.UsageVisionDaily < 0 || config.UsageVisionMonthly < 0 ||
-		config.UsageDialerDaily < 0 || config.UsageDialerMonthly < 0 ||
-		config.UsageWhisperDaily < 0 || config.UsageWhisperMonthly < 0 {
+	if config.RequestsPerDay < 0 || config.RequestsPerMonth < 0 ||
+		config.TokensPerDay < 0 || config.TokensPerMonth < 0 || config.Price < 0 {
 		return nil, ErrTariffInvalidLimit
 	}
 
@@ -178,31 +134,19 @@ func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config
 		return nil, ErrTariffInvalidLimit
 	}
 
-	// Serialize dialer models to JSON
-	modelsJSON, err := serializeDialerModels(config.DialerModels)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize dialer_models: %w", err)
-	}
-
 	ctx, cancel := platform.ContextTimeoutVal(context.Background(), 20*time.Second)
 	defer cancel()
 
 	tariff := &entities.Tariff{
-		Key:                   key,
-		DisplayName:           config.DisplayName,
-		DialerModels:          modelsJSON,
-		DialerReasoningEffort: config.DialerReasoningEffort,
-		ContextTTLSeconds:     config.ContextTTLSeconds,
-		ContextMaxMessages:    config.ContextMaxMessages,
-		ContextMaxTokens:      config.ContextMaxTokens,
-		UsageVisionDaily:      config.UsageVisionDaily,
-		UsageVisionMonthly:    config.UsageVisionMonthly,
-		UsageDialerDaily:      config.UsageDialerDaily,
-		UsageDialerMonthly:    config.UsageDialerMonthly,
-		UsageWhisperDaily:     config.UsageWhisperDaily,
-		UsageWhisperMonthly:   config.UsageWhisperMonthly,
-		SpendingDailyLimit:    dailyLimit,
-		SpendingMonthlyLimit:  monthlyLimit,
+		Key:                  key,
+		DisplayName:          config.DisplayName,
+		RequestsPerDay:       config.RequestsPerDay,
+		RequestsPerMonth:     config.RequestsPerMonth,
+		TokensPerDay:         config.TokensPerDay,
+		TokensPerMonth:       config.TokensPerMonth,
+		SpendingDailyLimit:   dailyLimit,
+		SpendingMonthlyLimit: monthlyLimit,
+		Price:                config.Price,
 	}
 
 	t := query.Q.Tariff
@@ -214,11 +158,4 @@ func (x *TariffsRepository) CreateTariff(log *tracing.Logger, key string, config
 
 	log.I("Created tariff", "key", key, "id", tariff.ID)
 	return tariff, nil
-}
-
-func serializeDialerModels(models []ModelMeta) ([]byte, error) {
-	if models == nil {
-		models = []ModelMeta{}
-	}
-	return json.Marshal(models)
 }

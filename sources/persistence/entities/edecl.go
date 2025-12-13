@@ -98,9 +98,11 @@ type (
 	Usage struct {
 		ID            uuid.UUID        `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 		UserID        uuid.UUID        `gorm:"type:uuid;not null;column:user_id" json:"user_id"`
-		Cost          decimal.Decimal  `gorm:"type:decimal(10,6);not null" json:"cost"`
-		Tokens        int              `gorm:"not null" json:"tokens"`
-		AnotherCost   *decimal.Decimal `gorm:"type:decimal(10,6)" json:"another_cost"`
+		Cost             decimal.Decimal  `gorm:"type:decimal(10,6);not null" json:"cost"`
+		Tokens           int              `gorm:"not null" json:"tokens"`
+		CacheReadTokens  int              `gorm:"default:0" json:"cache_read_tokens"`
+		CacheWriteTokens int              `gorm:"default:0" json:"cache_write_tokens"`
+		AnotherCost      *decimal.Decimal `gorm:"type:decimal(10,6)" json:"another_cost"`
 		AnotherTokens *int             `gorm:"" json:"another_tokens"`
 		ChatID        int64            `gorm:"not null" json:"chat_id"`
 		CreatedAt     time.Time        `gorm:"not null;default:CURRENT_TIMESTAMP" json:"created_at"`
@@ -134,22 +136,15 @@ type (
 		DisplayName string    `gorm:"column:display_name;not null"`
 		CreatedAt   time.Time `gorm:"column:created_at;default:now();index:idx_key_created,priority:2,sort:desc"`
 
-		DialerModels          []byte `gorm:"column:dialer_models;type:jsonb;not null"`
-		DialerReasoningEffort string `gorm:"column:dialer_reasoning_effort;not null"`
-
-		ContextTTLSeconds  int `gorm:"column:context_ttl_seconds;not null"`
-		ContextMaxMessages int `gorm:"column:context_max_messages;not null"`
-		ContextMaxTokens   int `gorm:"column:context_max_tokens;not null"`
-
-		UsageVisionDaily    int `gorm:"column:usage_vision_daily;not null"`
-		UsageVisionMonthly  int `gorm:"column:usage_vision_monthly;not null"`
-		UsageDialerDaily    int `gorm:"column:usage_dialer_daily;not null"`
-		UsageDialerMonthly  int `gorm:"column:usage_dialer_monthly;not null"`
-		UsageWhisperDaily   int `gorm:"column:usage_whisper_daily;not null"`
-		UsageWhisperMonthly int `gorm:"column:usage_whisper_monthly;not null"`
+		RequestsPerDay   int   `gorm:"column:requests_per_day;not null"`
+		RequestsPerMonth int   `gorm:"column:requests_per_month;not null"`
+		TokensPerDay     int64 `gorm:"column:tokens_per_day;not null"`
+		TokensPerMonth   int64 `gorm:"column:tokens_per_month;not null"`
 
 		SpendingDailyLimit   decimal.Decimal `gorm:"column:spending_daily_limit;type:decimal(10,2);not null"`
 		SpendingMonthlyLimit decimal.Decimal `gorm:"column:spending_monthly_limit;type:decimal(10,2);not null"`
+
+		Price int `gorm:"column:price;not null;default:0"`
 	}
 )
 
