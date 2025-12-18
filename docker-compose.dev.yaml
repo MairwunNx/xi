@@ -48,7 +48,7 @@ services:
     depends_on:
       ximanager-postgres:
         condition: service_healthy
-    image: flyway/flyway:11.17.0-alpine
+    image: flyway/flyway:11.19.1-alpine
     logging:
       driver: local
       options:
